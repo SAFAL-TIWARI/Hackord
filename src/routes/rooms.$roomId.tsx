@@ -573,7 +573,6 @@ function TimelineTab() {
 
 /* ------------------------ Tasks (Kanban) ------------------------ */
 function TasksTab() {
-  const cols: TASKS[0]["status"][] = ["Todo", "In Progress", "Completed"] as any;
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {(["Todo", "In Progress", "Completed"] as const).map((col) => (
