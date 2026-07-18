@@ -8,6 +8,7 @@ import {
   UserCircle2,
   Settings,
   Plus,
+  Compass,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ import { CreateRoomModal } from "./CreateRoomModal";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/explore", label: "Explore", icon: Compass },
   { to: "/rooms", label: "My Rooms", icon: Users2 },
   { to: "/profile", label: "Profile", icon: UserCircle2 },
   { to: "/settings", label: "Settings", icon: Settings },

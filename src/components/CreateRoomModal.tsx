@@ -15,12 +15,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { createRoom } from "@/lib/rooms-api";
 
+export interface RoomPrefill {
+  hackathon?: string;
+  name?: string;
+  description?: string;
+  maxSize?: number;
+  deadlineRegistration?: string;
+  deadlinePpt?: string;
+  deadlinePrototype?: string;
+  deadlineFinal?: string;
+  deadlineResult?: string;
+}
+
 export function CreateRoomModal({
   open,
   onOpenChange,
+  prefill,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  prefill?: RoomPrefill;
 }) {
   const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
@@ -79,10 +93,10 @@ export function CreateRoomModal({
         <form ref={formRef} className="grid gap-4 py-2" onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Hackathon name">
-              <Input name="hackathon" placeholder="Smart India Hackathon 2026" required />
+              <Input name="hackathon" placeholder="Smart India Hackathon 2026" required defaultValue={prefill?.hackathon ?? ""} />
             </Field>
             <Field label="Room name">
-              <Input name="name" placeholder="Team Nebula" required />
+              <Input name="name" placeholder="Team Nebula" required defaultValue={prefill?.name ?? ""} />
             </Field>
           </div>
           <Field label="Problem statement">
@@ -94,22 +108,22 @@ export function CreateRoomModal({
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Maximum team size">
-              <Input name="maxSize" type="number" min={1} max={20} defaultValue={6} />
+              <Input name="maxSize" type="number" min={1} max={20} defaultValue={prefill?.maxSize ?? 6} />
             </Field>
             <Field label="Registration deadline">
-              <Input name="deadlineRegistration" type="date" />
+              <Input name="deadlineRegistration" type="date" defaultValue={prefill?.deadlineRegistration ?? ""} />
             </Field>
             <Field label="PPT submission">
-              <Input name="deadlinePpt" type="date" />
+              <Input name="deadlinePpt" type="date" defaultValue={prefill?.deadlinePpt ?? ""} />
             </Field>
             <Field label="Prototype submission">
-              <Input name="deadlinePrototype" type="date" />
+              <Input name="deadlinePrototype" type="date" defaultValue={prefill?.deadlinePrototype ?? ""} />
             </Field>
             <Field label="Final submission">
-              <Input name="deadlineFinal" type="date" />
+              <Input name="deadlineFinal" type="date" defaultValue={prefill?.deadlineFinal ?? ""} />
             </Field>
             <Field label="Result date">
-              <Input name="deadlineResult" type="date" />
+              <Input name="deadlineResult" type="date" defaultValue={prefill?.deadlineResult ?? ""} />
             </Field>
           </div>
           <Field label="Description">
@@ -117,6 +131,7 @@ export function CreateRoomModal({
               name="description"
               rows={3}
               placeholder="Anything else your team should know."
+              defaultValue={prefill?.description ?? ""}
             />
           </Field>
           <DialogFooter>
