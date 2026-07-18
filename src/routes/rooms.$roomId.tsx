@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Users, MessageSquare, Bot, Github, FileIcon, CalendarDays, Video,
@@ -19,19 +19,23 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  ROOMS, DISCOVER_USERS, MESSAGES, MEMBERS, FILES, TASKS,
-  AI_TOOLS, TIMELINE, MEETINGS, GITHUB_DATA, type Member,
+  DISCOVER_USERS, FILES, TASKS,
+  AI_TOOLS, TIMELINE, MEETINGS, GITHUB_DATA,
 } from "@/lib/dummy-data";
 import { cn } from "@/lib/utils";
+import { getRoom, getMessages, sendMessage, type DbRoom, type DbMember, type DbMessage } from "@/lib/rooms-api";
 
 export const Route = createFileRoute("/rooms/$roomId")({
   head: ({ params }) => ({
     meta: [{ title: `Room — HackDiscord` }],
   }),
-  loader: ({ params }) => {
-    const room = ROOMS.find((r) => r.id === params.roomId);
+  loader: async ({ params }) => {
+    const [room, messages] = await Promise.all([
+      getRoom({ data: { roomId: params.roomId } }),
+      getMessages({ data: { roomId: params.roomId } }),
+    ]);
     if (!room) throw notFound();
-    return { room };
+    return { room, messages };
   },
   component: RoomPage,
 });
@@ -51,8 +55,16 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ className?: s
 ];
 
 function RoomPage() {
-  const { room } = Route.useLoaderData();
+  const { room, messages: initialMessages } = Route.useLoaderData();
   const [tab, setTab] = useState<Tab>("overview");
+
+  const deadlines: Record<string, string> = {
+    Registration: room.deadline_registration,
+    PPT: room.deadline_ppt,
+    Prototype: room.deadline_prototype,
+    Final: room.deadline_final,
+    Result: room.deadline_result,
+  };
 
   return (
     <AppShell>
@@ -70,21 +82,15 @@ function RoomPage() {
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{room.problem}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="gap-1"><Users className="h-3 w-3" /> {room.members.length}/{room.maxSize}</Badge>
+              <Badge variant="secondary" className="gap-1"><Users className="h-3 w-3" /> {(room.members ?? []).length}/{room.max_size}</Badge>
               <Badge className="bg-gradient-brand text-white border-transparent">{room.status}</Badge>
             </div>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {Object.entries({
-              Registration: room.deadlines.registration,
-              PPT: room.deadlines.ppt,
-              Prototype: room.deadlines.prototype,
-              Final: room.deadlines.final,
-              Result: room.deadlines.result,
-            }).map(([k, v]) => (
+            {Object.entries(deadlines).map(([k, v]) => (
               <div key={k} className="rounded-xl border border-border/60 bg-card/50 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</p>
-                <p className="mt-1 text-sm font-medium">{new Date(v).toDateString().slice(4)}</p>
+                <p className="mt-1 text-sm font-medium">{v ? new Date(v).toDateString().slice(4) : "—"}</p>
               </div>
             ))}
           </div>
@@ -114,8 +120,8 @@ function RoomPage() {
 
         <div className="animate-fade-in">
           {tab === "overview" && <OverviewTab room={room} />}
-          {tab === "members" && <MembersTab members={room.members} />}
-          {tab === "chat" && <ChatTab />}
+          {tab === "members" && <MembersTab members={room.members ?? []} />}
+          {tab === "chat" && <ChatTab roomId={room.id} initialMessages={initialMessages} />}
           {tab === "ai" && <AITab />}
           {tab === "github" && <GithubTab />}
           {tab === "files" && <FilesTab />}
@@ -129,7 +135,14 @@ function RoomPage() {
 }
 
 /* ------------------------ Overview ------------------------ */
-function OverviewTab({ room }: { room: (typeof ROOMS)[number] }) {
+function OverviewTab({ room }: { room: DbRoom }) {
+  const deadlines: Record<string, string> = {
+    Registration: room.deadline_registration,
+    PPT: room.deadline_ppt,
+    Prototype: room.deadline_prototype,
+    Final: room.deadline_final,
+    Result: room.deadline_result,
+  };
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
@@ -165,10 +178,10 @@ function OverviewTab({ room }: { room: (typeof ROOMS)[number] }) {
         <section className="glass rounded-2xl p-6 shadow-card">
           <h2 className="mb-4 text-lg font-semibold">Important deadlines</h2>
           <ul className="space-y-3 text-sm">
-            {Object.entries(room.deadlines).map(([k, v]) => (
+            {Object.entries(deadlines).map(([k, v]) => (
               <li key={k} className="flex items-center justify-between">
                 <span className="capitalize text-muted-foreground">{k}</span>
-                <span className="font-medium">{new Date(v).toDateString().slice(4)}</span>
+                <span className="font-medium">{v ? new Date(v).toDateString().slice(4) : "—"}</span>
               </li>
             ))}
           </ul>
@@ -196,7 +209,7 @@ function OverviewTab({ room }: { room: (typeof ROOMS)[number] }) {
 }
 
 /* ------------------------ Members + Add ------------------------ */
-function MembersTab({ members }: { members: Member[] }) {
+function MembersTab({ members }: { members: DbMember[] }) {
   const [openAdd, setOpenAdd] = useState(false);
   return (
     <div className="space-y-6">
@@ -208,35 +221,22 @@ function MembersTab({ members }: { members: Member[] }) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {members.map((m, i) => (
-          <div key={m.id} className="glass rounded-2xl p-5 shadow-card">
+          <div key={m.user_id} className="glass rounded-2xl p-5 shadow-card">
             <div className="flex items-center gap-3">
               <Avatar className="h-12 w-12">
-                <AvatarImage src={m.avatar} />
-                <AvatarFallback>{m.name[0]}</AvatarFallback>
+                <AvatarImage src={m.user_avatar} />
+                <AvatarFallback>{m.user_name[0]}</AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="truncate font-medium">{m.name}</p>
-                  {i === 0 && <Crown className="h-3.5 w-3.5 text-warning" />}
+                  <p className="truncate font-medium">{m.user_name}</p>
+                  {m.role === "Owner" && <Crown className="h-3.5 w-3.5 text-warning" />}
                 </div>
-                <p className="truncate text-xs text-muted-foreground">{m.college}</p>
               </div>
-              <span className={cn(
-                "ml-auto h-2 w-2 shrink-0 rounded-full",
-                m.status === "Online" ? "bg-success" : m.status === "Away" ? "bg-warning" : "bg-muted-foreground/50",
-              )} />
-            </div>
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {m.skills.map((s) => (
-                <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
-              ))}
             </div>
             <div className="mt-4 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <a href={m.github} className="hover:text-foreground">GitHub</a>
-                <a href={m.linkedin} className="hover:text-foreground">LinkedIn</a>
-              </div>
-              <Badge variant="outline">{i === 0 ? "Owner" : m.role}</Badge>
+              <span className="text-muted-foreground">{m.role}</span>
+              <Badge variant="outline">{m.role}</Badge>
             </div>
           </div>
         ))}
@@ -328,49 +328,94 @@ function AddMemberDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
 }
 
 /* ------------------------ Chat ------------------------ */
-function ChatTab() {
+function ChatTab({ roomId, initialMessages }: { roomId: string; initialMessages: DbMessage[] }) {
   const [text, setText] = useState("");
-  const findMember = (id: string) => MEMBERS.find((m) => m.id === id)!;
+  const [messages, setMessages] = useState<DbMessage[]>(initialMessages);
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const pinned = messages.filter((m) => m.pinned).length;
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim() || sending) return;
+    setSending(true);
+    try {
+      const msg = await sendMessage({
+        data: {
+          roomId,
+          text: text.trim(),
+          authorName: "Aarav Sharma",
+          authorAvatar: "https://api.dicebear.com/9.x/glass/svg?seed=Aarav",
+        },
+      });
+      setMessages((prev) => [...prev, msg]);
+      setText("");
+    } catch {
+      toast.error("Failed to send message");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function formatTime(ts: string) {
+    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
   return (
     <div className="glass rounded-2xl shadow-card">
       <div className="flex items-center justify-between border-b border-border p-4">
         <div>
           <h2 className="font-semibold">#general</h2>
-          <p className="text-xs text-muted-foreground">Priya is typing…</p>
+          <p className="text-xs text-muted-foreground">{messages.length} messages</p>
         </div>
-        <Badge variant="secondary" className="gap-1"><Pin className="h-3 w-3" /> 1 pinned</Badge>
+        {pinned > 0 && (
+          <Badge variant="secondary" className="gap-1"><Pin className="h-3 w-3" /> {pinned} pinned</Badge>
+        )}
       </div>
       <div className="max-h-[520px] space-y-4 overflow-y-auto p-6">
-        {MESSAGES.map((m) => {
-          const u = findMember(m.authorId);
-          return (
-            <div key={m.id} className="flex items-start gap-3">
-              <Avatar className="h-9 w-9"><AvatarImage src={u.avatar} /><AvatarFallback>{u.name[0]}</AvatarFallback></Avatar>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-medium">{u.name}</span>
-                  <span className="text-xs text-muted-foreground">{m.time}</span>
-                  {m.pinned && <Pin className="h-3 w-3 text-warning" />}
-                </div>
-                <p className="mt-1 text-sm">{m.text}</p>
-                {m.code && (
-                  <pre className="mt-2 overflow-x-auto rounded-lg border border-border bg-background/60 p-3 text-xs">
-                    <code>{m.code}</code>
-                  </pre>
-                )}
+        {messages.length === 0 && (
+          <p className="text-center text-sm text-muted-foreground py-10">No messages yet. Say hi 👋</p>
+        )}
+        {messages.map((m) => (
+          <div key={m.id} className="flex items-start gap-3">
+            <Avatar className="h-9 w-9">
+              <AvatarImage src={m.author_avatar} />
+              <AvatarFallback>{m.author_name[0]}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-sm font-medium">{m.author_name}</span>
+                <span className="text-xs text-muted-foreground">{formatTime(m.created_at)}</span>
+                {m.pinned && <Pin className="h-3 w-3 text-warning" />}
               </div>
+              <p className="mt-1 text-sm">{m.text}</p>
             </div>
-          );
-        })}
+          </div>
+        ))}
+        <div ref={bottomRef} />
       </div>
       <form
         className="flex items-center gap-2 border-t border-border p-3"
-        onSubmit={(e) => { e.preventDefault(); if (!text.trim()) return; toast("Message sent (demo)"); setText(""); }}
+        onSubmit={handleSend}
       >
         <Button type="button" variant="ghost" size="icon"><Paperclip className="h-4 w-4" /></Button>
         <Button type="button" variant="ghost" size="icon"><Smile className="h-4 w-4" /></Button>
-        <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Message #general" />
-        <Button type="submit" className="bg-gradient-brand text-white shadow-glow hover:opacity-90">
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Message #general"
+          disabled={sending}
+        />
+        <Button
+          type="submit"
+          disabled={sending || !text.trim()}
+          className="bg-gradient-brand text-white shadow-glow hover:opacity-90"
+        >
           <Send className="h-4 w-4" />
         </Button>
       </form>
@@ -494,7 +539,11 @@ function GithubTab() {
         <section className="glass rounded-2xl p-6 shadow-card">
           <h3 className="mb-3 text-sm font-medium">Contributors</h3>
           <div className="flex flex-wrap gap-2">
-            {MEMBERS.map((m) => (
+            {[
+              { id: "u_me", name: "Aarav Sharma", avatar: "https://api.dicebear.com/9.x/glass/svg?seed=Aarav" },
+              { id: "u1", name: "Priya Nair", avatar: "https://api.dicebear.com/9.x/glass/svg?seed=Priya" },
+              { id: "u2", name: "Rohan Mehta", avatar: "https://api.dicebear.com/9.x/glass/svg?seed=Rohan" },
+            ].map((m) => (
               <Avatar key={m.id} className="h-8 w-8"><AvatarImage src={m.avatar} /><AvatarFallback>{m.name[0]}</AvatarFallback></Avatar>
             ))}
           </div>
