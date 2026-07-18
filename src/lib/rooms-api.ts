@@ -148,6 +148,16 @@ export const getMessages = createServerFn({ method: "GET" })
     );
   });
 
+export const getMessagesSince = createServerFn({ method: "GET" })
+  .validator(z.object({ roomId: z.string(), since: z.string() }))
+  .handler(async ({ data }) => {
+    await ensureSchema();
+    return query<DbMessage>(
+      `SELECT * FROM messages WHERE room_id = $1 AND created_at > $2::timestamptz ORDER BY created_at ASC`,
+      [data.roomId, data.since],
+    );
+  });
+
 export const sendMessage = createServerFn({ method: "POST" })
   .validator(
     z.object({

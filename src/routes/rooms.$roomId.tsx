@@ -23,7 +23,7 @@ import {
   AI_TOOLS, TIMELINE, MEETINGS, GITHUB_DATA,
 } from "@/lib/dummy-data";
 import { cn } from "@/lib/utils";
-import { getRoom, getMessages, sendMessage, type DbRoom, type DbMember, type DbMessage } from "@/lib/rooms-api";
+import { getRoom, getMessages, getMessagesSince, sendMessage, type DbRoom, type DbMember, type DbMessage } from "@/lib/rooms-api";
 
 export const Route = createFileRoute("/rooms/$roomId")({
   head: ({ params }) => ({
@@ -328,15 +328,52 @@ function AddMemberDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
 }
 
 /* ------------------------ Chat ------------------------ */
+const POLL_INTERVAL = 3000; // ms — fetch new messages every 3 seconds
+
 function ChatTab({ roomId, initialMessages }: { roomId: string; initialMessages: DbMessage[] }) {
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<DbMessage[]>(initialMessages);
   const [sending, setSending] = useState(false);
+  const [live, setLive] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const latestTsRef = useRef<string>(
+    initialMessages.length > 0
+      ? initialMessages[initialMessages.length - 1].created_at
+      : new Date(0).toISOString(),
+  );
 
+  // Auto-scroll when new messages arrive
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Live polling — fetch only messages newer than the latest known one
+  useEffect(() => {
+    if (!live) return;
+
+    const poll = async () => {
+      try {
+        const newMsgs = await getMessagesSince({
+          data: { roomId, since: latestTsRef.current },
+        });
+        if (newMsgs.length > 0) {
+          // Deduplicate by id in case of timestamp collisions
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const fresh = newMsgs.filter((m) => !existingIds.has(m.id));
+            if (fresh.length === 0) return prev;
+            latestTsRef.current = fresh[fresh.length - 1].created_at;
+            return [...prev, ...fresh];
+          });
+        }
+      } catch {
+        // silent — don't spam toasts on transient network errors
+      }
+    };
+
+    const timer = setInterval(poll, POLL_INTERVAL);
+    return () => clearInterval(timer);
+  }, [roomId, live]);
 
   const pinned = messages.filter((m) => m.pinned).length;
 
@@ -353,7 +390,11 @@ function ChatTab({ roomId, initialMessages }: { roomId: string; initialMessages:
           authorAvatar: "https://api.dicebear.com/9.x/glass/svg?seed=Aarav",
         },
       });
-      setMessages((prev) => [...prev, msg]);
+      // Append immediately for the sender; poller will skip it (dedup by id)
+      setMessages((prev) => {
+        latestTsRef.current = msg.created_at;
+        return [...prev, msg];
+      });
       setText("");
     } catch {
       toast.error("Failed to send message");
@@ -373,9 +414,29 @@ function ChatTab({ roomId, initialMessages }: { roomId: string; initialMessages:
           <h2 className="font-semibold">#general</h2>
           <p className="text-xs text-muted-foreground">{messages.length} messages</p>
         </div>
-        {pinned > 0 && (
-          <Badge variant="secondary" className="gap-1"><Pin className="h-3 w-3" /> {pinned} pinned</Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Live indicator */}
+          <button
+            type="button"
+            onClick={() => setLive((v) => !v)}
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+            style={{ background: live ? "rgba(34,197,94,0.12)" : "rgba(100,116,139,0.12)" }}
+            title={live ? "Live updates on — click to pause" : "Live updates paused — click to resume"}
+          >
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{
+                background: live ? "#22c55e" : "#64748b",
+                boxShadow: live ? "0 0 6px #22c55e" : "none",
+                animation: live ? "pulse 2s infinite" : "none",
+              }}
+            />
+            {live ? "Live" : "Paused"}
+          </button>
+          {pinned > 0 && (
+            <Badge variant="secondary" className="gap-1"><Pin className="h-3 w-3" /> {pinned} pinned</Badge>
+          )}
+        </div>
       </div>
       <div className="max-h-[520px] space-y-4 overflow-y-auto p-6">
         {messages.length === 0 && (
