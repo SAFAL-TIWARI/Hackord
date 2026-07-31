@@ -5,14 +5,14 @@ import { Label } from "@/components/ui/label";
 import { AuthShell } from "./login";
 
 export const Route = createFileRoute("/signup")({
-  head: () => ({ meta: [{ title: "Sign up — HackDiscord" }] }),
+  head: () => ({ meta: [{ title: "Sign up — Hackord" }] }),
   component: SignupPage,
 });
 
 function SignupPage() {
   const navigate = useNavigate();
   return (
-    <AuthShell title="Create your workspace" subtitle="Join HackDiscord and start collaborating">
+    <AuthShell title="Create your workspace" subtitle="Join Hackord and start collaborating">
       <div className="grid gap-2">
         <Button variant="outline" className="w-full" onClick={() => navigate({ to: "/profile-setup" })}>
           Continue with Google

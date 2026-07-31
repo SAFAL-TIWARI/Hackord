@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/explore")({
-  head: () => ({ meta: [{ title: "Hackathon Explorer — HackDiscord" }] }),
+  head: () => ({ meta: [{ title: "Hackathon Explorer — Hackord" }] }),
   component: ExplorePage,
 });
 
@@ -289,7 +289,7 @@ function HackathonCard({
           </button>
           <button
             onClick={() => {
-              navigator.clipboard.writeText(hackathon.platformUrl).catch(() => {});
+              navigator.clipboard.writeText(hackathon.platformUrl).catch(() => { });
               toast.success("Link copied!");
             }}
             className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-card hover:text-foreground"
@@ -329,7 +329,17 @@ function ExplorePage() {
   const [deadlineFilter, setDeadlineFilter] = useState<"All" | "thisweek" | "thismonth">("All");
   const [viewMode, setViewMode] = useState<"grid" | "calendar">("grid");
   const [showBookmarks, setShowBookmarks] = useState(false);
-  const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+  const [bookmarks, setBookmarks] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      try {
+        const raw = localStorage.getItem("forge_focus_bookmarks");
+        if (raw) return new Set(JSON.parse(raw));
+      } catch (err) {
+        console.error("Error reading bookmarks from localStorage", err);
+      }
+    }
+    return new Set();
+  });
   const [showFilters, setShowFilters] = useState(false);
 
   // Quick-create modal state
@@ -373,6 +383,13 @@ function ExplorePage() {
       } else {
         next.add(id);
         toast.success("Saved!");
+      }
+      if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+        try {
+          localStorage.setItem("forge_focus_bookmarks", JSON.stringify(Array.from(next)));
+        } catch (err) {
+          console.error("Error saving bookmarks to localStorage", err);
+        }
       }
       return next;
     });

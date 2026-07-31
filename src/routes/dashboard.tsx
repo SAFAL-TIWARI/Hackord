@@ -21,18 +21,110 @@ import {
   ROOMS,
 } from "@/lib/dummy-data";
 
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import { getRooms, type DbRoom } from "@/lib/rooms-api";
+import { type Invitation } from "@/lib/dummy-data";
+
 export const Route = createFileRoute("/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — HackDiscord" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — Hackord" }] }),
   component: DashboardPage,
 });
 
 function DashboardPage() {
+  const [rooms, setRooms] = useState<DbRoom[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>(() => {
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      try {
+        const raw = localStorage.getItem("forge_focus_invitations");
+        if (raw) return JSON.parse(raw);
+      } catch (err) {
+        console.error("Error loading invitations", err);
+      }
+    }
+    return INVITATIONS;
+  });
+
+  useEffect(() => {
+    getRooms().then(setRooms);
+  }, []);
+
+  const saveInvitations = (updated: Invitation[]) => {
+    setInvitations(updated);
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      try {
+        localStorage.setItem("forge_focus_invitations", JSON.stringify(updated));
+      } catch (err) {
+        console.error("Error saving invitations", err);
+      }
+    }
+  };
+
+  const handleAcceptInvitation = (inv: Invitation) => {
+    const updatedInvs = invitations.filter((i) => i.id !== inv.id);
+    saveInvitations(updatedInvs);
+
+    // Create or add user to the accepted room in LocalStorage rooms
+    const newRoom: DbRoom = {
+      id: `room_${inv.id}_${Date.now()}`,
+      hackathon: inv.hackathon,
+      name: inv.roomName,
+      problem: `Team project for ${inv.hackathon}`,
+      description: inv.message,
+      max_size: 6,
+      status: "Active",
+      progress: 10,
+      deadline_registration: "2026-08-15",
+      deadline_ppt: "2026-08-30",
+      deadline_prototype: "2026-09-10",
+      deadline_final: "2026-09-25",
+      deadline_result: "2026-10-05",
+      created_at: new Date().toISOString(),
+      member_count: 2,
+      members: [
+        {
+          user_id: inv.sender.id,
+          user_name: inv.sender.name,
+          user_avatar: inv.sender.avatar,
+          role: "Owner",
+        },
+        {
+          user_id: "u_me",
+          user_name: CURRENT_USER.name,
+          user_avatar: CURRENT_USER.avatar,
+          role: "Developer",
+        },
+      ],
+    };
+
+    const updatedRooms = [newRoom, ...rooms];
+    setRooms(updatedRooms);
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      try {
+        localStorage.setItem("forge_focus_rooms", JSON.stringify(updatedRooms));
+      } catch (err) {
+        console.error("Error updating rooms on invitation accept", err);
+      }
+    }
+    toast.success(`Accepted invitation! Joined room "${inv.roomName}"`);
+  };
+
+  const handleRejectInvitation = (inv: Invitation) => {
+    const updatedInvs = invitations.filter((i) => i.id !== inv.id);
+    saveInvitations(updatedInvs);
+    toast("Invitation declined.");
+  };
+
   const stats = [
-    { label: "Total Rooms", value: ROOMS.length, icon: Layers3 },
-    { label: "Active Rooms", value: ROOMS.filter((r) => r.status === "Active").length, icon: Sparkles },
-    { label: "Pending Invitations", value: INVITATIONS.length, icon: Inbox },
+    { label: "Total Rooms", value: rooms.length, icon: Layers3 },
+    { label: "Active Rooms", value: rooms.filter((r) => r.status === "Active").length, icon: Sparkles },
+    { label: "Pending Invitations", value: invitations.length, icon: Inbox },
     { label: "Upcoming Deadlines", value: 4, icon: CalendarClock },
   ];
+
+  const firstRoomId = rooms[0]?.id || "smart-india-2026";
+  const firstRoomName = rooms[0]?.name || "Team Workspace";
+
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl space-y-8">
@@ -51,10 +143,10 @@ function DashboardPage() {
             <div className="flex flex-wrap gap-2">
               <Link
                 to="/rooms/$roomId"
-                params={{ roomId: ROOMS[0].id }}
+                params={{ roomId: firstRoomId }}
                 className="rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-accent"
               >
-                Open {ROOMS[0].name}
+                Open {firstRoomName}
               </Link>
             </div>
           </div>
@@ -94,8 +186,8 @@ function DashboardPage() {
                     <div className={
                       "grid h-10 w-10 place-items-center rounded-lg " +
                       (d.urgency === "danger" ? "bg-destructive/15 text-destructive"
-                       : d.urgency === "warning" ? "bg-warning/15 text-warning"
-                       : "bg-gradient-brand-soft text-primary")
+                        : d.urgency === "warning" ? "bg-warning/15 text-warning"
+                          : "bg-gradient-brand-soft text-primary")
                     }>
                       <CalendarClock className="h-4 w-4" />
                     </div>
@@ -112,32 +204,51 @@ function DashboardPage() {
 
           {/* Invitations */}
           <section className="glass rounded-2xl p-6 shadow-card">
-            <h2 className="mb-4 text-lg font-semibold">Pending invitations</h2>
-            <div className="space-y-3">
-              {INVITATIONS.map((i) => (
-                <div key={i.id} className="rounded-xl border border-border/60 bg-card/50 p-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={i.sender.avatar} />
-                      <AvatarFallback>{i.sender.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{i.roomName}</p>
-                      <p className="truncate text-xs text-muted-foreground">{i.hackathon}</p>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Pending invitations</h2>
+              <Badge variant="secondary">{invitations.length}</Badge>
+            </div>
+            {invitations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-8 text-center">
+                <p className="text-sm font-medium">No pending invitations 🎉</p>
+                <p className="text-xs text-muted-foreground mt-1">You're all caught up!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {invitations.map((i) => (
+                  <div key={i.id} className="rounded-xl border border-border/60 bg-card/50 p-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={i.sender.avatar} />
+                        <AvatarFallback>{i.sender.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{i.roomName}</p>
+                        <p className="truncate text-xs text-muted-foreground">{i.hackathon}</p>
+                      </div>
+                    </div>
+                    <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">"{i.message}"</p>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleAcceptInvitation(i)}
+                        className="flex-1 bg-gradient-brand text-white shadow-glow hover:opacity-90"
+                      >
+                        <Check className="h-3.5 w-3.5" /> Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRejectInvitation(i)}
+                        className="flex-1 hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <X className="h-3.5 w-3.5" /> Reject
+                      </Button>
                     </div>
                   </div>
-                  <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">"{i.message}"</p>
-                  <div className="mt-3 flex gap-2">
-                    <Button size="sm" className="flex-1 bg-gradient-brand text-white shadow-glow hover:opacity-90">
-                      <Check className="h-3.5 w-3.5" /> Accept
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <X className="h-3.5 w-3.5" /> Reject
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
 
@@ -198,7 +309,7 @@ function DashboardPage() {
             <Link to="/rooms" className="text-sm text-muted-foreground hover:text-foreground">See all</Link>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {ROOMS.map((r) => (
+            {rooms.map((r) => (
               <Link
                 key={r.id}
                 to="/rooms/$roomId"
@@ -215,16 +326,16 @@ function DashboardPage() {
                 <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{r.problem}</p>
                 <div className="mt-4 flex items-center justify-between">
                   <div className="flex -space-x-2">
-                    {r.members.slice(0, 4).map((m) => (
-                      <Avatar key={m.id} className="h-7 w-7 border-2 border-background">
-                        <AvatarImage src={m.avatar} />
-                        <AvatarFallback>{m.name[0]}</AvatarFallback>
+                    {(r.members || []).slice(0, 4).map((m) => (
+                      <Avatar key={m.user_id} className="h-7 w-7 border-2 border-background">
+                        <AvatarImage src={m.user_avatar} />
+                        <AvatarFallback>{m.user_name[0]}</AvatarFallback>
                       </Avatar>
                     ))}
                   </div>
                   <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                     <Users2 className="h-3 w-3" />
-                    {r.members.length}/{r.maxSize}
+                    {r.member_count ?? (r.members?.length || 0)}/{r.max_size}
                   </span>
                 </div>
               </Link>

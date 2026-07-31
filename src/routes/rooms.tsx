@@ -6,7 +6,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { getRooms } from "@/lib/rooms-api";
 
 export const Route = createFileRoute("/rooms")({
-  head: () => ({ meta: [{ title: "My Rooms — HackDiscord" }] }),
+  head: () => ({ meta: [{ title: "My Rooms — Hackord" }] }),
   loader: () => getRooms(),
   component: RoomsLayout,
 });

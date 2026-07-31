@@ -1,4 +1,4 @@
-// Shared dummy data for HackDiscord
+// Shared dummy data for Hackord
 
 export const SKILLS = [
   "React", "Next.js", "Flutter", "Node.js", "Express", "Python",

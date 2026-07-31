@@ -79,14 +79,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "HackDiscord — Private Hackathon Workspaces for Teams" },
+      { title: "Hackord — Private Hackathon Workspaces for Teams" },
       {
         name: "description",
         content:
-          "HackDiscord is a private collaboration workspace for hackathon teams — invite by skills, manage deadlines, chat, share files, and ship together.",
+          "Hackord is a private collaboration workspace for hackathon teams — invite by skills, manage deadlines, chat, share files, and ship together.",
       },
-      { name: "author", content: "HackDiscord" },
-      { property: "og:title", content: "HackDiscord — Private Hackathon Workspaces" },
+      { name: "author", content: "Hackord" },
+      { property: "og:title", content: "Hackord — Private Hackathon Workspaces" },
       { property: "og:description", content: "Invite teammates by skill, manage deadlines, and ship your hackathon project in one private workspace." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

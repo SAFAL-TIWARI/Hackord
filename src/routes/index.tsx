@@ -13,7 +13,7 @@ function Landing() {
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-brand shadow-glow">
             <Sparkles className="h-5 w-5 text-white" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">HackDiscord</span>
+          <span className="text-lg font-semibold tracking-tight">Hackord</span>
         </div>
         <nav className="flex items-center gap-3">
           <Link

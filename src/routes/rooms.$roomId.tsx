@@ -27,7 +27,7 @@ import { getRoom, getMessages, getMessagesSince, sendMessage, type DbRoom, type 
 
 export const Route = createFileRoute("/rooms/$roomId")({
   head: ({ params }) => ({
-    meta: [{ title: `Room — HackDiscord` }],
+    meta: [{ title: `Room — Hackord` }],
   }),
   loader: async ({ params }) => {
     const [room, messages] = await Promise.all([
@@ -126,7 +126,7 @@ function RoomPage() {
           {tab === "github" && <GithubTab />}
           {tab === "files" && <FilesTab />}
           {tab === "timeline" && <TimelineTab />}
-          {tab === "tasks" && <TasksTab />}
+          {tab === "tasks" && <TasksTab roomId={room.id} />}
           {tab === "meetings" && <MeetingsTab />}
         </div>
       </div>
@@ -618,7 +618,7 @@ function GithubTab() {
 function FilesTab() {
   const iconFor = (t: string) =>
     t === "pdf" ? FileText : t === "ppt" ? FileText : t === "image" ? ImageIcon :
-    t === "video" ? Film : t === "zip" ? Archive : FileIcon;
+      t === "video" ? Film : t === "zip" ? Archive : FileIcon;
   return (
     <div className="space-y-6">
       <div className="glass-strong flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border p-10 text-center shadow-card">
@@ -662,8 +662,8 @@ function TimelineTab() {
             <span className={cn(
               "absolute -left-[9px] grid h-4 w-4 place-items-center rounded-full border-2",
               s.status === "done" ? "border-transparent bg-gradient-brand" :
-              s.status === "current" ? "border-primary bg-background" :
-              "border-border bg-background",
+                s.status === "current" ? "border-primary bg-background" :
+                  "border-border bg-background",
             )}>
               {s.status === "done" && <Check className="h-2.5 w-2.5 text-white" />}
             </span>
@@ -682,41 +682,139 @@ function TimelineTab() {
 }
 
 /* ------------------------ Tasks (Kanban) ------------------------ */
-function TasksTab() {
+function TasksTab({ roomId }: { roomId?: string }) {
+  const storageKey = `forge_focus_tasks_${roomId || "default"}`;
+  const [tasks, setTasks] = useState(() => {
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) return JSON.parse(raw);
+      } catch (err) {
+        console.error("Error reading tasks", err);
+      }
+    }
+    return TASKS;
+  });
+  const [newTitle, setNewTitle] = useState("");
+  const [newAssignee, setNewAssignee] = useState("Aarav Sharma");
+  const [newPriority, setNewPriority] = useState<"Low" | "Medium" | "High">("Medium");
+  const [showAdd, setShowAdd] = useState(false);
+
+  const saveTasks = (updated: typeof tasks) => {
+    setTasks(updated);
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+      } catch (err) {
+        console.error("Error saving tasks", err);
+      }
+    }
+  };
+
+  const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim()) return;
+    const newTask = {
+      id: `task_${Date.now()}`,
+      title: newTitle.trim(),
+      assignee: newAssignee,
+      status: "Todo" as const,
+      priority: newPriority,
+      deadline: "Aug 15",
+    };
+    saveTasks([...tasks, newTask]);
+    setNewTitle("");
+    setShowAdd(false);
+    toast.success("Task added!");
+  };
+
+  const moveTask = (taskId: string, nextStatus: "Todo" | "In Progress" | "Completed") => {
+    const updated = tasks.map((t: any) => (t.id === taskId ? { ...t, status: nextStatus } : t));
+    saveTasks(updated);
+    toast.success(`Task status updated to ${nextStatus}`);
+  };
+
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      {(["Todo", "In Progress", "Completed"] as const).map((col) => (
-        <div key={col} className="glass rounded-2xl p-4 shadow-card">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">{col}</h3>
-            <Badge variant="secondary">{TASKS.filter((t) => t.status === col).length}</Badge>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Task board</h2>
+        <Button onClick={() => setShowAdd(!showAdd)} className="bg-gradient-brand text-white shadow-glow hover:opacity-90">
+          <Plus className="h-4 w-4" /> Add Task
+        </Button>
+      </div>
+
+      {showAdd && (
+        <form onSubmit={handleAddTask} className="glass rounded-2xl p-4 shadow-card flex flex-col sm:flex-row gap-3 items-end">
+          <div className="flex-1 space-y-1 w-full">
+            <Label className="text-xs">Task title</Label>
+            <Input placeholder="Describe task..." value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required />
           </div>
-          <div className="space-y-2">
-            {TASKS.filter((t) => t.status === col).map((t) => (
-              <div key={t.id} className="rounded-xl border border-border/60 bg-card/50 p-3">
-                <p className="text-sm font-medium">{t.title}</p>
-                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{t.assignee}</span>
-                  <span>{t.deadline}</span>
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px]",
-                      t.priority === "High" ? "border-destructive/60 text-destructive" :
-                      t.priority === "Medium" ? "border-warning/60 text-warning" :
-                      "border-border text-muted-foreground",
-                    )}
-                  >
-                    {t.priority}
-                  </Badge>
-                </div>
-              </div>
-            ))}
+          <div className="w-full sm:w-40 space-y-1">
+            <Label className="text-xs">Assignee</Label>
+            <Input value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} />
           </div>
-        </div>
-      ))}
+          <div className="w-full sm:w-32 space-y-1">
+            <Label className="text-xs">Priority</Label>
+            <select
+              value={newPriority}
+              onChange={(e) => setNewPriority(e.target.value as any)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+            >
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
+          </div>
+          <Button type="submit" className="bg-gradient-brand text-white">Save</Button>
+        </form>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {(["Todo", "In Progress", "Completed"] as const).map((col) => (
+          <div key={col} className="glass rounded-2xl p-4 shadow-card">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">{col}</h3>
+              <Badge variant="secondary">{tasks.filter((t: any) => t.status === col).length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {tasks.filter((t: any) => t.status === col).map((t: any) => (
+                <div key={t.id} className="rounded-xl border border-border/60 bg-card/50 p-3">
+                  <p className="text-sm font-medium">{t.title}</p>
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{t.assignee}</span>
+                    <span>{t.deadline}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px]",
+                        t.priority === "High" ? "border-destructive/60 text-destructive" :
+                          t.priority === "Medium" ? "border-warning/60 text-warning" :
+                            "border-border text-muted-foreground",
+                      )}
+                    >
+                      {t.priority}
+                    </Badge>
+                    <div className="flex gap-1 text-[11px]">
+                      {col !== "Todo" && (
+                        <button onClick={() => moveTask(t.id, col === "Completed" ? "In Progress" : "Todo")} className="text-muted-foreground hover:text-foreground">
+                          ←
+                        </button>
+                      )}
+                      {col !== "Completed" && (
+                        <button onClick={() => moveTask(t.id, col === "Todo" ? "In Progress" : "Completed")} className="text-primary hover:underline font-medium">
+                          Move →
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

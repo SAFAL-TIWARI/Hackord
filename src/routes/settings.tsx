@@ -6,12 +6,68 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 
+import { useState } from "react";
+import { toast } from "sonner";
+
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings — HackDiscord" }] }),
+  head: () => ({ meta: [{ title: "Settings — Hackord" }] }),
   component: SettingsPage,
 });
 
 function SettingsPage() {
+  const [settings, setSettings] = useState(() => {
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      try {
+        const raw = localStorage.getItem("forge_focus_settings");
+        if (raw) return JSON.parse(raw);
+      } catch (err) {
+        console.error("Error reading settings", err);
+      }
+    }
+    return {
+      n1: true,
+      n2: true,
+      n3: true,
+      n4: false,
+      darkMode: true,
+      discoverable: true,
+      allowInvites: true,
+      connected: { GitHub: true, Google: true, LinkedIn: false },
+    };
+  });
+
+  const updateSetting = (key: string, val: any) => {
+    const updated = { ...settings, [key]: val };
+    setSettings(updated);
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      try {
+        localStorage.setItem("forge_focus_settings", JSON.stringify(updated));
+      } catch (err) {
+        console.error("Error saving settings", err);
+      }
+    }
+    toast.success("Settings saved!");
+  };
+
+  const toggleConnection = (name: string) => {
+    const updated = {
+      ...settings,
+      connected: {
+        ...settings.connected,
+        [name]: !settings.connected[name as keyof typeof settings.connected],
+      },
+    };
+    setSettings(updated);
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      try {
+        localStorage.setItem("forge_focus_settings", JSON.stringify(updated));
+      } catch (err) {
+        console.error("Error saving settings", err);
+      }
+    }
+    toast.success(`${name} ${updated.connected[name as keyof typeof updated.connected] ? "connected" : "disconnected"}`);
+  };
+
   return (
     <AppShell>
       <div className="mx-auto max-w-3xl space-y-6">
@@ -19,24 +75,32 @@ function SettingsPage() {
 
         <Section title="Change password">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Current password"><Input type="password" /></Field>
-            <Field label="New password"><Input type="password" /></Field>
+            <Field label="Current password"><Input type="password" placeholder="••••••••" /></Field>
+            <Field label="New password"><Input type="password" placeholder="••••••••" /></Field>
           </div>
           <div className="mt-4 flex justify-end">
-            <Button className="bg-gradient-brand text-white shadow-glow hover:opacity-90">Update password</Button>
+            <Button
+              onClick={() => toast.success("Password updated successfully!")}
+              className="bg-gradient-brand text-white shadow-glow hover:opacity-90"
+            >
+              Update password
+            </Button>
           </div>
         </Section>
 
         <Section title="Notification preferences">
           {[
-            "Email me when I get invited to a room",
-            "Email me about upcoming deadlines",
-            "Notify me about new chat messages",
-            "Notify me about meeting reminders",
-          ].map((label, i) => (
-            <div key={label} className="flex items-center justify-between py-2">
-              <span className="text-sm">{label}</span>
-              <Switch defaultChecked={i < 3} />
+            { key: "n1", label: "Email me when I get invited to a room" },
+            { key: "n2", label: "Email me about upcoming deadlines" },
+            { key: "n3", label: "Notify me about new chat messages" },
+            { key: "n4", label: "Notify me about meeting reminders" },
+          ].map((item) => (
+            <div key={item.key} className="flex items-center justify-between py-2">
+              <span className="text-sm">{item.label}</span>
+              <Switch
+                checked={!!settings[item.key as keyof typeof settings]}
+                onCheckedChange={(val) => updateSetting(item.key, val)}
+              />
             </div>
           ))}
         </Section>
@@ -45,35 +109,47 @@ function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Dark mode</p>
-              <p className="text-xs text-muted-foreground">HackDiscord is optimized for dark mode.</p>
+              <p className="text-xs text-muted-foreground">Hackord is optimized for dark mode.</p>
             </div>
-            <Switch defaultChecked />
+            <Switch
+              checked={settings.darkMode}
+              onCheckedChange={(val) => updateSetting("darkMode", val)}
+            />
           </div>
         </Section>
 
         <Section title="Connected accounts">
-          {[
-            { name: "GitHub", connected: true },
-            { name: "Google", connected: true },
-            { name: "LinkedIn", connected: false },
-          ].map((a) => (
-            <div key={a.name} className="flex items-center justify-between py-2">
-              <span className="text-sm">{a.name}</span>
-              <Button variant={a.connected ? "outline" : "default"} size="sm">
-                {a.connected ? "Disconnect" : "Connect"}
-              </Button>
-            </div>
-          ))}
+          {["GitHub", "Google", "LinkedIn"].map((name) => {
+            const isConn = settings.connected?.[name as keyof typeof settings.connected];
+            return (
+              <div key={name} className="flex items-center justify-between py-2">
+                <span className="text-sm">{name}</span>
+                <Button
+                  variant={isConn ? "outline" : "default"}
+                  size="sm"
+                  onClick={() => toggleConnection(name)}
+                >
+                  {isConn ? "Disconnect" : "Connect"}
+                </Button>
+              </div>
+            );
+          })}
         </Section>
 
         <Section title="Privacy">
           <div className="flex items-center justify-between py-2">
             <span className="text-sm">Make my profile discoverable</span>
-            <Switch defaultChecked />
+            <Switch
+              checked={settings.discoverable}
+              onCheckedChange={(val) => updateSetting("discoverable", val)}
+            />
           </div>
           <div className="flex items-center justify-between py-2">
             <span className="text-sm">Allow team invites from anyone</span>
-            <Switch defaultChecked />
+            <Switch
+              checked={settings.allowInvites}
+              onCheckedChange={(val) => updateSetting("allowInvites", val)}
+            />
           </div>
         </Section>
 
@@ -83,7 +159,12 @@ function SettingsPage() {
               <p className="text-sm font-medium">Delete account</p>
               <p className="text-xs text-muted-foreground">This permanently removes your workspace and data.</p>
             </div>
-            <Button variant="destructive">Delete account</Button>
+            <Button
+              variant="destructive"
+              onClick={() => toast.error("Account deletion is disabled in demo mode")}
+            >
+              Delete account
+            </Button>
           </div>
         </Section>
       </div>

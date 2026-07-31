@@ -2,13 +2,6 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { bootstrapSchema } from "./lib/db";
-
-// Run idempotent schema creation + seed on every cold start.
-// Uses IF NOT EXISTS / ON CONFLICT DO NOTHING — safe to call repeatedly.
-bootstrapSchema().catch((err) => {
-  console.error("[server] bootstrapSchema error:", err);
-});
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;

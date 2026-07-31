@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-brand shadow-glow">
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
-              <span className="text-base font-semibold tracking-tight">HackDiscord</span>
+              <span className="text-base font-semibold tracking-tight">Hackord</span>
             </Link>
             <nav className="flex-1 space-y-1 px-3">
               {NAV.map((item) => {
