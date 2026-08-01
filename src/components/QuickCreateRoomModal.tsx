@@ -73,6 +73,9 @@ export function QuickCreateRoomModal({
           deadlinePrototype: "",
           deadlineFinal: hackathon.submissionDeadline,
           deadlineResult: hackathon.resultDate,
+          projectLinks: [
+            { label: "Hackathon Page", url: hackathon.banner || "" },
+          ],
         },
       });
 

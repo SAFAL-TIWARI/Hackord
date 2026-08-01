@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Sparkles, Camera, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, Camera, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,9 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SKILLS } from "@/lib/dummy-data";
 import { cn } from "@/lib/utils";
-
 import { toast } from "sonner";
-import { CURRENT_USER } from "@/lib/dummy-data";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/profile-setup")({
   head: () => ({ meta: [{ title: "Complete your profile — Hackord" }] }),
@@ -19,46 +18,65 @@ export const Route = createFileRoute("/profile-setup")({
 
 function ProfileSetup() {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState<string[]>(["React", "Node.js"]);
-  const [name, setName] = useState(CURRENT_USER.name);
-  const [username, setUsername] = useState(CURRENT_USER.username);
-  const [college, setCollege] = useState(CURRENT_USER.college);
-  const [city, setCity] = useState(CURRENT_USER.city || "Mumbai");
-  const [country, setCountry] = useState(CURRENT_USER.country || "India");
-  const [experience, setExperience] = useState<string>(CURRENT_USER.experience);
-  const [bio, setBio] = useState("Building useful things at hackathons. Focused on developer tooling and thoughtful UI.");
-  const [github, setGithub] = useState(CURRENT_USER.github);
-  const [linkedin, setLinkedin] = useState(CURRENT_USER.linkedin);
-  const [portfolio, setPortfolio] = useState("https://aarav.dev");
+  const { user, updateProfile } = useAuth();
+
+  const [selected, setSelected] = useState<string[]>(user?.skills || []);
+  const [name, setName] = useState(user?.name || "");
+  const [username, setUsername] = useState(user?.username || (user?.email ? user.email.split("@")[0] : ""));
+  const [college, setCollege] = useState(user?.college || "");
+  const [city, setCity] = useState(user?.city || "");
+  const [country, setCountry] = useState(user?.country || "");
+  const [experience, setExperience] = useState<string>(user?.experience || "Beginner");
+  const [bio, setBio] = useState(user?.bio || "");
+  const [github, setGithub] = useState(user?.github || "");
+  const [linkedin, setLinkedin] = useState(user?.linkedin || "");
+  const [portfolio, setPortfolio] = useState(user?.portfolio || "");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      if (user.name) setName(user.name);
+      if (user.username) setUsername(user.username);
+      else if (user.email) setUsername(user.email.split("@")[0]);
+      if (user.college) setCollege(user.college);
+      if (user.city) setCity(user.city);
+      if (user.country) setCountry(user.country);
+      if (user.experience) setExperience(user.experience);
+      if (user.bio) setBio(user.bio);
+      if (user.skills && user.skills.length > 0) setSelected(user.skills);
+      if (user.github) setGithub(user.github);
+      if (user.linkedin) setLinkedin(user.linkedin);
+      if (user.portfolio) setPortfolio(user.portfolio);
+    }
+  }, [user]);
 
   const toggle = (s: string) =>
     setSelected((sel) => (sel.includes(s) ? sel.filter((x) => x !== s) : [...sel, s]));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const profile = {
-      ...CURRENT_USER,
-      name,
-      username,
-      college,
-      city,
-      country,
-      experience,
-      bio,
-      skills: selected,
-      github,
-      linkedin,
-      portfolio,
-    };
-    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-      try {
-        localStorage.setItem("forge_focus_user_profile", JSON.stringify(profile));
-      } catch (err) {
-        console.error("Error saving profile", err);
-      }
+    setLoading(true);
+    try {
+      await updateProfile({
+        name,
+        username: username || (user?.email ? user.email.split("@")[0] : "user"),
+        college,
+        city,
+        country,
+        experience: experience as "Beginner" | "Intermediate" | "Advanced",
+        bio,
+        skills: selected,
+        github,
+        linkedin,
+        portfolio,
+      });
+      toast.success("Profile updated successfully!");
+      navigate({ to: "/dashboard" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save profile");
+    } finally {
+      setLoading(false);
     }
-    toast.success("Profile updated successfully!");
-    navigate({ to: "/profile" });
   };
 
   return (
@@ -72,10 +90,22 @@ function ProfileSetup() {
         </div>
 
         <div className="glass-strong rounded-2xl p-8 shadow-card animate-fade-in">
-          <h1 className="text-2xl font-semibold tracking-tight">Complete your profile</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Help teammates find you for the right hackathons.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Complete your profile</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Help teammates find you for the right hackathons.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ to: "/dashboard" })}
+            >
+              Skip for now
+            </Button>
+          </div>
 
           <form className="mt-8 space-y-8" onSubmit={handleSubmit}>
             <div className="flex items-center gap-5">
@@ -91,9 +121,9 @@ function ProfileSetup() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Full name"><Input value={name} onChange={(e) => setName(e.target.value)} required /></Field>
               <Field label="Username"><Input value={username} onChange={(e) => setUsername(e.target.value)} required /></Field>
-              <Field label="College"><Input value={college} onChange={(e) => setCollege(e.target.value)} /></Field>
-              <Field label="City"><Input value={city} onChange={(e) => setCity(e.target.value)} /></Field>
-              <Field label="Country"><Input value={country} onChange={(e) => setCountry(e.target.value)} /></Field>
+              <Field label="College"><Input value={college} onChange={(e) => setCollege(e.target.value)} placeholder="e.g. IIT Bombay" /></Field>
+              <Field label="City"><Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Mumbai" /></Field>
+              <Field label="Country"><Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="e.g. India" /></Field>
               <Field label="Experience level">
                 <Select value={experience} onValueChange={setExperience}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -142,9 +172,10 @@ function ProfileSetup() {
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => navigate({ to: "/profile" })}>Cancel</Button>
-              <Button type="submit" className="bg-gradient-brand text-white shadow-glow hover:opacity-90">
-                Save & continue
+              <Button type="button" variant="ghost" onClick={() => navigate({ to: "/dashboard" })}>Skip</Button>
+              <Button type="submit" className="bg-gradient-brand text-white shadow-glow hover:opacity-90" disabled={loading}>
+                {loading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                {loading ? "Saving…" : "Save & continue"}
               </Button>
             </div>
           </form>

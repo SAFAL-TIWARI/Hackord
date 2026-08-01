@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { Buddy3D } from "@/components/Buddy3D";
+import { AuthProvider } from "@/lib/auth";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -131,10 +132,12 @@ function RootComponent() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <Toaster />
-      {mounted && <Buddy3D />}
-    </QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+        <Toaster />
+        {mounted && <Buddy3D />}
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }

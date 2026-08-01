@@ -45,6 +45,18 @@ export function CreateRoomModal({
     const hackathon = fd.get("hackathon") as string;
     const name = fd.get("name") as string;
 
+    const githubUrl = (fd.get("githubUrl") as string)?.trim();
+    const figmaUrl = (fd.get("figmaUrl") as string)?.trim();
+    const demoUrl = (fd.get("demoUrl") as string)?.trim();
+    const docsUrl = (fd.get("docsUrl") as string)?.trim();
+
+    const projectLinks = [
+      { label: "GitHub Repo", url: githubUrl },
+      { label: "Figma", url: figmaUrl },
+      { label: "Demo", url: demoUrl },
+      { label: "Documentation", url: docsUrl },
+    ].filter((l) => Boolean(l.url));
+
     // Generate a URL-safe ID from room name + timestamp
     const id =
       name
@@ -69,6 +81,7 @@ export function CreateRoomModal({
           deadlinePrototype: (fd.get("deadlinePrototype") as string) ?? "",
           deadlineFinal: (fd.get("deadlineFinal") as string) ?? "",
           deadlineResult: (fd.get("deadlineResult") as string) ?? "",
+          projectLinks,
         },
       });
 
@@ -83,7 +96,7 @@ export function CreateRoomModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">Create a room</DialogTitle>
           <DialogDescription>
@@ -99,6 +112,7 @@ export function CreateRoomModal({
               <Input name="name" placeholder="Team Nebula" required defaultValue={prefill?.name ?? ""} />
             </Field>
           </div>
+
           <Field label="Problem statement">
             <Textarea
               name="problem"
@@ -106,6 +120,7 @@ export function CreateRoomModal({
               placeholder="Briefly describe the problem you're solving."
             />
           </Field>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Maximum team size">
               <Input name="maxSize" type="number" min={1} max={20} defaultValue={prefill?.maxSize ?? 6} />
@@ -126,6 +141,26 @@ export function CreateRoomModal({
               <Input name="deadlineResult" type="date" defaultValue={prefill?.deadlineResult ?? ""} />
             </Field>
           </div>
+
+          {/* Project Links Section */}
+          <div className="space-y-3 rounded-xl border border-border/60 bg-card/40 p-4">
+            <h4 className="text-sm font-semibold">Project links</h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="GitHub Repo URL">
+                <Input name="githubUrl" placeholder="https://github.com/org/repo" />
+              </Field>
+              <Field label="Figma Design URL">
+                <Input name="figmaUrl" placeholder="https://figma.com/file/..." />
+              </Field>
+              <Field label="Live Demo URL">
+                <Input name="demoUrl" placeholder="https://my-demo-app.com" />
+              </Field>
+              <Field label="Docs / Notion URL">
+                <Input name="docsUrl" placeholder="https://notion.so/..." />
+              </Field>
+            </div>
+          </div>
+
           <Field label="Description">
             <Textarea
               name="description"
@@ -134,6 +169,7 @@ export function CreateRoomModal({
               defaultValue={prefill?.description ?? ""}
             />
           </Field>
+
           <DialogFooter>
             <Button
               type="button"

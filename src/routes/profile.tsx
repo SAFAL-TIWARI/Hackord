@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Github,
@@ -12,8 +12,8 @@ import {
   Trash2,
   Check,
   Mail,
-  X,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -31,8 +31,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CURRENT_USER, ROOMS, SKILLS } from "@/lib/dummy-data";
+import { SKILLS } from "@/lib/dummy-data";
+import { getRooms, type DbRoom } from "@/lib/rooms-api";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Profile — Hackord" }] }),
@@ -57,66 +59,80 @@ export type UserProfile = {
   completedHackathons: { name: string; result: string }[];
 };
 
-const DEFAULT_PROFILE: UserProfile = {
-  id: CURRENT_USER.id,
-  name: CURRENT_USER.name,
-  username: CURRENT_USER.username,
-  email: "aarav.sharma@iitb.ac.in", // Read only email
-  avatar: CURRENT_USER.avatar,
-  college: CURRENT_USER.college,
-  city: CURRENT_USER.city || "Mumbai",
-  country: CURRENT_USER.country || "India",
-  skills: CURRENT_USER.skills || ["React", "Node.js", "UI/UX"],
-  github: CURRENT_USER.github,
-  linkedin: CURRENT_USER.linkedin,
-  portfolio: "https://aarav.dev",
-  bio: "Building useful things at hackathons. Focused on developer tooling, full-stack systems, and thoughtful UI.",
-  experience: CURRENT_USER.experience || "Advanced",
-  completedHackathons: [
-    { name: "HackMIT 2025", result: "Top 10" },
-    { name: "ETHIndia 2024", result: "Finalist" },
-    { name: "Smart India 2024", result: "Winner" },
-  ],
-};
-
-const STORAGE_KEY = "forge_focus_user_profile";
-
 function ProfilePage() {
-  const [profile, setProfile] = useState<UserProfile>(() => {
-    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch (err) {
-        console.error("[profile] Error reading profile from localStorage:", err);
-      }
-    }
-    return DEFAULT_PROFILE;
+  const { user, updateProfile, loading: authLoading } = useAuth();
+
+  const getProfileState = (): UserProfile => ({
+    id: user?._id || "",
+    name: user?.name || "Anonymous",
+    username: user?.username || (user?.email ? user.email.split("@")[0] : "user"),
+    email: user?.email || "",
+    avatar: user?.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${user?.name || "User"}`,
+    college: user?.college || "",
+    city: user?.city || "",
+    country: user?.country || "",
+    skills: user?.skills || [],
+    github: user?.github || "",
+    linkedin: user?.linkedin || "",
+    portfolio: user?.portfolio || "",
+    bio: user?.bio || "",
+    experience: user?.experience || "Beginner",
+    completedHackathons: user?.completedHackathons || [],
   });
 
-  const [editOpen, setEditOpen] = useState(false);
+  const profile = getProfileState();
 
-  // Edit modal state
+  const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<UserProfile>(profile);
   const [newHackName, setNewHackName] = useState("");
   const [newHackResult, setNewHackResult] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [userRooms, setUserRooms] = useState<DbRoom[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      setEditForm(getProfileState());
+    }
+  }, [user]);
+
+  useEffect(() => {
+    getRooms()
+      .then((data) => setUserRooms(data))
+      .catch((err) => console.error("Failed to fetch profile rooms", err))
+      .finally(() => setRoomsLoading(false));
+  }, []);
 
   const handleOpenEdit = () => {
-    setEditForm(JSON.parse(JSON.stringify(profile)));
+    setEditForm(getProfileState());
     setEditOpen(true);
   };
 
-  const saveProfile = () => {
-    setProfile(editForm);
-    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(editForm));
-      } catch (err) {
-        console.error("[profile] Error saving profile to localStorage:", err);
-      }
+  const saveProfile = async () => {
+    setSaving(true);
+    try {
+      await updateProfile({
+        name: editForm.name,
+        username: editForm.username,
+        avatar: editForm.avatar,
+        college: editForm.college,
+        city: editForm.city,
+        country: editForm.country,
+        bio: editForm.bio,
+        experience: editForm.experience,
+        skills: editForm.skills,
+        github: editForm.github,
+        linkedin: editForm.linkedin,
+        portfolio: editForm.portfolio,
+        completedHackathons: editForm.completedHackathons,
+      });
+      setEditOpen(false);
+      toast.success("Profile updated successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update profile");
+    } finally {
+      setSaving(false);
     }
-    setEditOpen(false);
-    toast.success("Profile updated successfully!");
   };
 
   const toggleSkill = (skill: string) => {
@@ -148,6 +164,24 @@ function ProfilePage() {
     }));
   };
 
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const avatarSrc = profile.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(profile.name)}`;
+  const initials = profile.name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <AppShell>
       <div className="mx-auto max-w-5xl space-y-6">
@@ -155,8 +189,8 @@ function ProfilePage() {
         <section className="glass-strong overflow-hidden rounded-2xl p-6 shadow-card sm:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
             <Avatar className="h-24 w-24 border-4 border-background shadow-glow">
-              <AvatarImage src={profile.avatar} />
-              <AvatarFallback>{(profile.name || "A")[0]}</AvatarFallback>
+              <AvatarImage src={avatarSrc} />
+              <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <div className="flex items-center gap-3">
@@ -169,12 +203,16 @@ function ProfilePage() {
                 <span className="inline-flex items-center gap-1.5">
                   <Mail className="h-4 w-4 text-primary" /> {profile.email}
                 </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <GraduationCap className="h-4 w-4" /> {profile.college}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" /> {profile.city}, {profile.country}
-                </span>
+                {profile.college && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <GraduationCap className="h-4 w-4" /> {profile.college}
+                  </span>
+                )}
+                {(profile.city || profile.country) && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4" /> {[profile.city, profile.country].filter(Boolean).join(", ")}
+                  </span>
+                )}
               </div>
             </div>
             <Button
@@ -185,7 +223,7 @@ function ProfilePage() {
             </Button>
           </div>
           <p className="mt-6 max-w-3xl text-sm text-muted-foreground leading-relaxed">
-            {profile.bio || "No bio added yet."}
+            {profile.bio || "No bio added yet. Click 'Edit Profile' to introduce yourself!"}
           </p>
         </section>
 
@@ -204,21 +242,41 @@ function ProfilePage() {
                     </Badge>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">No skills selected.</p>
+                  <p className="text-sm text-muted-foreground">No skills selected yet.</p>
                 )}
               </div>
             </div>
 
             <div>
               <h2 className="mb-3 text-lg font-semibold">Active Rooms</h2>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {ROOMS.map((r) => (
-                  <div key={r.id} className="rounded-xl border border-border/60 bg-card/50 p-4 transition hover:bg-card">
-                    <p className="text-xs text-muted-foreground">{r.hackathon}</p>
-                    <p className="mt-1 font-medium text-sm">{r.name}</p>
-                  </div>
-                ))}
-              </div>
+              {roomsLoading ? (
+                <div className="flex items-center justify-center p-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : userRooms.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {userRooms.map((r) => (
+                    <Link
+                      key={r.id}
+                      to="/rooms/$roomId"
+                      params={{ roomId: r.id }}
+                      className="group block rounded-xl border border-border/60 bg-card/50 p-4 transition hover:bg-card hover:border-primary/50"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground truncate">{r.hackathon}</p>
+                        {r.status && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0 ml-2">
+                            {r.status}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-1 font-medium text-sm group-hover:text-primary transition-colors">{r.name}</p>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No active rooms found.</p>
+              )}
             </div>
 
             <div>
@@ -241,36 +299,54 @@ function ProfilePage() {
           <section className="glass rounded-2xl p-6 shadow-card space-y-4">
             <h2 className="text-lg font-semibold">Social & Links</h2>
             <ul className="space-y-3.5 text-sm">
-              <li>
-                <a
-                  className="inline-flex items-center gap-2.5 hover:text-foreground text-muted-foreground transition"
-                  href={profile.github.startsWith("http") ? profile.github : `https://${profile.github}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Github className="h-4 w-4 text-primary" /> GitHub Profile
-                </a>
-              </li>
-              <li>
-                <a
-                  className="inline-flex items-center gap-2.5 hover:text-foreground text-muted-foreground transition"
-                  href={profile.linkedin.startsWith("http") ? profile.linkedin : `https://${profile.linkedin}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Linkedin className="h-4 w-4 text-blue-400" /> LinkedIn Profile
-                </a>
-              </li>
-              <li>
-                <a
-                  className="inline-flex items-center gap-2.5 hover:text-foreground text-muted-foreground transition"
-                  href={profile.portfolio.startsWith("http") ? profile.portfolio : `https://${profile.portfolio}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Globe className="h-4 w-4 text-emerald-400" /> Portfolio Website
-                </a>
-              </li>
+              {profile.github ? (
+                <li>
+                  <a
+                    className="inline-flex items-center gap-2.5 hover:text-foreground text-muted-foreground transition"
+                    href={profile.github.startsWith("http") ? profile.github : `https://${profile.github}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Github className="h-4 w-4 text-primary" /> GitHub Profile
+                  </a>
+                </li>
+              ) : (
+                <li className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Github className="h-4 w-4" /> GitHub not added
+                </li>
+              )}
+              {profile.linkedin ? (
+                <li>
+                  <a
+                    className="inline-flex items-center gap-2.5 hover:text-foreground text-muted-foreground transition"
+                    href={profile.linkedin.startsWith("http") ? profile.linkedin : `https://${profile.linkedin}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Linkedin className="h-4 w-4 text-blue-400" /> LinkedIn Profile
+                  </a>
+                </li>
+              ) : (
+                <li className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Linkedin className="h-4 w-4" /> LinkedIn not added
+                </li>
+              )}
+              {profile.portfolio ? (
+                <li>
+                  <a
+                    className="inline-flex items-center gap-2.5 hover:text-foreground text-muted-foreground transition"
+                    href={profile.portfolio.startsWith("http") ? profile.portfolio : `https://${profile.portfolio}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Globe className="h-4 w-4 text-emerald-400" /> Portfolio Website
+                  </a>
+                </li>
+              ) : (
+                <li className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Globe className="h-4 w-4" /> Portfolio not added
+                </li>
+              )}
             </ul>
           </section>
         </div>
@@ -282,7 +358,7 @@ function ProfilePage() {
           <DialogHeader>
             <DialogTitle className="text-xl">Edit Profile</DialogTitle>
             <DialogDescription>
-              Update your profile details. All changes save to your local storage.
+              Update your profile details. Changes will save directly to MongoDB.
             </DialogDescription>
           </DialogHeader>
 
@@ -302,35 +378,35 @@ function ProfilePage() {
                 <Input
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  placeholder="Aarav Sharma"
+                  placeholder="Full Name"
                 />
               </Field>
               <Field label="Username">
                 <Input
                   value={editForm.username}
                   onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                  placeholder="aarav"
+                  placeholder="username"
                 />
               </Field>
               <Field label="College / University">
                 <Input
                   value={editForm.college}
                   onChange={(e) => setEditForm({ ...editForm, college: e.target.value })}
-                  placeholder="IIT Bombay"
+                  placeholder="e.g. IIT Bombay"
                 />
               </Field>
               <Field label="City">
                 <Input
                   value={editForm.city}
                   onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                  placeholder="Mumbai"
+                  placeholder="e.g. Mumbai"
                 />
               </Field>
               <Field label="Country">
                 <Input
                   value={editForm.country}
                   onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
-                  placeholder="India"
+                  placeholder="e.g. India"
                 />
               </Field>
               <Field label="Experience Level">
@@ -352,7 +428,7 @@ function ProfilePage() {
               <Input
                 value={editForm.avatar}
                 onChange={(e) => setEditForm({ ...editForm, avatar: e.target.value })}
-                placeholder="https://api.dicebear.com/9.x/glass/svg?seed=Aarav"
+                placeholder="https://api.dicebear.com/9.x/glass/svg?seed=User"
               />
             </Field>
 
@@ -397,21 +473,21 @@ function ProfilePage() {
                 <Input
                   value={editForm.github}
                   onChange={(e) => setEditForm({ ...editForm, github: e.target.value })}
-                  placeholder="https://github.com/aarav"
+                  placeholder="https://github.com/you"
                 />
               </Field>
               <Field label="LinkedIn URL">
                 <Input
                   value={editForm.linkedin}
                   onChange={(e) => setEditForm({ ...editForm, linkedin: e.target.value })}
-                  placeholder="https://linkedin.com/in/aarav"
+                  placeholder="https://linkedin.com/in/you"
                 />
               </Field>
               <Field label="Portfolio URL">
                 <Input
                   value={editForm.portfolio}
                   onChange={(e) => setEditForm({ ...editForm, portfolio: e.target.value })}
-                  placeholder="https://aarav.dev"
+                  placeholder="https://you.dev"
                 />
               </Field>
             </div>
@@ -461,8 +537,10 @@ function ProfilePage() {
             <Button
               onClick={saveProfile}
               className="bg-gradient-brand text-white shadow-glow hover:opacity-90"
+              disabled={saving}
             >
-              Save Changes
+              {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {saving ? "Saving…" : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -96,6 +96,50 @@ html {
   color-scheme: dark;
 }
 
+html.light {
+  color-scheme: light;
+  --background: oklch(0.98 0.005 260);
+  --foreground: oklch(0.18 0.02 275);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 275);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 275);
+  --primary: oklch(0.55 0.22 290);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0.01 260);
+  --secondary-foreground: oklch(0.20 0.02 275);
+  --muted: oklch(0.94 0.01 260);
+  --muted-foreground: oklch(0.45 0.02 265);
+  --accent: oklch(0.92 0.02 285);
+  --accent-foreground: oklch(0.18 0.02 275);
+  --border: oklch(0.88 0.02 265);
+  --input: oklch(0.92 0.01 260);
+  --ring: oklch(0.55 0.22 290);
+  --shadow-card: 0 4px 20px -4px rgba(0, 0, 0, 0.08);
+  --sidebar: oklch(0.97 0.008 260);
+  --sidebar-foreground: oklch(0.20 0.02 275);
+  --sidebar-accent: oklch(0.92 0.015 260);
+  --sidebar-accent-foreground: oklch(0.18 0.02 275);
+  --sidebar-border: oklch(0.88 0.02 265);
+}
+
+html.light .glass {
+  background-color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.06);
+}
+
+html.light .glass-strong {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 30px -6px rgba(0, 0, 0, 0.08);
+}
+
+html.light .bg-mesh {
+  background-image: radial-gradient(1200px 600px at 10% -10%, oklch(0.68 0.22 295 / 0.08), transparent 60%),
+                   radial-gradient(1000px 500px at 90% 10%, oklch(0.65 0.19 240 / 0.06), transparent 60%);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

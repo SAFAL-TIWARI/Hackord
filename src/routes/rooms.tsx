@@ -3,10 +3,12 @@ import { Users2, Plus } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { RoomSkeleton } from "@/components/RoomSkeleton";
 import { getRooms } from "@/lib/rooms-api";
 
 export const Route = createFileRoute("/rooms")({
   head: () => ({ meta: [{ title: "My Rooms — Hackord" }] }),
+  pendingComponent: RoomSkeleton,
   loader: () => getRooms(),
   component: RoomsLayout,
 });

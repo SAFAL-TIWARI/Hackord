@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
   Search,
@@ -9,8 +9,12 @@ import {
   Settings,
   Plus,
   Compass,
+  ShieldCheck,
+  LogOut,
+  Sun,
+  Moon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -22,9 +26,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CURRENT_USER, NOTIFICATIONS } from "@/lib/dummy-data";
+import { NOTIFICATIONS } from "@/lib/dummy-data";
 import { cn } from "@/lib/utils";
 import { CreateRoomModal } from "./CreateRoomModal";
+import { useAuth } from "@/lib/auth";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -38,9 +43,51 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [openCreate, setOpenCreate] = useState(false);
   const unread = NOTIFICATIONS.filter((n) => n.unread).length;
+  const { user, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      const saved = localStorage.getItem("hackord_theme") as "dark" | "light";
+      if (saved) return saved;
+    }
+    return "dark";
+  });
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (theme === "light") {
+        document.documentElement.classList.add("light");
+      } else {
+        document.documentElement.classList.remove("light");
+      }
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("hackord_theme", theme);
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  };
+
+  const displayName = user?.name || "User";
+  const displayUsername = user?.username || "user";
+  const displayAvatar = user?.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=User`;
+  const initials = displayName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const handleLogout = () => {
+    logout();
+    navigate({ to: "/login" });
+  };
 
   return (
-    <div className="min-h-screen bg-background bg-mesh">
+    <div className="min-h-screen bg-background bg-mesh text-foreground">
       <div className="flex">
         {/* Sidebar */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-border bg-sidebar/80 backdrop-blur-xl md:block">
@@ -72,17 +119,32 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                 );
               })}
+              {/* Admin nav item — only visible to admins */}
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className={cn(
+                    "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
+                    pathname === "/admin"
+                      ? "bg-gradient-brand-soft text-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                  )}
+                >
+                  <ShieldCheck className={cn("h-4 w-4", pathname === "/admin" && "text-primary")} />
+                  Admin Panel
+                </Link>
+              )}
             </nav>
             <div className="p-3">
               <div className="glass rounded-xl p-3">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={CURRENT_USER.avatar} />
-                    <AvatarFallback>AS</AvatarFallback>
+                    <AvatarImage src={displayAvatar} />
+                    <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{CURRENT_USER.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">@{CURRENT_USER.username}</p>
+                    <p className="truncate text-sm font-medium">{displayName}</p>
+                    <p className="truncate text-xs text-muted-foreground">@{displayUsername}</p>
                   </div>
                 </div>
               </div>
@@ -133,18 +195,38 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <DropdownMenuTrigger asChild>
                   <button className="rounded-full outline-none ring-primary/60 focus-visible:ring-2">
                     <Avatar className="h-9 w-9">
-                      <AvatarImage src={CURRENT_USER.avatar} />
-                      <AvatarFallback>AS</AvatarFallback>
+                      <AvatarImage src={displayAvatar} />
+                      <AvatarFallback>{initials}</AvatarFallback>
                     </Avatar>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>{CURRENT_USER.name}</DropdownMenuLabel>
+                  <DropdownMenuLabel>{displayName}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild><Link to="/profile">Profile</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link to="/settings">Settings</Link></DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem asChild><Link to="/admin">Admin Panel</Link></DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild><Link to="/">Sign out</Link></DropdownMenuItem>
+                  <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">
+                    {theme === "dark" ? (
+                      <>
+                        <Sun className="mr-2 h-4 w-4 text-amber-400" />
+                        <span>Light Mode</span>
+                      </>
+                    ) : (
+                      <>
+                        <Moon className="mr-2 h-4 w-4 text-purple-400" />
+                        <span>Dark Mode</span>
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

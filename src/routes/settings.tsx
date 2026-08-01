@@ -73,21 +73,6 @@ function SettingsPage() {
       <div className="mx-auto max-w-3xl space-y-6">
         <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
 
-        <Section title="Change password">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Current password"><Input type="password" placeholder="••••••••" /></Field>
-            <Field label="New password"><Input type="password" placeholder="••••••••" /></Field>
-          </div>
-          <div className="mt-4 flex justify-end">
-            <Button
-              onClick={() => toast.success("Password updated successfully!")}
-              className="bg-gradient-brand text-white shadow-glow hover:opacity-90"
-            >
-              Update password
-            </Button>
-          </div>
-        </Section>
-
         <Section title="Notification preferences">
           {[
             { key: "n1", label: "Email me when I get invited to a room" },
@@ -105,36 +90,9 @@ function SettingsPage() {
           ))}
         </Section>
 
-        <Section title="Appearance">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Dark mode</p>
-              <p className="text-xs text-muted-foreground">Hackord is optimized for dark mode.</p>
-            </div>
-            <Switch
-              checked={settings.darkMode}
-              onCheckedChange={(val) => updateSetting("darkMode", val)}
-            />
-          </div>
-        </Section>
+       
 
-        <Section title="Connected accounts">
-          {["GitHub", "Google", "LinkedIn"].map((name) => {
-            const isConn = settings.connected?.[name as keyof typeof settings.connected];
-            return (
-              <div key={name} className="flex items-center justify-between py-2">
-                <span className="text-sm">{name}</span>
-                <Button
-                  variant={isConn ? "outline" : "default"}
-                  size="sm"
-                  onClick={() => toggleConnection(name)}
-                >
-                  {isConn ? "Disconnect" : "Connect"}
-                </Button>
-              </div>
-            );
-          })}
-        </Section>
+
 
         <Section title="Privacy">
           <div className="flex items-center justify-between py-2">

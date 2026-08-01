@@ -25,6 +25,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { getRooms, type DbRoom } from "@/lib/rooms-api";
 import { type Invitation } from "@/lib/dummy-data";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Hackord" }] }),
@@ -32,6 +33,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardPage() {
+  const { user } = useAuth();
   const [rooms, setRooms] = useState<DbRoom[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>(() => {
     if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
@@ -89,9 +91,9 @@ function DashboardPage() {
           role: "Owner",
         },
         {
-          user_id: "u_me",
-          user_name: CURRENT_USER.name,
-          user_avatar: CURRENT_USER.avatar,
+          user_id: user?._id || "u_me",
+          user_name: user?.name || "Me",
+          user_avatar: user?.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=User`,
           role: "Developer",
         },
       ],
@@ -125,6 +127,8 @@ function DashboardPage() {
   const firstRoomId = rooms[0]?.id || "smart-india-2026";
   const firstRoomName = rooms[0]?.name || "Team Workspace";
 
+  const firstName = user?.name ? user.name.split(" ")[0] : "Hacker";
+
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl space-y-8">
@@ -134,7 +138,7 @@ function DashboardPage() {
             <div>
               <p className="text-sm text-muted-foreground">Welcome back</p>
               <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
-                Hey {CURRENT_USER.name.split(" ")[0]} 👋
+                Hey {firstName} 👋
               </h1>
               <p className="mt-2 max-w-lg text-sm text-muted-foreground">
                 You have {INVITATIONS.length} pending invitations and 1 deadline this week.
