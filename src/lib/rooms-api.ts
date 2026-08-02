@@ -77,7 +77,7 @@ export type DbRoom = {
 
 // ─── User Helper ────────────────────────────────────────────────────────────
 
-export function getLoggedInUser(): { name: string; avatar: string } {
+export function getLoggedInUser(): { id: string; name: string; email: string; avatar: string } {
   if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
     try {
       const raw = localStorage.getItem("hackord_user");
@@ -85,7 +85,9 @@ export function getLoggedInUser(): { name: string; avatar: string } {
         const u = JSON.parse(raw);
         if (u.name) {
           return {
+            id: u._id || u.id || "u_me",
             name: u.name,
+            email: u.email || "",
             avatar: u.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(u.name)}`,
           };
         }
@@ -93,22 +95,43 @@ export function getLoggedInUser(): { name: string; avatar: string } {
     } catch {}
   }
   return {
-    name: "Safal Tiwari",
-    avatar: "https://api.dicebear.com/9.x/glass/svg?seed=Safal",
+    id: "u_me",
+    name: "Aarav Sharma",
+    email: "aarav@example.com",
+    avatar: "https://api.dicebear.com/9.x/glass/svg?seed=tempuser",
   };
 }
 
 // ─── API Methods ─────────────────────────────────────────────────────────────
 
-export async function getRooms(): Promise<DbRoom[]> {
+export async function getRooms(params?: {
+  userId?: string;
+  email?: string;
+  userName?: string;
+  all?: boolean;
+}): Promise<DbRoom[]> {
   try {
-    const backendRooms = await apiFetch<DbRoom[]>("/rooms");
+    const searchParams = new URLSearchParams();
+    if (params?.userId) searchParams.set("userId", params.userId);
+    if (params?.email) searchParams.set("email", params.email);
+    if (params?.userName) searchParams.set("userName", params.userName);
+    if (params?.all) searchParams.set("all", "true");
+
+    const queryStr = searchParams.toString() ? `?${searchParams.toString()}` : "";
+    const backendRooms = await apiFetch<DbRoom[]>(`/rooms${queryStr}`);
+
+    if (params?.userId || params?.email || params?.all) {
+      return Array.isArray(backendRooms) ? backendRooms : [];
+    }
+
     const localRooms = loadRoomsFromStorage();
 
     // Merge backend rooms with local rooms by ID
     const roomMap = new Map<string, DbRoom>();
     localRooms.forEach((r) => roomMap.set(r.id, r));
-    backendRooms.forEach((r) => roomMap.set(r.id, r));
+    if (Array.isArray(backendRooms)) {
+      backendRooms.forEach((r) => roomMap.set(r.id, r));
+    }
 
     const merged = Array.from(roomMap.values());
     saveRoomsToStorage(merged);
@@ -143,47 +166,38 @@ export async function getRoom(params: { data: { roomId: string } }): Promise<DbR
     .join(" ");
 
   const defaultUser = getLoggedInUser();
-  const fallbackRoom: DbRoom = {
+  const generated: DbRoom = {
     id: roomId,
-    hackathon: "Hackathon Workspace",
-    name: formattedTitle || "Team Room",
-    problem: "Team workspace for hackathon collaboration.",
-    description: "Private team space for managing project tasks, files, and deadlines.",
+    hackathon: "Smart India Hackathon 2026",
+    name: formattedTitle,
+    problem: `Collaborative workspace for ${formattedTitle}`,
+    description: `Building solution for ${formattedTitle}.`,
     max_size: 6,
     status: "Active",
-    progress: 40,
-    deadline_registration: "2026-08-10",
-    deadline_ppt: "2026-08-15",
-    deadline_prototype: "2026-08-20",
-    deadline_final: "2026-08-25",
-    deadline_result: "2026-08-30",
+    progress: 45,
+    deadline_registration: "2026-08-15",
+    deadline_ppt: "2026-08-30",
+    deadline_prototype: "2026-09-10",
+    deadline_final: "2026-09-25",
+    deadline_result: "2026-10-05",
     created_at: new Date().toISOString(),
     members: [
       {
-        user_id: "u_me",
+        user_id: defaultUser.id,
         user_name: defaultUser.name,
         user_avatar: defaultUser.avatar,
         role: "Owner",
       },
     ],
-    project_links: [
-      { label: "GitHub Repo", url: "https://github.com/SAFAL-TIWARI/Hackord" },
-      { label: "Figma Specs", url: "https://figma.com" },
-    ],
-    files: [],
-    tasks: [],
-    activities: [
-      { id: `act_1`, who: defaultUser.name.split(" ")[0], what: `accessed room`, when: new Date().toISOString() },
-    ],
   };
 
-  saveRoomToStorage(fallbackRoom);
-  return fallbackRoom;
+  saveRoomToStorage(generated);
+  return generated;
 }
 
 export async function createRoom(params: {
   data: {
-    id: string;
+    id?: string;
     hackathon: string;
     name: string;
     problem?: string;
@@ -195,6 +209,10 @@ export async function createRoom(params: {
     deadlineFinal?: string;
     deadlineResult?: string;
     projectLinks?: { label: string; url: string }[];
+    creatorId?: string;
+    creatorEmail?: string;
+    creatorName?: string;
+    creatorAvatar?: string;
   };
 }): Promise<DbRoom> {
   const currentUser = getLoggedInUser();
@@ -611,6 +629,46 @@ function createRoomLocally(data: any): DbRoom {
   rooms.unshift(newRoom);
   saveRoomsToStorage(rooms);
   return newRoom;
+}
+
+export async function removeMemberFromRoom(params: {
+  roomId: string;
+  userId: string;
+  removedBy?: string;
+}): Promise<DbRoom | null> {
+  const { roomId, userId, removedBy } = params;
+  try {
+    const updated = await apiFetch<DbRoom>(`/rooms/${roomId}/members/${userId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ removedBy: removedBy || getLoggedInUser().name.split(" ")[0] }),
+    });
+    if (updated) {
+      saveRoomToStorage(updated);
+      return updated;
+    }
+  } catch (err) {
+    console.warn("[rooms-api] Backend removeMember failed, updating locally", err);
+  }
+
+  // Fallback local update
+  const rooms = loadRoomsFromStorage();
+  const room = rooms.find((r) => r.id === roomId);
+  if (room && room.members) {
+    const idx = room.members.findIndex((m) => m.user_id === userId || m.user_name === userId);
+    if (idx !== -1) {
+      const removed = room.members.splice(idx, 1)[0];
+      if (!room.activities) room.activities = [];
+      room.activities.unshift({
+        id: `act_${Date.now()}`,
+        who: removedBy || getLoggedInUser().name.split(" ")[0],
+        what: `removed ${removed.user_name} from team`,
+        when: new Date().toISOString(),
+      });
+      saveRoomsToStorage(rooms);
+    }
+    return room;
+  }
+  return null;
 }
 
 function sendMessageLocally(data: any): DbMessage {

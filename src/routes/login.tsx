@@ -100,20 +100,29 @@ function LoginPage() {
 
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background bg-mesh">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-brand shadow-glow">
-            <Sparkles className="h-5 w-5 text-white" />
+    <div className="min-h-screen bg-background relative overflow-hidden flex flex-col">
+      {/* Background ambient glow */}
+      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-brand-2/15 blur-[150px] pointer-events-none rounded-full" />
+      
+      <div className="flex-1 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative z-10">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-8 animate-fade-in">
+          <Link to="/" className="inline-flex flex-col items-center gap-4 mb-4 group">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-brand shadow-glow transition-transform group-hover:scale-110">
+              <Sparkles className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold tracking-tight">Hackord</span>
+          </Link>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">{title}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+        </div>
+
+        <div className="sm:mx-auto sm:w-full sm:max-w-[440px] animate-fade-in animate-delay-100">
+          <div className="relative group rounded-3xl p-[1px] bg-gradient-to-b from-white/10 to-transparent">
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-b from-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-xl pointer-events-none" />
+            <div className="bg-[#0a0f25]/80 backdrop-blur-2xl rounded-[23px] px-8 py-10 shadow-2xl relative z-10 border border-white/5">
+              {children}
+            </div>
           </div>
-          <span className="text-lg font-semibold tracking-tight">Hackord</span>
-        </Link>
-      </div>
-      <div className="mx-auto flex max-w-md flex-col px-6 pb-16 pt-6">
-        <div className="glass-strong rounded-2xl p-8 shadow-card animate-fade-in">
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-          <div className="mt-6">{children}</div>
         </div>
       </div>
     </div>

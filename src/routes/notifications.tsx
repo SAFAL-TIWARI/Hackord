@@ -1,11 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Bell, Inbox, Github, MessageSquare, Video, UserPlus, CalendarClock } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { Bell, Inbox, Github, MessageSquare, Video, UserPlus, CalendarClock, Layers3, ArrowUpRight } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
-import { NOTIFICATIONS } from "@/lib/dummy-data";
-
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { fetchRealNotifications, type RealNotification } from "@/lib/notifications-api";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/notifications")({
@@ -14,45 +14,31 @@ export const Route = createFileRoute("/notifications")({
 });
 
 const iconFor = (t: string) =>
-  t === "invite" ? Inbox : t === "meeting" ? Video : t === "chat" ? MessageSquare :
-    t === "submission" ? CalendarClock : t === "github" ? Github : t === "member" ? UserPlus : Bell;
+  t === "invite" ? Inbox : t === "meeting" ? Video : t === "chat" || t === "message" ? MessageSquare :
+    t === "deadline" ? CalendarClock : t === "github" ? Github : t === "member" || t === "activity" ? UserPlus : Bell;
 
 function NotificationsPage() {
-  const [list, setList] = useState(() => {
-    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-      try {
-        const raw = localStorage.getItem("forge_focus_notifications");
-        if (raw) return JSON.parse(raw);
-      } catch (err) {
-        console.error("Error loading notifications", err);
-      }
-    }
-    return NOTIFICATIONS;
-  });
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [list, setList] = useState<RealNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchRealNotifications(user)
+      .then(setList)
+      .finally(() => setLoading(false));
+  }, [user]);
 
   const markAllRead = () => {
-    const updated = list.map((n: any) => ({ ...n, unread: false }));
+    const updated = list.map((n) => ({ ...n, unread: false }));
     setList(updated);
-    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-      try {
-        localStorage.setItem("forge_focus_notifications", JSON.stringify(updated));
-      } catch (err) {
-        console.error("Error saving notifications", err);
-      }
-    }
     toast.success("All notifications marked as read");
   };
 
-  const toggleRead = (id: string) => {
-    const updated = list.map((n: any) => (n.id === id ? { ...n, unread: !n.unread } : n));
-    setList(updated);
-    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-      try {
-        localStorage.setItem("forge_focus_notifications", JSON.stringify(updated));
-      } catch (err) {
-        console.error("Error saving notifications", err);
-      }
-    }
+  const handleNotificationClick = (n: RealNotification) => {
+    setList((prev) => prev.map((item) => (item.id === n.id ? { ...item, unread: false } : item)));
+    const targetLink = n.link || "/dashboard";
+    navigate({ to: targetLink as any });
   };
 
   return (
@@ -61,39 +47,54 @@ function NotificationsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Notifications</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Everything that's happened across your rooms.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Real-time updates, deadlines, and room invitations across your platform account.</p>
           </div>
-          {list.some((n: any) => n.unread) && (
+          {list.some((n) => n.unread) && (
             <Button variant="outline" size="sm" onClick={markAllRead}>
               Mark all as read
             </Button>
           )}
         </div>
-        <div className="glass rounded-2xl p-2 shadow-card">
-          <ul className="divide-y divide-border">
-            {list.map((n: any) => {
-              const Icon = iconFor(n.type);
-              return (
-                <li
-                  key={n.id}
-                  onClick={() => toggleRead(n.id)}
-                  className="flex items-start gap-3 p-4 cursor-pointer hover:bg-card/50 transition rounded-xl"
-                >
-                  <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-brand-soft text-primary">
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{n.title}</p>
-                      {n.unread && <Badge className="bg-gradient-brand text-white border-transparent">New</Badge>}
+        <div className="glass rounded-2xl p-2 shadow-card min-h-[300px]">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : list.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-muted-foreground">
+              <Bell className="h-10 w-10 opacity-20" />
+              <p className="text-base font-medium text-foreground">No notifications yet</p>
+              <p className="text-xs text-muted-foreground">When you receive room invites or hit hackathon deadlines, they will appear here.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {list.map((n) => {
+                const Icon = iconFor(n.type);
+                return (
+                  <li
+                    key={n.id}
+                    onClick={() => handleNotificationClick(n)}
+                    className="group flex items-start gap-3 p-4 cursor-pointer hover:bg-card/70 transition rounded-xl"
+                  >
+                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-brand-soft text-primary shrink-0">
+                      <Icon className="h-4 w-4" />
                     </div>
-                    <p className="text-sm text-muted-foreground">{n.detail}</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{n.time}</span>
-                </li>
-              );
-            })}
-          </ul>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium group-hover:text-primary transition">{n.title}</p>
+                        {n.unread && <Badge className="bg-gradient-brand text-white border-transparent text-[10px]">New</Badge>}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">{n.detail}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">{n.time}</span>
+                      <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition" />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       </div>
     </AppShell>

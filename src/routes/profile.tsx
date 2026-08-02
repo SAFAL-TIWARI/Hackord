@@ -14,6 +14,8 @@ import {
   Mail,
   Sparkles,
   Loader2,
+  X,
+  Users,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -31,7 +33,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SKILLS } from "@/lib/dummy-data";
+import { SKILLS, DEMO_AUTH_USER, DUMMY_DB_ROOMS } from "@/lib/dummy-data";
 import { getRooms, type DbRoom } from "@/lib/rooms-api";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -62,22 +64,24 @@ export type UserProfile = {
 function ProfilePage() {
   const { user, updateProfile, loading: authLoading } = useAuth();
 
+  const activeUser = user || DEMO_AUTH_USER;
+
   const getProfileState = (): UserProfile => ({
-    id: user?._id || "",
-    name: user?.name || "Anonymous",
-    username: user?.username || (user?.email ? user.email.split("@")[0] : "user"),
-    email: user?.email || "",
-    avatar: user?.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${user?.name || "User"}`,
-    college: user?.college || "",
-    city: user?.city || "",
-    country: user?.country || "",
-    skills: user?.skills || [],
-    github: user?.github || "",
-    linkedin: user?.linkedin || "",
-    portfolio: user?.portfolio || "",
-    bio: user?.bio || "",
-    experience: user?.experience || "Beginner",
-    completedHackathons: user?.completedHackathons || [],
+    id: activeUser._id || "",
+    name: activeUser.name,
+    username: activeUser.username || (activeUser.email ? activeUser.email.split("@")[0] : "aarav"),
+    email: activeUser.email,
+    avatar: activeUser.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${activeUser.name}`,
+    college: activeUser.college || "",
+    city: activeUser.city || "",
+    country: activeUser.country || "",
+    skills: activeUser.skills || [],
+    github: activeUser.github || "",
+    linkedin: activeUser.linkedin || "",
+    portfolio: activeUser.portfolio || "",
+    bio: activeUser.bio || "",
+    experience: (activeUser.experience as any) || "Advanced",
+    completedHackathons: activeUser.completedHackathons || [],
   });
 
   const profile = getProfileState();
@@ -91,17 +95,20 @@ function ProfilePage() {
   const [roomsLoading, setRoomsLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      setEditForm(getProfileState());
-    }
+    setEditForm(getProfileState());
   }, [user]);
 
   useEffect(() => {
-    getRooms()
-      .then((data) => setUserRooms(data))
-      .catch((err) => console.error("Failed to fetch profile rooms", err))
-      .finally(() => setRoomsLoading(false));
-  }, []);
+    if (user) {
+      getRooms({ userId: user._id, email: user.email, userName: user.name })
+        .then((data) => setUserRooms(data || []))
+        .catch((err) => console.error("Failed to fetch profile rooms", err))
+        .finally(() => setRoomsLoading(false));
+    } else {
+      setUserRooms(DUMMY_DB_ROOMS as any);
+      setRoomsLoading(false);
+    }
+  }, [user]);
 
   const handleOpenEdit = () => {
     setEditForm(getProfileState());

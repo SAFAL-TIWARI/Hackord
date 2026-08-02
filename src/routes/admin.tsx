@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   Users2,
@@ -11,6 +11,9 @@ import {
   Mail,
   Clock,
   Sparkles,
+  Layers3,
+  ExternalLink,
+  Crown,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
@@ -18,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth, type AuthUser } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
+import { getRooms, type DbRoom } from "@/lib/rooms-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
@@ -39,8 +43,10 @@ function AdminPage() {
   const navigate = useNavigate();
 
   const [users, setUsers] = useState<AuthUser[]>([]);
+  const [rooms, setRooms] = useState<DbRoom[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [search, setSearch] = useState("");
+  const [roomSearch, setRoomSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,12 +64,14 @@ function AdminPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [usersRes, statsRes] = await Promise.all([
+      const [usersRes, statsRes, roomsRes] = await Promise.all([
         apiFetch<{ users: AuthUser[] }>(`/admin/users?limit=100`),
         apiFetch<AdminStats>("/admin/stats"),
+        getRooms({ all: true }),
       ]);
       setUsers(usersRes.users);
       setStats(statsRes);
+      setRooms(roomsRes || []);
     } catch (err: any) {
       toast.error(err.message || "Failed to load admin data");
     } finally {
@@ -109,11 +117,26 @@ function AdminPage() {
   const statCards = stats
     ? [
         { label: "Total Users", value: stats.totalUsers, icon: Users2, color: "text-primary" },
+        { label: "Platform Rooms", value: rooms.length, icon: Layers3, color: "text-blue-400" },
         { label: "Today's Signups", value: stats.todaySignups, icon: UserPlus, color: "text-emerald-400" },
-        { label: "This Week", value: stats.recentSignups, icon: TrendingUp, color: "text-amber-400" },
         { label: "Admins", value: stats.totalAdmins, icon: ShieldCheck, color: "text-rose-400" },
       ]
     : [];
+
+  const filteredRooms = rooms.filter((r) => {
+    if (!roomSearch.trim()) return true;
+    const q = roomSearch.toLowerCase();
+    const creatorName = (r.creator_name || r.members?.[0]?.user_name || "").toLowerCase();
+    const creatorEmail = (r.creator_email || "").toLowerCase();
+    const roomName = (r.name || "").toLowerCase();
+    const hackathon = (r.hackathon || "").toLowerCase();
+    return (
+      creatorName.includes(q) ||
+      creatorEmail.includes(q) ||
+      roomName.includes(q) ||
+      hackathon.includes(q)
+    );
+  });
 
   return (
     <AppShell>
@@ -127,7 +150,7 @@ function AdminPage() {
                 <h1 className="text-3xl font-semibold tracking-tight">Admin Panel</h1>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Manage users and monitor platform activity
+                Monitor user accounts and manage platform rooms grouped by specific user profiles
               </p>
             </div>
             <Badge className="bg-gradient-brand text-white px-3 py-1 text-xs self-start">
@@ -153,11 +176,95 @@ function AdminPage() {
           </section>
         )}
 
+        {/* Platform Rooms Stored by User Profile (Admin View) */}
+        <section className="glass rounded-2xl p-6 shadow-card">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Layers3 className="h-5 w-5 text-primary" /> Platform Rooms Stored by User Creator
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                All rooms created across the platform stored and associated with specific user profiles
+              </p>
+            </div>
+
+            <div className="relative max-w-xs w-full">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Filter by user, email or room..."
+                className="pl-9"
+                value={roomSearch}
+                onChange={(e) => setRoomSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {filteredRooms.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
+              No rooms found matching "{roomSearch}"
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+              {filteredRooms.map((r) => {
+                const owner = r.members?.[0];
+                const creatorName = r.creator_name || owner?.user_name || "Platform User";
+                const creatorAvatar = owner?.user_avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(creatorName)}`;
+
+                return (
+                  <div key={r.id} className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                          {r.status}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          {r.members?.length || 0}/{r.max_size} members
+                        </span>
+                      </div>
+
+                      <h3 className="mt-2 text-base font-semibold truncate">{r.name}</h3>
+                      <p className="text-xs text-muted-foreground truncate">{r.hackathon}</p>
+                    </div>
+
+                    {/* Creator / Owner Info */}
+                    <div className="border-t border-border/50 pt-3 mt-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Avatar className="h-8 w-8 border border-border shrink-0">
+                          <AvatarImage src={creatorAvatar} />
+                          <AvatarFallback>{creatorName[0]}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate flex items-center gap-1">
+                            {creatorName}
+                            <Crown className="h-3 w-3 text-warning shrink-0" />
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {r.creator_email || "Creator Account"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Link
+                        to="/rooms/$roomId"
+                        params={{ roomId: r.id }}
+                        className="rounded-lg bg-sidebar-accent p-2 text-xs hover:bg-primary hover:text-white transition"
+                        title="View Room Details"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Users Table */}
           <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2">
             <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold">Registered Users</h2>
+              <h2 className="text-lg font-semibold">Registered User Profiles</h2>
               <div className="relative max-w-xs flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -182,7 +289,7 @@ function AdminPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
                 {users.map((u) => (
                   <div
                     key={u._id}

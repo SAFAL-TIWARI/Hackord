@@ -5,7 +5,7 @@ import {
   Users, MessageSquare, Bot, Github, FileIcon, CalendarDays, Video,
   Crown, ExternalLink, Search, Send, Paperclip, Smile, Pin, Plus, Edit,
   FileText, Image as ImageIcon, Film, Archive, Sparkles, GitBranch,
-  GitPullRequest, CircleDot, Check, Clock, Play, Link as LinkIcon,
+  GitPullRequest, CircleDot, Check, Clock, Play, Link as LinkIcon, Trash2,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { RoomSkeleton } from "@/components/RoomSkeleton";
@@ -21,15 +21,16 @@ import {
 } from "@/components/ui/dialog";
 import {
   DISCOVER_USERS, FILES as SEED_FILES, TASKS as SEED_TASKS,
-  AI_TOOLS, MEETINGS, GITHUB_DATA,
+  AI_TOOLS, MEETINGS, GITHUB_DATA, DUMMY_DB_ROOMS, MESSAGES as SEED_MESSAGES,
 } from "@/lib/dummy-data";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import {
   getRoom, getMessages, getMessagesSince, sendMessage, updateRoom,
-  addFileResource, addTask, updateTaskStatus, addProjectLink, addMemberToRoom, getLoggedInUser,
+  addFileResource, addTask, updateTaskStatus, addProjectLink, addMemberToRoom, removeMemberFromRoom, getLoggedInUser,
   type DbRoom, type DbMember, type DbMessage, type DbFileResource, type DbTask, type DbActivity,
 } from "@/lib/rooms-api";
+import { searchUsers, sendRoomInvitation, type DbUser } from "@/lib/users-api";
 
 export const Route = createFileRoute("/rooms/$roomId")({
   head: ({ params }) => ({
@@ -37,10 +38,36 @@ export const Route = createFileRoute("/rooms/$roomId")({
   }),
   pendingComponent: RoomSkeleton,
   loader: async ({ params }) => {
-    const [room, messages] = await Promise.all([
-      getRoom({ data: { roomId: params.roomId } }),
-      getMessages({ data: { roomId: params.roomId } }),
-    ]);
+    let room: DbRoom | null = null;
+    let messages: DbMessage[] = [];
+    try {
+      [room, messages] = await Promise.all([
+        getRoom({ data: { roomId: params.roomId } }),
+        getMessages({ data: { roomId: params.roomId } }),
+      ]);
+    } catch {
+      room = null;
+      messages = [];
+    }
+
+    if (!room) {
+      const demo = DUMMY_DB_ROOMS.find((r) => r.id === params.roomId) || DUMMY_DB_ROOMS[0];
+      room = demo as any;
+    }
+    if (!messages || messages.length === 0) {
+      messages = SEED_MESSAGES.map((m) => {
+        const authorName = m.authorId === "u_me" ? "Aarav Sharma" : m.authorId === "u1" ? "Priya Nair" : m.authorId === "u2" ? "Rohan Mehta" : "Ishita Rao";
+        return {
+          id: m.id,
+          author_name: authorName,
+          author_avatar: `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(authorName.split(" ")[0])}`,
+          text: m.text + (m.code ? `\n${m.code}` : ""),
+          pinned: m.pinned || false,
+          created_at: "2026-08-01T10:15:00.000Z",
+        };
+      });
+    }
+
     if (!room) throw notFound();
     return { room, messages };
   },
@@ -124,7 +151,7 @@ function RoomPage() {
         </section>
 
         {/* Tabs */}
-        <div className="sticky top-16 z-20 -mx-4 overflow-x-auto border-b border-border bg-background/60 px-4 backdrop-blur-xl md:mx-0 md:rounded-xl md:border md:px-2">
+        <div className="sticky top-16 z-20 -mx-3 overflow-x-auto border-b border-border bg-background/60 px-4 backdrop-blur-xl md:mx-0 md:rounded-xl md:border md:px-2 py-3">
           <div className="flex gap-1">
             {TABS.map((t) => {
               const active = tab === t.key;
@@ -322,7 +349,7 @@ function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoom
   const projectLinks = (room.project_links && room.project_links.length > 0)
     ? room.project_links
     : [
-        { label: "GitHub Repo", url: "https://github.com/SAFAL-TIWARI/Hackord" },
+        { label: "GitHub Repo", url: "https://github.com/Temp/Hackord" },
         { label: "Figma Specs", url: "https://figma.com" },
         { label: "Demo Video", url: "https://demo.hackord.com" },
       ];
@@ -390,7 +417,7 @@ function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoom
 
         <section className="glass rounded-2xl p-6 shadow-card">
           <h2 className="mb-4 text-lg font-semibold">Recent activity</h2>
-          <ul className="space-y-3">
+          <ul className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
             {activities.map((a: DbActivity) => (
               <li key={a.id} className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/50 p-3">
                 <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-brand-soft text-xs font-semibold text-primary">
@@ -427,7 +454,7 @@ function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoom
               <Plus className="h-3.5 w-3.5" /> Add
             </Button>
           </div>
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-2 text-sm max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
             {projectLinks.map((l) => (
               <li key={l.label + l.url}>
                 <a
@@ -474,107 +501,188 @@ function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoom
 function MembersTab({ room, onRoomUpdate }: { room: DbRoom; onRoomUpdate: () => void }) {
   const [openAdd, setOpenAdd] = useState(false);
   const members = room.members ?? [];
+  const { user: currentUser } = useAuth();
+
+  const handleRemove = async (userId: string, userName: string) => {
+    try {
+      await removeMemberFromRoom({
+        roomId: room.id,
+        userId,
+        removedBy: currentUser?.name || "Owner",
+      });
+      toast.success(`${userName} removed from room`);
+      onRoomUpdate();
+    } catch {
+      toast.error("Failed to remove member");
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Team members</h2>
         <Button onClick={() => setOpenAdd(true)} className="bg-gradient-brand text-white shadow-glow hover:opacity-90">
-          <Plus className="h-4 w-4" /> Add member
+          <Plus className="h-4 w-4 mr-1.5" /> Add member
         </Button>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {members.map((m) => (
-          <div key={m.user_id} className="glass rounded-2xl p-5 shadow-card">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-12 w-12">
+          <div key={m.user_id} className="glass rounded-2xl p-5 shadow-card flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <Avatar className="h-12 w-12 shrink-0">
                 <AvatarImage src={m.user_avatar} />
                 <AvatarFallback>{m.user_name[0]}</AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="truncate font-medium">{m.user_name}</p>
-                  {m.role === "Owner" && <Crown className="h-3.5 w-3.5 text-warning" />}
+                  {m.role === "Owner" && <Crown className="h-3.5 w-3.5 text-warning shrink-0" />}
                 </div>
+                <p className="text-xs text-muted-foreground">{m.role}</p>
               </div>
             </div>
-            <div className="mt-4 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">{m.role}</span>
-              <Badge variant="outline">{m.role}</Badge>
-            </div>
+            {m.role !== "Owner" && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleRemove(m.user_id, m.user_name)}
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/15 shrink-0"
+                title="Remove Member"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         ))}
       </div>
-      <AddMemberDialog roomId={room.id} open={openAdd} onOpenChange={setOpenAdd} onRoomUpdate={onRoomUpdate} />
+      <AddMemberDialog room={room} open={openAdd} onOpenChange={setOpenAdd} onRoomUpdate={onRoomUpdate} />
     </div>
   );
 }
 
 function AddMemberDialog({
-  roomId, open, onOpenChange, onRoomUpdate,
+  room, open, onOpenChange, onRoomUpdate,
 }: {
-  roomId: string; open: boolean; onOpenChange: (v: boolean) => void; onRoomUpdate: () => void;
+  room: DbRoom; open: boolean; onOpenChange: (v: boolean) => void; onRoomUpdate: () => void;
 }) {
   const [q, setQ] = useState("");
   const [requested, setRequested] = useState<string[]>([]);
+  const [dbUsers, setDbUsers] = useState<DbUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { user: currentUser } = useAuth();
 
-  const results = DISCOVER_USERS.filter((u) => {
-    const s = q.toLowerCase();
-    return !s || u.name.toLowerCase().includes(s) || u.college.toLowerCase().includes(s) ||
-      u.skills.join(" ").toLowerCase().includes(s) || (u.city ?? "").toLowerCase().includes(s);
-  });
+  const memberIds = new Set((room.members || []).map((m) => m.user_id));
+  const memberNames = new Set((room.members || []).map((m) => m.user_name.toLowerCase()));
+  const currentCount = room.members?.length ?? 0;
+  const maxCapacity = room.max_size ?? 6;
+  const isFull = currentCount >= maxCapacity;
 
-  async function handleAddMember(user: any) {
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    searchUsers(q, {
+      excludeId: currentUser?._id,
+      excludeEmail: currentUser?.email,
+    })
+      .then((res) => {
+        const filtered = res.filter((u) => {
+          if (currentUser && (u._id === currentUser._id || u.email === currentUser.email)) return false;
+          if (memberIds.has(u._id)) return false;
+          if (memberNames.has(u.name.toLowerCase())) return false;
+          return true;
+        });
+        setDbUsers(filtered);
+      })
+      .finally(() => setLoading(false));
+  }, [q, open, currentUser]);
+
+  async function handleSendInvite(user: DbUser) {
+    if (isFull) {
+      toast.error(`Room member limit reached (${currentCount}/${maxCapacity}). Cannot send more invitations.`);
+      return;
+    }
     try {
-      await addMemberToRoom({
-        roomId,
-        user_name: user.name,
-        user_avatar: user.avatar,
-        role: "Contributor",
+      await sendRoomInvitation({
+        recipientId: user._id,
+        roomId: room.id,
+        senderId: currentUser?._id || "u_me",
+        senderName: currentUser?.name || "Team Owner",
+        senderAvatar: currentUser?.avatar || "",
       });
-      setRequested((r) => [...r, user.id]);
-      toast.success(`${user.name} added to team!`);
-      onRoomUpdate();
-    } catch {
-      toast.error("Failed to add member");
+      setRequested((r) => [...r, user._id]);
+      toast.success(`Invitation sent to ${user.name}!`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send invitation");
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl flex flex-col max-h-[85vh]">
         <DialogHeader>
-          <DialogTitle>Add members</DialogTitle>
-          <DialogDescription>Search by skill, college, city or experience.</DialogDescription>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Invite members to room</DialogTitle>
+            <Badge variant={isFull ? "destructive" : "secondary"}>
+              Capacity: {currentCount}/{maxCapacity} members
+            </Badge>
+          </div>
+          <DialogDescription>Search platform users by name, skill, github, or college to send them a room invitation.</DialogDescription>
         </DialogHeader>
+
+        {isFull && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive font-medium flex items-center gap-2">
+            <span>⚠️ Room capacity limit reached ({currentCount}/{maxCapacity} members). Remove a team member before sending new invitations.</span>
+          </div>
+        )}
+
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. React, IIT, Bangalore, Advanced" className="pl-9" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. React, Flutter, IIT, github username..." className="pl-9" />
         </div>
-        <div className="mt-2 max-h-[420px] space-y-3 overflow-y-auto pr-1">
-          {results.map((u) => {
-            const isRequested = requested.includes(u.id);
-            return (
-              <div key={u.id} className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/50 p-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={u.avatar} />
-                  <AvatarFallback>{u.name[0]}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{u.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{u.college} · {u.experience}</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {u.skills.map((s) => <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>)}
+        <div className="mt-2 flex-1 max-h-[380px] space-y-3 overflow-y-auto custom-scrollbar pr-1">
+          {loading ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Searching database users...</p>
+          ) : dbUsers.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No eligible accounts found matching "{q}"</p>
+          ) : (
+            dbUsers.map((u) => {
+              const isRequested = requested.includes(u._id);
+              return (
+                <div key={u._id} className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/50 p-3">
+                  <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarImage src={u.avatar} />
+                    <AvatarFallback>{u.name[0]}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium">{u.name}</p>
+                      {u.username && <span className="text-xs text-muted-foreground">@{u.username}</span>}
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {u.college || "Platform Hacker"} {u.experience ? `· ${u.experience}` : ""}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {(u.skills || []).map((s) => <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>)}
+                    </div>
                   </div>
+                  {isRequested ? (
+                    <Badge variant="outline" className="gap-1 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                      <Check className="h-3 w-3 text-emerald-400" /> Invited
+                    </Badge>
+                  ) : (
+                    <Button
+                      size="sm"
+                      disabled={isFull}
+                      className={cn("bg-gradient-brand text-white shadow-glow", isFull && "opacity-50 cursor-not-allowed")}
+                      onClick={() => handleSendInvite(u)}
+                    >
+                      {isFull ? "Room Full" : "Send Invite"}
+                    </Button>
+                  )}
                 </div>
-                {isRequested ? (
-                  <Badge variant="outline" className="gap-1"><Check className="h-3 w-3 text-success" /> Added</Badge>
-                ) : (
-                  <Button size="sm" onClick={() => handleAddMember(u)}>Add to team</Button>
-                )}
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -734,7 +842,7 @@ function FilesTab({ room, onRoomUpdate, userName }: { room: DbRoom; onRoomUpdate
   const [resType, setResType] = useState("link");
   const [saving, setSaving] = useState(false);
 
-  const files = (room.files && room.files.length > 0) ? room.files : SEED_FILES;
+  const files = room.files || [];
 
   const iconFor = (t: string) =>
     t === "pdf" ? FileText : t === "ppt" ? FileText : t === "image" ? ImageIcon :
@@ -776,33 +884,41 @@ function FilesTab({ room, onRoomUpdate, userName }: { room: DbRoom; onRoomUpdate
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {files.map((f: any) => {
-          const Icon = iconFor(f.type);
-          return (
-            <a
-              key={f.id}
-              href={f.url && f.url !== "#" ? (f.url.startsWith("http") ? f.url : `https://${f.url}`) : "#"}
-              target="_blank"
-              rel="noreferrer"
-              className="glass rounded-2xl p-5 shadow-card transition hover:-translate-y-0.5 group"
-            >
-              <div className="flex items-start gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-brand-soft shrink-0">
-                  <Icon className="h-5 w-5 text-primary" />
+      {files.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
+          <FileText className="h-10 w-10 text-muted-foreground mb-3 opacity-40" />
+          <p className="text-base font-semibold">No resources attached yet</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm">Click "Add Resource / File" to attach project documentation, pitch decks, Figma designs, or code repository links.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {files.map((f: any) => {
+            const Icon = iconFor(f.type);
+            return (
+              <a
+                key={f.id}
+                href={f.url && f.url !== "#" ? (f.url.startsWith("http") ? f.url : `https://${f.url}`) : "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="glass rounded-2xl p-5 shadow-card transition hover:-translate-y-0.5 group"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-brand-soft shrink-0">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium group-hover:text-primary transition">{f.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{f.size || "Resource"} · by {f.uploadedBy || "Team"}</p>
+                    <span className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary">
+                      <ExternalLink className="h-3 w-3" /> Open link
+                    </span>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium group-hover:text-primary transition">{f.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{f.size || "Resource"} · by {f.uploadedBy || "Team"}</p>
-                  <span className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary">
-                    <ExternalLink className="h-3 w-3" /> Open link
-                  </span>
-                </div>
-              </div>
-            </a>
-          );
-        })}
-      </div>
+              </a>
+            );
+          })}
+        </div>
+      )}
 
       <Dialog open={openAddFile} onOpenChange={setOpenAddFile}>
         <DialogContent>
@@ -987,9 +1103,22 @@ function TasksTab({ room, onRoomUpdate, userName }: { room: DbRoom; onRoomUpdate
             <Label className="text-xs">Task title</Label>
             <Input placeholder="Describe task..." value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required />
           </div>
-          <div className="w-full sm:w-40 space-y-1">
-            <Label className="text-xs">Assignee</Label>
-            <Input value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} />
+          <div className="w-full sm:w-48 space-y-1">
+            <Label className="text-xs">Assign to Member</Label>
+            <select
+              value={newAssignee}
+              onChange={(e) => setNewAssignee(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm text-foreground"
+            >
+              {(room.members || []).map((m) => (
+                <option key={m.user_id} value={m.user_name} className="bg-popover text-popover-foreground">
+                  {m.user_name} ({m.role || "Member"})
+                </option>
+              ))}
+              {!room.members?.some((m) => m.user_name === userName) && (
+                <option value={userName} className="bg-popover text-popover-foreground">{userName} (Me)</option>
+              )}
+            </select>
           </div>
           <div className="w-full sm:w-32 space-y-1">
             <Label className="text-xs">Priority</Label>
@@ -1174,7 +1303,7 @@ function GithubTab() {
           <h3 className="mb-3 text-sm font-medium">Contributors</h3>
           <div className="flex flex-wrap gap-2">
             {[
-              { id: "u_me", name: "Safal Tiwari", avatar: "https://api.dicebear.com/9.x/glass/svg?seed=Safal" },
+              { id: "u_me", name: "Aarav sharma", avatar: "https://api.dicebear.com/9.x/glass/svg?seed=tempuser" },
               { id: "u1", name: "Priya Nair", avatar: "https://api.dicebear.com/9.x/glass/svg?seed=Priya" },
               { id: "u2", name: "Rohan Mehta", avatar: "https://api.dicebear.com/9.x/glass/svg?seed=Rohan" },
             ].map((m) => (

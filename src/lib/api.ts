@@ -1,9 +1,19 @@
 // ─── Centralized API Client ─────────────────────────────────────────────────
 // All backend requests go through this wrapper which auto-injects the JWT token.
 
-const API_BASE = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL)
+const rawApiUrl = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL)
   ? import.meta.env.VITE_API_URL
   : "http://localhost:3000/api";
+
+function normalizeApiBase(url: string): string {
+  let cleaned = url.trim().replace(/\/+$/, "");
+  if (!cleaned.endsWith("/api")) {
+    cleaned = `${cleaned}/api`;
+  }
+  return cleaned;
+}
+
+const API_BASE = normalizeApiBase(rawApiUrl);
 
 export class ApiError extends Error {
   status: number;
@@ -30,7 +40,9 @@ export async function apiFetch<T = unknown>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+
+  const res = await fetch(`${API_BASE}${cleanEndpoint}`, {
     ...options,
     headers,
   });
@@ -46,3 +58,4 @@ export async function apiFetch<T = unknown>(
 
   return data as T;
 }
+

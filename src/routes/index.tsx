@@ -1,83 +1,132 @@
+import React, { Suspense, useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Sparkles, Users, Github, Calendar, MessageSquare, Bot } from "lucide-react";
+import { Sparkles } from "lucide-react";
+import { AnimatedRole } from "@/components/AnimatedRole";
+import { BrandLogo } from "@/components/BrandLogo";
+import { FeaturedRooms } from "@/components/FeaturedRooms";
+import { FeaturesBento } from "@/components/FeaturesBento";
+import { HeroShowcase } from "@/components/HeroShowcase";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+const HeroBackground = React.lazy(() =>
+  import("@/components/HeroBackground").then((m) => ({ default: m.HeroBackground }))
+);
 
 export const Route = createFileRoute("/")({
   component: Landing,
 });
 
 function Landing() {
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      const saved = localStorage.getItem("hackord_theme") as "dark" | "light";
+      if (saved) return saved;
+    }
+    return "dark";
+  });
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (theme === "light") document.documentElement.classList.add("light");
+      else document.documentElement.classList.remove("light");
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("hackord_theme", theme);
+    }
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+
   return (
-    <div className="min-h-screen bg-background bg-mesh">
-      <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-brand shadow-glow">
-            <Sparkles className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight">Hackord</span>
+    <div className="min-h-screen bg-background bg-mesh text-foreground">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-white/10 dark:border-white/5 bg-background/80 backdrop-blur-lg">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-2.5">
+          <BrandLogo size="md" />
+
+          <nav className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+
+           
+            <Link
+              to="/signup"
+              className="rounded-lg bg-gradient-brand px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white shadow-glow transition hover:opacity-90 whitespace-nowrap"
+            >
+              Get started
+            </Link>
+          </nav>
         </div>
-        <nav className="flex items-center gap-3">
-          <Link
-            to="/login"
-            className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            Log in
-          </Link>
-          <Link
-            to="/signup"
-            className="rounded-lg bg-gradient-brand px-4 py-2 text-sm font-medium text-white shadow-glow transition hover:opacity-90"
-          >
-            Get started
-          </Link>
-        </nav>
       </header>
 
-      <section className="mx-auto max-w-5xl px-6 pt-16 pb-24 text-center">
-        <div className="mx-auto inline-flex items-center gap-2 rounded-full glass px-3 py-1 text-xs text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-gradient-brand" />
-          Private hackathon workspaces
-        </div>
-        <h1 className="mt-6 text-5xl font-bold tracking-tight sm:text-6xl">
-          Ship your hackathon in one{" "}
-          <span className="text-gradient-brand">focused workspace.</span>
-        </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-lg text-muted-foreground">
-          Invite teammates by skill, manage deadlines, chat, share files, run AI tools,
-          and hit submission — all inside a private room designed for hackathon teams.
-        </p>
-        <div className="mt-8 flex justify-center gap-3">
-          <Link
-            to="/signup"
-            className="rounded-lg bg-gradient-brand px-5 py-3 text-sm font-medium text-white shadow-glow transition hover:opacity-90"
-          >
-            Create a workspace
-          </Link>
-          <Link
-            to="/dashboard"
-            className="rounded-lg border border-border bg-card px-5 py-3 text-sm font-medium transition hover:bg-accent"
-          >
-            Live demo
-          </Link>
-        </div>
+      {/* Hero Section */}
+      <section className="relative mx-auto max-w-8xl px-6 pt-24 sm:pt-32 pb-20 sm:pb-24 border-b border-white/10 dark:border-white/5 overflow-hidden lg:overflow-visible">
+        <Suspense fallback={<div className="absolute inset-0 bg-background" />}>
+          <HeroBackground />
+        </Suspense>
 
-        <div className="mt-20 grid gap-4 text-left sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            { icon: Users, title: "Invite by skill", desc: "Search by skill, college, city or experience and invite in one tap." },
-            { icon: Calendar, title: "Deadline-aware", desc: "Registration, PPT, prototype, final — every date, one timeline." },
-            { icon: MessageSquare, title: "Team chat", desc: "Threads, code blocks, files, pinned messages — built for builders." },
-            { icon: Github, title: "GitHub integration", desc: "Repos, PRs, issues and commits inside your room." },
-            { icon: Bot, title: "AI workspace", desc: "PPT, README, pitch, architecture — generated on demand." },
-            { icon: Sparkles, title: "Feels premium", desc: "Linear-fast, Notion-clean, Discord-lively." },
-          ].map((f) => (
-            <div key={f.title} className="glass rounded-2xl p-5 shadow-card animate-fade-in">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-brand-soft">
-                <f.icon className="h-5 w-5 text-primary" />
-              </div>
-              <h3 className="mt-3 text-base font-semibold">{f.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{f.desc}</p>
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center relative z-10">
+          <div className="text-left">
+            <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 text-xs text-muted-foreground animate-fade-in">
+              <Sparkles className="h-3 w-3 text-primary" />
+              <span>The Intelligence Engine for Hackathons</span>
             </div>
-          ))}
+
+            <h1 className="mt-6 sm:mt-8 text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight animate-fade-in animate-delay-100">
+              Ship faster <br />
+              <span className="text-foreground drop-shadow-sm">
+                with <AnimatedRole roles={["AI.", "Confidence.", "Hackord."]} />
+              </span>
+            </h1>
+
+            <p className="mt-6 sm:mt-8 max-w-xl text-base sm:text-xl text-muted-foreground leading-relaxed animate-fade-in animate-delay-200">
+              The premium workspace for elite hackathon teams. Automate pull requests, generate pitch decks, and collaborate in real-time with an intelligent AI copilot.
+            </p>
+
+            <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-4 animate-fade-in animate-delay-300">
+              <Link
+                to="/signup"
+                className="group relative rounded-xl px-8 py-3 text-center font-semibold text-background transition-all hover:scale-105 active:scale-95 shadow-[0_0_40px_-10px_var(--color-primary)]"
+              >
+                <div className="absolute inset-0 rounded-xl bg-foreground group-hover:bg-foreground/90 transition-colors" />
+                <div className="absolute inset-[-1px] rounded-xl bg-gradient-to-r from-primary via-brand to-primary opacity-0 group-hover:opacity-100 blur-sm transition-opacity" />
+                <span className="relative">Create a workspace</span>
+              </Link>
+              <Link
+                to="/dashboard"
+                className="rounded-xl glass-strong px-8 py-3 text-center font-semibold transition hover:bg-muted/50 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+              >
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Live demo
+              </Link>
+            </div>
+          </div>
+
+          <div className="animate-fade-in animate-delay-400">
+            <HeroShowcase />
+          </div>
         </div>
       </section>
+
+      {/* Featured Active Rooms & Create Room Grid */}
+      <FeaturedRooms />
+
+      {/* Bento Grid Features */}
+      <FeaturesBento />
+
+      {/* Premium Footer */}
+      <footer className="border-t border-white/10 dark:border-white/5 bg-background/80 py-16 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-2">
+            <BrandLogo size="md" />
+          </div>
+          <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <a href="#" className="hover:text-foreground transition-colors">Documentation</a>
+            <a href="#" className="hover:text-foreground transition-colors">API Reference</a>
+            <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
+            <a href="#" className="hover:text-foreground transition-colors">Terms</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

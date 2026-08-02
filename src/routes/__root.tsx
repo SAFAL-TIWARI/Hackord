@@ -8,7 +8,6 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { Buddy3D } from "@/components/Buddy3D";
 import { AuthProvider } from "@/lib/auth";
 
 import appCss from "../styles.css?url";
@@ -87,14 +86,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Hackord is a private collaboration workspace for hackathon teams — invite by skills, manage deadlines, chat, share files, and ship together.",
       },
       { name: "author", content: "Hackord" },
-      { property: "og:title", content: "Hackord — Private Hackathon Workspaces" },
+      { property: "og:title", content: "Hackord — Hackathon Workspaces for Developers" },
       { property: "og:description", content: "Invite teammates by skill, manage deadlines, and ship your hackathon project in one private workspace." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
@@ -136,7 +135,6 @@ function RootComponent() {
       <QueryClientProvider client={queryClient}>
         <Outlet />
         <Toaster />
-        {mounted && <Buddy3D />}
       </QueryClientProvider>
     </AuthProvider>
   );

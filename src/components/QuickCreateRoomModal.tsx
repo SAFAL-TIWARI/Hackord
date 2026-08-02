@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Users, CalendarDays, MapPin, Zap } from "lucide-react";
 import { createRoom } from "@/lib/rooms-api";
+import { useAuth } from "@/lib/auth";
 import type { Hackathon } from "@/lib/hackathon-data";
 
 interface QuickCreateRoomModalProps {
@@ -41,6 +42,7 @@ export function QuickCreateRoomModal({
   onOpenChange,
 }: QuickCreateRoomModalProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [teamName, setTeamName] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -76,6 +78,10 @@ export function QuickCreateRoomModal({
           projectLinks: [
             { label: "Hackathon Page", url: hackathon.banner || "" },
           ],
+          creatorId: user?._id,
+          creatorEmail: user?.email,
+          creatorName: user?.name,
+          creatorAvatar: user?.avatar,
         },
       });
 

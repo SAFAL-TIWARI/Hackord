@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { createRoom } from "@/lib/rooms-api";
+import { useAuth } from "@/lib/auth";
 
 export interface RoomPrefill {
   hackathon?: string;
@@ -37,6 +38,7 @@ export function CreateRoomModal({
   prefill?: RoomPrefill;
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const formRef = useRef<HTMLFormElement>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -82,6 +84,10 @@ export function CreateRoomModal({
           deadlineFinal: (fd.get("deadlineFinal") as string) ?? "",
           deadlineResult: (fd.get("deadlineResult") as string) ?? "",
           projectLinks,
+          creatorId: user?._id,
+          creatorEmail: user?.email,
+          creatorName: user?.name,
+          creatorAvatar: user?.avatar,
         },
       });
 

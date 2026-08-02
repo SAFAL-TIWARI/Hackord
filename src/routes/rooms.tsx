@@ -1,10 +1,13 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Users2, Plus } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { RoomSkeleton } from "@/components/RoomSkeleton";
-import { getRooms } from "@/lib/rooms-api";
+import { getRooms, type DbRoom } from "@/lib/rooms-api";
+import { useAuth } from "@/lib/auth";
+import { DUMMY_DB_ROOMS } from "@/lib/dummy-data";
 
 export const Route = createFileRoute("/rooms")({
   head: () => ({ meta: [{ title: "My Rooms — Hackord" }] }),
@@ -15,10 +18,26 @@ export const Route = createFileRoute("/rooms")({
 
 function RoomsLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const initialRooms = Route.useLoaderData();
+  const { user } = useAuth();
+  const [rooms, setRooms] = useState<DbRoom[]>(initialRooms);
+
+  useEffect(() => {
+    if (user) {
+      getRooms({
+        userId: user._id,
+        email: user.email,
+        userName: user.name,
+      }).then((res) => {
+        if (res) setRooms(res);
+      });
+    } else {
+      setRooms(DUMMY_DB_ROOMS as any);
+    }
+  }, [user]);
+
   const isChild = pathname !== "/rooms";
   if (isChild) return <Outlet />;
-
-  const rooms = Route.useLoaderData();
 
   return (
     <AppShell>

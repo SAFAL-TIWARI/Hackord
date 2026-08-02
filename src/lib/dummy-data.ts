@@ -268,3 +268,121 @@ export const GITHUB_DATA = {
     { id: 17, title: "Improve loading skeletons", author: "Priya", status: "Open" },
   ],
 };
+
+export const DEMO_AUTH_USER = {
+  _id: "demo_user_id",
+  name: "Aarav Sharma",
+  email: "aarav@example.com",
+  role: "user" as const,
+  username: "aarav",
+  avatar: avatar("Aarav"),
+  college: "IIT Bombay",
+  city: "Mumbai",
+  country: "India",
+  bio: "Full-stack developer & AI enthusiast. 3x Hackathon winner building Team Nebula.",
+  experience: "Advanced" as const,
+  skills: ["React", "Node.js", "UI/UX", "Python", "AI/ML"],
+  github: "https://github.com/aarav",
+  linkedin: "https://linkedin.com/in/aarav",
+  portfolio: "https://aarav.dev",
+  completedHackathons: [
+    { name: "Smart India Hackathon 2025", result: "1st Runner Up" },
+    { name: "ETHIndia 2025", result: "Best DeFi Track" },
+  ],
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-08-01T00:00:00.000Z",
+};
+
+export const DUMMY_DB_ROOMS = ROOMS.map((r) => ({
+  id: r.id,
+  hackathon: r.hackathon,
+  name: r.name,
+  problem: r.problem,
+  description: r.description,
+  max_size: r.maxSize,
+  status: r.status,
+  progress: r.progress,
+  deadline_registration: r.deadlines.registration,
+  deadline_ppt: r.deadlines.ppt,
+  deadline_prototype: r.deadlines.prototype,
+  deadline_final: r.deadlines.final,
+  deadline_result: r.deadlines.result,
+  created_at: "2026-08-01T00:00:00.000Z",
+  member_count: r.members.length,
+  members: r.members.map((m) => ({
+    user_id: m.id,
+    user_name: m.name,
+    user_avatar: m.avatar,
+    role: m.role,
+  })),
+  project_links: [
+    { label: "GitHub Repo", url: "https://github.com/team-nebula/farmyield" },
+    { label: "Demo Video", url: "https://demo.hackord.com" },
+  ],
+  files: FILES.map((f) => ({
+    id: f.id,
+    name: f.name,
+    url: "#",
+    type: f.type,
+    uploadedBy: f.uploadedBy,
+    size: f.size,
+    createdAt: "2026-08-01T10:00:00.000Z",
+  })),
+  tasks: TASKS.map((t) => ({
+    id: t.id,
+    title: t.title,
+    assignee: t.assignee,
+    status: t.status,
+    priority: t.priority,
+    deadline: t.deadline,
+  })),
+  activities: [
+    { id: "act1", who: "Aarav Sharma", what: "created the room", when: "2026-08-01T08:00:00.000Z" },
+    { id: "act2", who: "Priya Nair", what: "uploaded Pitch Deck v2", when: "2026-08-01T09:30:00.000Z" },
+  ],
+}));
+
+export const DUMMY_NOTIFICATIONS = NOTIFICATIONS.map((n, idx) => ({
+  id: n.id,
+  title: n.title,
+  detail: n.detail,
+  time: n.time,
+  unread: n.unread ?? false,
+  type: (n.type === "chat" ? "message" : n.type === "submission" ? "deadline" : n.type === "meeting" ? "activity" : n.type) as any,
+  link: "/dashboard",
+  createdAt: Date.now() - (idx + 1) * 3600000,
+}));
+
+export const DUMMY_INVITATIONS = INVITATIONS.map((inv) => ({
+  id: inv.id,
+  roomId: inv.id === "i1" ? "smart-india-2026" : "eth-global-2026",
+  roomName: inv.roomName,
+  hackathon: inv.hackathon,
+  sender: {
+    id: inv.sender.id,
+    name: inv.sender.name,
+    username: inv.sender.username,
+    avatar: inv.sender.avatar,
+  },
+  message: inv.message,
+  status: "pending",
+  createdAt: inv.time,
+}));
+
+export const DUMMY_NOTES = [
+  {
+    _id: "dn1",
+    title: "SIH 2026 PPT Outline",
+    content: "1. Problem statement & Satellite IoT data ingestion\n2. ML Yield Model architecture\n3. Farmer dashboard wireframes",
+    createdAt: "2026-08-01T10:00:00.000Z",
+    updatedAt: "2026-08-01T10:00:00.000Z",
+  },
+  {
+    _id: "dn2",
+    title: "Tech Stack Decisions",
+    content: "Frontend: React + TanStack Router + Tailwind CSS\nBackend: Node.js, Express, MongoDB\nAI: Gemini API & PyTorch model",
+    createdAt: "2026-08-01T11:00:00.000Z",
+    updatedAt: "2026-08-01T11:00:00.000Z",
+  },
+];
+
