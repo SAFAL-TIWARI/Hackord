@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Sparkles, Camera, Check, Loader2 } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,11 +83,8 @@ function ProfileSetup() {
   return (
     <div className="min-h-screen bg-background bg-mesh">
       <div className="mx-auto max-w-3xl px-6 py-10">
-        <div className="mb-8 flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-brand shadow-glow">
-            <Sparkles className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight">Hackord</span>
+        <div className="mb-8">
+          <BrandLogo size="md" />
         </div>
 
         <div className="glass-strong rounded-2xl p-8 shadow-card animate-fade-in">

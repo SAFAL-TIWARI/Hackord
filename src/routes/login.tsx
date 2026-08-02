@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Sparkles, Mail, Loader2, Eye, EyeOff } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,12 +107,9 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
       
       <div className="flex-1 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative z-10">
         <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-8 animate-fade-in">
-          <Link to="/" className="inline-flex flex-col items-center gap-4 mb-4 group">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-brand shadow-glow transition-transform group-hover:scale-110">
-              <Sparkles className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight">Hackord</span>
-          </Link>
+          <div className="flex justify-center mb-4">
+            <BrandLogo size="lg" className="flex-col gap-3" />
+          </div>
           <h2 className="text-3xl font-bold tracking-tight text-foreground">{title}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
         </div>
