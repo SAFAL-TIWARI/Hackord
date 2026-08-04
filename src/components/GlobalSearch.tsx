@@ -13,7 +13,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { ROOMS } from "@/lib/dummy-data";
+import { getRooms, type DbRoom } from "@/lib/rooms-api";
 import { searchUsers, type DbUser } from "@/lib/users-api";
 import { UserProfileModal } from "./UserProfileModal";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
@@ -49,6 +49,11 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [selectedUser, setSelectedUser] = useState<DbUser | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [dbRooms, setDbRooms] = useState<DbRoom[]>([]);
+
+  useEffect(() => {
+    getRooms({ all: true }).then((res) => setDbRooms(res || [])).catch(() => setDbRooms([]));
+  }, []);
 
   const { user: currentUser } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -122,9 +127,10 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
 
   const q = query.toLowerCase().trim();
 
-  const roomResults: RoomResult[] = ROOMS.filter(
-    (r) => r.name.toLowerCase().includes(q) || r.hackathon?.toLowerCase().includes(q)
-  )
+  const roomResults: RoomResult[] = dbRooms
+    .filter(
+      (r) => (r.name || "").toLowerCase().includes(q) || (r.hackathon || "").toLowerCase().includes(q)
+    )
     .slice(0, 3)
     .map((r) => ({
       id: r.id,

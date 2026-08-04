@@ -43,7 +43,6 @@ import { CreateRoomModal } from "./CreateRoomModal";
 import { useAuth } from "@/lib/auth";
 import { GlobalSearch } from "./GlobalSearch";
 import { fetchRealNotifications, type RealNotification } from "@/lib/notifications-api";
-import { DEMO_AUTH_USER } from "@/lib/dummy-data";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -104,10 +103,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     setCollapsed((c) => !c);
   };
 
-  const activeUser = user || DEMO_AUTH_USER;
-  const displayName = activeUser.name;
-  const displayUsername = activeUser.username || "aarav";
-  const displayAvatar = activeUser.avatar || "";
+  const displayName = user?.name || "Guest";
+  const displayUsername = user?.username || (user?.email ? user.email.split("@")[0] : "guest");
+  const displayAvatar = user?.avatar || "";
   const initials = displayName
     .split(" ")
     .map((n) => n[0])
@@ -267,84 +265,103 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="ml-auto flex items-center gap-2">
                 <ThemeToggle theme={theme} onToggle={toggleTheme} />
 
-                {/* Original Top-Right Notifications Menu */}
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
-                      <Bell className="h-5 w-5" />
-                      {unreadCount > 0 && (
-                        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-gradient-brand shadow-glow" />
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-80 z-50">
-                    <DropdownMenuLabel className="flex items-center justify-between">
-                      <span>Notifications</span>
-                      {unreadCount > 0 && (
-                        <span className="rounded-full bg-gradient-brand px-2 py-0.5 text-[10px] font-medium text-white">
-                          {unreadCount} new
-                        </span>
-                      )}
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {realNotifications.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-muted-foreground">
-                        No recent notifications 🎉
-                      </div>
-                    ) : (
-                      realNotifications.slice(0, 5).map((n) => (
-                        <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5 p-2.5 cursor-pointer">
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-sm font-medium">{n.title}</span>
-                            <span className="text-[10px] text-muted-foreground">{n.time}</span>
+                {user ? (
+                  <>
+                    {/* Top-Right Notifications Menu */}
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+                          <Bell className="h-5 w-5" />
+                          {unreadCount > 0 && (
+                            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-gradient-brand shadow-glow" />
+                          )}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-80 z-50">
+                        <DropdownMenuLabel className="flex items-center justify-between">
+                          <span>Notifications</span>
+                          {unreadCount > 0 && (
+                            <span className="rounded-full bg-gradient-brand px-2 py-0.5 text-[10px] font-medium text-white">
+                              {unreadCount} new
+                            </span>
+                          )}
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {realNotifications.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-muted-foreground">
+                            No recent notifications 🎉
                           </div>
-                          <span className="text-xs text-muted-foreground line-clamp-2">{n.detail}</span>
+                        ) : (
+                          realNotifications.slice(0, 5).map((n) => (
+                            <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5 p-2.5 cursor-pointer">
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-sm font-medium">{n.title}</span>
+                                <span className="text-[10px] text-muted-foreground">{n.time}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground line-clamp-2">{n.detail}</span>
+                            </DropdownMenuItem>
+                          ))
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link to="/notifications" className="w-full text-center text-sm font-medium text-primary cursor-pointer">
+                            View all notifications
+                          </Link>
                         </DropdownMenuItem>
-                      ))
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/notifications" className="w-full text-center text-sm font-medium text-primary cursor-pointer">
-                        View all notifications
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
-                {/* User avatar dropdown */}
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <button className="rounded-full outline-none ring-primary/60 focus-visible:ring-2 transition hover:scale-105">
-                      {displayAvatar ? (
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={displayAvatar} />
-                          <AvatarFallback>{initials}</AvatarFallback>
-                        </Avatar>
-                      ) : (
-                        <GradientAvatar size="h-9 w-9" />
-                      )}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52 mt-1 z-50">
-                    <DropdownMenuLabel>
-                      <p className="font-medium">{displayName}</p>
-                      <p className="text-xs font-normal text-muted-foreground">@{displayUsername}</p>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild><Link to="/profile">Profile</Link></DropdownMenuItem>
-                    <DropdownMenuItem asChild><Link to="/settings">Settings</Link></DropdownMenuItem>
-                    {isAdmin && (
-                      <DropdownMenuItem asChild><Link to="/admin">Admin Panel</Link></DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={handleLogout}
-                      className="text-destructive focus:text-destructive cursor-pointer"
+                    {/* User avatar dropdown */}
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger asChild>
+                        <button className="rounded-full outline-none ring-primary/60 focus-visible:ring-2 transition hover:scale-105">
+                          {displayAvatar ? (
+                            <Avatar className="h-9 w-9">
+                              <AvatarImage src={displayAvatar} />
+                              <AvatarFallback>{initials}</AvatarFallback>
+                            </Avatar>
+                          ) : (
+                            <GradientAvatar size="h-9 w-9" />
+                          )}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52 mt-1 z-50">
+                        <DropdownMenuLabel>
+                          <p className="font-medium">{displayName}</p>
+                          <p className="text-xs font-normal text-muted-foreground">@{displayUsername}</p>
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild><Link to="/profile">Profile</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/settings">Settings</Link></DropdownMenuItem>
+                        {isAdmin && (
+                          <DropdownMenuItem asChild><Link to="/admin">Admin Panel</Link></DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={handleLogout}
+                          className="text-destructive focus:text-destructive cursor-pointer"
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />Sign out
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to="/login"
+                      className="px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      <LogOut className="mr-2 h-4 w-4" />Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      Sign in
+                    </Link>
+                    <Link
+                      to="/signup"
+                      className="rounded-lg bg-gradient-brand px-3.5 py-1.5 text-xs font-semibold text-white shadow-glow transition hover:opacity-90"
+                    >
+                      Get started
+                    </Link>
+                  </div>
+                )}
               </div>
             </header>
 
@@ -358,6 +375,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Floating Create Room */}
         <button
           onClick={() => {
+            if (!user) {
+              navigate({ to: "/signup" });
+              return;
+            }
             haptic("medium");
             setOpenCreate(true);
           }}

@@ -1,6 +1,5 @@
 import { getRooms, getLoggedInUser } from "./rooms-api";
 import { getPendingInvitations } from "./users-api";
-import { DUMMY_NOTIFICATIONS } from "./dummy-data";
 
 export type RealNotification = {
   id: string;
@@ -16,7 +15,7 @@ export type RealNotification = {
 export async function fetchRealNotifications(user?: { _id: string; email: string } | null): Promise<RealNotification[]> {
   const token = typeof window !== "undefined" ? localStorage.getItem("hackord_token") : null;
   if (!user && !token) {
-    return DUMMY_NOTIFICATIONS;
+    return [];
   }
 
   const currentUser = user ? { id: user._id, email: user.email } : getLoggedInUser();

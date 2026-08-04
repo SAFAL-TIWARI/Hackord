@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   CalendarClock,
   Inbox,
@@ -26,14 +26,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SpotlightCard } from "@/components/SpotlightCard";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { getRooms, type DbRoom } from "@/lib/rooms-api";
+import { getRooms, deleteRoom, type DbRoom } from "@/lib/rooms-api";
 import { useAuth } from "@/lib/auth";
 import {
   getPendingInvitations, acceptRoomInvitation, rejectRoomInvitation,
 } from "@/lib/users-api";
 import { fetchRealNotifications, type RealNotification } from "@/lib/notifications-api";
 import { getNotes, createNote, deleteNote, type DbNote } from "@/lib/notes-api";
-import { DUMMY_DB_ROOMS, DUMMY_INVITATIONS, DUMMY_NOTIFICATIONS, DUMMY_NOTES } from "@/lib/dummy-data";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Hackord" }] }),
@@ -55,10 +54,39 @@ function formatTimeAgo(dateInput: string | Date) {
 }
 
 function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate({ to: "/login" });
+    }
+  }, [authLoading, user, navigate]);
 
   const [loading, setLoading] = useState(true);
-  const [roomsViewMode, setRoomsViewMode] = useState<"list" | "grid">("list");
+  const [roomsViewMode, setRoomsViewMode] = useState<"list" | "grid">(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const v = (p.get("view") || localStorage.getItem("dashboard_rooms_view")) as any;
+      if (v === "list" || v === "grid") return v;
+    }
+    return "list";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        if (roomsViewMode !== "list") url.searchParams.set("view", roomsViewMode);
+        else url.searchParams.delete("view");
+        window.history.replaceState({}, "", url.toString());
+        localStorage.setItem("dashboard_rooms_view", roomsViewMode);
+      } catch {
+        // ignore
+      }
+    }
+  }, [roomsViewMode]);
+
   const [rooms, setRooms] = useState<DbRoom[]>([]);
   const [invitations, setInvitations] = useState<any[]>([]);
   const [realNotifications, setRealNotifications] = useState<RealNotification[]>([]);
@@ -69,6 +97,8 @@ function DashboardPage() {
 
   useEffect(() => {
     let mounted = true;
+    if (authLoading) return;
+
     async function loadDashboardData() {
       setLoading(true);
       try {
@@ -86,11 +116,12 @@ function DashboardPage() {
             setDbNotes(notesRes || []);
           }
         } else {
+          const roomsRes = await getRooms({ all: true });
           if (mounted) {
-            setRooms(DUMMY_DB_ROOMS as any);
-            setInvitations(DUMMY_INVITATIONS);
-            setRealNotifications(DUMMY_NOTIFICATIONS as any);
-            setDbNotes(DUMMY_NOTES as any);
+            setRooms(roomsRes || []);
+            setInvitations([]);
+            setRealNotifications([]);
+            setDbNotes([]);
           }
         }
       } catch (err) {
@@ -103,11 +134,41 @@ function DashboardPage() {
     return () => {
       mounted = false;
     };
-  }, [user]);
+  }, [user, authLoading]);
+
+  const isRoomOwnerOrAdmin = (r: DbRoom) => {
+    if (!user) return true;
+    if (user.role === "admin") return true;
+    const userIds = [user._id, user.username, user.email?.toLowerCase()].filter(Boolean);
+    if (r.creator_id && userIds.includes(String(r.creator_id))) return true;
+    if (r.creator_email && user.email && r.creator_email.toLowerCase() === user.email.toLowerCase()) return true;
+    if (Array.isArray(r.members) && r.members.length > 0) {
+      const ownerMember = r.members.find((m) => m && m.role === "Owner") || r.members[0];
+      const oId = String(ownerMember.user_id || "").toLowerCase();
+      const oName = String(ownerMember.user_name || "").toLowerCase();
+      if (userIds.some((id) => String(id).toLowerCase() === oId) || (user.name && user.name.toLowerCase() === oName)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const handleDeleteRoom = async (roomId: string, roomName: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete "${roomName}"?`)) return;
+    try {
+      await deleteRoom(roomId);
+      setRooms((prev) => prev.filter((r) => r.id !== roomId));
+      toast.success(`Room "${roomName}" deleted successfully`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete room");
+    }
+  };
 
   const fetchNotes = async () => {
     if (!user) {
-      setDbNotes(DUMMY_NOTES as any);
+      setDbNotes([]);
       return;
     }
     try {
@@ -637,16 +698,18 @@ function DashboardPage() {
                         </div>
 
                         {/* Action buttons */}
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyRoomLink(r.id)}
-                            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                            title="Copy Room Link"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
+                        <div className="flex items-center gap-1.5">
+                          {isRoomOwnerOrAdmin(r) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => handleDeleteRoom(r.id, r.name, e)}
+                              className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              title="Delete Room"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           <Link
                             to="/rooms/$roomId"
                             params={{ roomId: r.id }}

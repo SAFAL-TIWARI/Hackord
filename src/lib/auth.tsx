@@ -92,12 +92,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser();
   }, [refreshUser]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (user) {
+        localStorage.setItem("hackord_user", JSON.stringify(user));
+      } else if (!loading) {
+        localStorage.removeItem("hackord_user");
+      }
+    }
+  }, [user, loading]);
+
   const login = async (email: string, password: string) => {
     const data = await apiFetch<{ token: string; user: AuthUser }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
     setToken(data.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hackord_user", JSON.stringify(data.user));
+    }
     setUser(data.user);
   };
 
@@ -107,11 +120,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ name, email, password }),
     });
     setToken(data.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hackord_user", JSON.stringify(data.user));
+    }
     setUser(data.user);
   };
 
   const logout = () => {
     removeToken();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("hackord_user");
+    }
     setUser(null);
   };
 

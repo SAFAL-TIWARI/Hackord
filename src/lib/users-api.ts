@@ -130,10 +130,8 @@ export async function rejectRoomInvitation(target: string | { invitationId?: str
 }
 
 export type UserSettings = {
-  whatsappNumber: string;
   notificationPreferences: {
     emailEnabled: boolean;
-    whatsappEnabled: boolean;
     roomInvites: boolean;
     deadlines: boolean;
     chatMessages: boolean;
@@ -143,7 +141,6 @@ export type UserSettings = {
     discoverable: boolean;
     allowInvites: boolean;
     showEmail: boolean;
-    showPhone: boolean;
     activityStatus: boolean;
   };
 };
@@ -158,10 +155,8 @@ export async function getUserSettings(params?: { userId?: string; email?: string
   } catch (err) {
     console.error("Failed to fetch user settings:", err);
     return {
-      whatsappNumber: "",
       notificationPreferences: {
         emailEnabled: true,
-        whatsappEnabled: true,
         roomInvites: true,
         deadlines: true,
         chatMessages: true,
@@ -171,7 +166,6 @@ export async function getUserSettings(params?: { userId?: string; email?: string
         discoverable: true,
         allowInvites: true,
         showEmail: true,
-        showPhone: true,
         activityStatus: true,
       },
     };

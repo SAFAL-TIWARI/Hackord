@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
@@ -20,6 +20,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,8 +33,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SKILLS, DEMO_AUTH_USER, DUMMY_DB_ROOMS } from "@/lib/dummy-data";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { SKILLS } from "@/lib/dummy-data";
 import { getRooms, type DbRoom } from "@/lib/rooms-api";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -63,26 +64,52 @@ export type UserProfile = {
 
 function ProfilePage() {
   const { user, updateProfile, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
 
-  const activeUser = user || DEMO_AUTH_USER;
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate({ to: "/login" });
+    }
+  }, [authLoading, user, navigate]);
 
-  const getProfileState = (): UserProfile => ({
-    id: activeUser._id || "",
-    name: activeUser.name,
-    username: activeUser.username || (activeUser.email ? activeUser.email.split("@")[0] : "aarav"),
-    email: activeUser.email,
-    avatar: activeUser.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${activeUser.name}`,
-    college: activeUser.college || "",
-    city: activeUser.city || "",
-    country: activeUser.country || "",
-    skills: activeUser.skills || [],
-    github: activeUser.github || "",
-    linkedin: activeUser.linkedin || "",
-    portfolio: activeUser.portfolio || "",
-    bio: activeUser.bio || "",
-    experience: (activeUser.experience as any) || "Advanced",
-    completedHackathons: activeUser.completedHackathons || [],
-  });
+  const getProfileState = (): UserProfile => {
+    if (!user) {
+      return {
+        id: "",
+        name: "",
+        username: "",
+        email: "",
+        avatar: "",
+        college: "",
+        city: "",
+        country: "",
+        skills: [],
+        github: "",
+        linkedin: "",
+        portfolio: "",
+        bio: "",
+        experience: "Beginner",
+        completedHackathons: [],
+      };
+    }
+    return {
+      id: user._id || "",
+      name: user.name || "",
+      username: user.username || (user.email ? user.email.split("@")[0] : ""),
+      email: user.email || "",
+      avatar: user.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${user.name || "user"}`,
+      college: user.college || "",
+      city: user.city || "",
+      country: user.country || "",
+      skills: user.skills || [],
+      github: user.github || "",
+      linkedin: user.linkedin || "",
+      portfolio: user.portfolio || "",
+      bio: user.bio || "",
+      experience: (user.experience as any) || "Beginner",
+      completedHackathons: user.completedHackathons || [],
+    };
+  };
 
   const profile = getProfileState();
 
@@ -95,7 +122,9 @@ function ProfilePage() {
   const [roomsLoading, setRoomsLoading] = useState(true);
 
   useEffect(() => {
-    setEditForm(getProfileState());
+    if (user) {
+      setEditForm(getProfileState());
+    }
   }, [user]);
 
   useEffect(() => {
@@ -105,10 +134,22 @@ function ProfilePage() {
         .catch((err) => console.error("Failed to fetch profile rooms", err))
         .finally(() => setRoomsLoading(false));
     } else {
-      setUserRooms(DUMMY_DB_ROOMS as any);
+      setUserRooms([]);
       setRoomsLoading(false);
     }
   }, [user]);
+
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user) return null;
 
   const handleOpenEdit = () => {
     setEditForm(getProfileState());
@@ -174,8 +215,46 @@ function ProfilePage() {
   if (authLoading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="mx-auto max-w-5xl space-y-6">
+          <section className="glass-strong overflow-hidden rounded-2xl p-6 shadow-card sm:p-8 space-y-4">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+              <Skeleton className="h-24 w-24 rounded-full shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-7 w-48" />
+                <Skeleton className="h-4 w-32" />
+                <div className="mt-3 flex gap-3">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </div>
+              <Skeleton className="h-10 w-28 rounded-lg" />
+            </div>
+            <Skeleton className="h-4 w-full max-w-2xl" />
+          </section>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2 space-y-6">
+              <div className="space-y-3">
+                <Skeleton className="h-5 w-24" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                  <Skeleton className="h-6 w-24 rounded-full" />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Skeleton className="h-5 w-32" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Skeleton className="h-20 rounded-xl" />
+                  <Skeleton className="h-20 rounded-xl" />
+                </div>
+              </div>
+            </section>
+            <section className="glass rounded-2xl p-6 shadow-card space-y-4">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-36" />
+            </section>
+          </div>
         </div>
       </AppShell>
     );
@@ -257,8 +336,9 @@ function ProfilePage() {
             <div>
               <h2 className="mb-3 text-lg font-semibold">Active Rooms</h2>
               {roomsLoading ? (
-                <div className="flex items-center justify-center p-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Skeleton className="h-20 rounded-xl" />
+                  <Skeleton className="h-20 rounded-xl" />
                 </div>
               ) : userRooms.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2">

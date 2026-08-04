@@ -1,11 +1,11 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState, useRef, useEffect } from "react";
+import { createFileRoute, Link, useNavigate, notFound } from "@tanstack/react-router";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Users, MessageSquare, Bot, Github, FileIcon, CalendarDays, Video,
   Crown, ExternalLink, Search, Send, Paperclip, Smile, Pin, Plus, Edit,
   FileText, Image as ImageIcon, Film, Archive, Sparkles, GitBranch,
-  GitPullRequest, CircleDot, Check, Clock, Play, Link as LinkIcon, Trash2,
+  GitPullRequest, CircleDot, Check, Clock, Play, Link as LinkIcon, Trash2, Lock, ShieldAlert,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { RoomSkeleton } from "@/components/RoomSkeleton";
@@ -19,14 +19,11 @@ import { Progress } from "@/components/ui/progress";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  DISCOVER_USERS, FILES as SEED_FILES, TASKS as SEED_TASKS,
-  AI_TOOLS, MEETINGS, GITHUB_DATA, DUMMY_DB_ROOMS, MESSAGES as SEED_MESSAGES,
-} from "@/lib/dummy-data";
+import { AI_TOOLS, GITHUB_DATA, MEETINGS } from "@/lib/dummy-data";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import {
-  getRoom, getMessages, getMessagesSince, sendMessage, updateRoom,
+  getRoom, getMessages, getMessagesSince, sendMessage, updateRoom, deleteRoom,
   addFileResource, addTask, updateTaskStatus, addProjectLink, addMemberToRoom, removeMemberFromRoom, getLoggedInUser,
   type DbRoom, type DbMember, type DbMessage, type DbFileResource, type DbTask, type DbActivity,
 } from "@/lib/rooms-api";
@@ -50,26 +47,8 @@ export const Route = createFileRoute("/rooms/$roomId")({
       messages = [];
     }
 
-    if (!room) {
-      const demo = DUMMY_DB_ROOMS.find((r) => r.id === params.roomId) || DUMMY_DB_ROOMS[0];
-      room = demo as any;
-    }
-    if (!messages || messages.length === 0) {
-      messages = SEED_MESSAGES.map((m) => {
-        const authorName = m.authorId === "u_me" ? "Aarav Sharma" : m.authorId === "u1" ? "Priya Nair" : m.authorId === "u2" ? "Rohan Mehta" : "Ishita Rao";
-        return {
-          id: m.id,
-          author_name: authorName,
-          author_avatar: `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(authorName.split(" ")[0])}`,
-          text: m.text + (m.code ? `\n${m.code}` : ""),
-          pinned: m.pinned || false,
-          created_at: "2026-08-01T10:15:00.000Z",
-        };
-      });
-    }
-
     if (!room) throw notFound();
-    return { room, messages };
+    return { room, messages: messages || [] };
   },
   component: RoomPage,
 });
@@ -88,17 +67,76 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ className?: s
   { key: "meetings", label: "Meetings", icon: Video },
 ];
 
+const VALID_TABS: Tab[] = ["overview", "members", "chat", "ai", "github", "files", "timeline", "tasks", "meetings"];
+
 function RoomPage() {
+  const navigate = useNavigate();
   const loaderData = Route.useLoaderData() as { room: DbRoom; messages: DbMessage[] };
   const initialRoom = loaderData?.room;
   const initialMessages = loaderData?.messages ?? [];
   const [room, setRoom] = useState<DbRoom>(initialRoom);
-  const [tab, setTab] = useState<Tab>("overview");
-  const [openEditModal, setOpenEditModal] = useState(false);
-  const { user } = useAuth();
 
-  const currentUserName = user?.name || getLoggedInUser().name;
-  const currentUserAvatar = user?.avatar || getLoggedInUser().avatar;
+  const [tab, setTabState] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlTab = urlParams.get("tab") as Tab | null;
+      if (urlTab && VALID_TABS.includes(urlTab)) return urlTab;
+      try {
+        const roomId = initialRoom?.id;
+        const stored = roomId ? (localStorage.getItem(`room_tab_${roomId}`) as Tab | null) : null;
+        if (stored && VALID_TABS.includes(stored)) return stored;
+      } catch {
+        // ignore
+      }
+    }
+    return "overview";
+  });
+
+  const setTab = (newTab: Tab) => {
+    setTabState(newTab);
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", newTab);
+        window.history.replaceState({}, "", url.toString());
+        if (room?.id) {
+          localStorage.setItem(`room_tab_${room.id}`, newTab);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const [openEditModal, setOpenEditModal] = useState(false);
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const [deletingRoom, setDeletingRoom] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && room?.id) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.has("tab")) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", tab);
+          window.history.replaceState({}, "", url.toString());
+        }
+        localStorage.setItem(`room_tab_${room.id}`, tab);
+      } catch {
+        // ignore
+      }
+    }
+  }, [room?.id, tab]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate({ to: "/login" });
+    }
+  }, [authLoading, user, navigate]);
+
+  const currentUserName = user?.name || "";
+  const currentUserAvatar = user?.avatar || "";
 
   useEffect(() => {
     if (initialRoom) setRoom(initialRoom);
@@ -108,6 +146,104 @@ function RoomPage() {
     const fresh = await getRoom({ data: { roomId: room.id } });
     if (fresh) setRoom(fresh);
   };
+
+  const isMemberOrAdmin = useMemo(() => {
+    if (!user) return false;
+    if (user.role === "admin") return true;
+
+    const userIds = [user._id, user.username, user.email?.toLowerCase()].filter(Boolean);
+    if (room.creator_id && userIds.includes(String(room.creator_id))) return true;
+    if (room.creator_email && user.email && room.creator_email.toLowerCase() === user.email.toLowerCase()) return true;
+
+    if (Array.isArray(room.members)) {
+      return room.members.some((m) => {
+        if (!m) return false;
+        const mId = String(m.user_id || "").toLowerCase();
+        const mName = String(m.user_name || "").toLowerCase();
+        return (
+          userIds.some((id) => String(id).toLowerCase() === mId) ||
+          (user.name && user.name.toLowerCase() === mName)
+        );
+      });
+    }
+
+    return false;
+  }, [user, room]);
+
+  const isOwnerOrAdmin = useMemo(() => {
+    if (!user) return true; // Guest view default
+    if (user.role === "admin") return true;
+
+    const userIds = [user._id, user.username, user.email?.toLowerCase()].filter(Boolean);
+    if (room.creator_id && userIds.includes(String(room.creator_id))) return true;
+    if (room.creator_email && user.email && room.creator_email.toLowerCase() === user.email.toLowerCase()) return true;
+
+    if (Array.isArray(room.members)) {
+      const ownerMember = room.members.find((m) => m && m.role === "Owner");
+      if (ownerMember) {
+        const oId = String(ownerMember.user_id || "").toLowerCase();
+        const oName = String(ownerMember.user_name || "").toLowerCase();
+        if (userIds.some((id) => String(id).toLowerCase() === oId) || (user.name && user.name.toLowerCase() === oName)) {
+          return true;
+        }
+      } else {
+        const firstMember = room.members[0];
+        if (firstMember) {
+          const fId = String(firstMember.user_id || "").toLowerCase();
+          const fName = String(firstMember.user_name || "").toLowerCase();
+          if (userIds.some((id) => String(id).toLowerCase() === fId) || (user.name && user.name.toLowerCase() === fName)) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }, [user, room]);
+
+  const handleDeleteRoom = async () => {
+    if (!isOwnerOrAdmin) {
+      toast.error("Only the Room Owner or Admin can delete this room.");
+      return;
+    }
+    setDeletingRoom(true);
+    try {
+      await deleteRoom(room.id);
+      toast.success(`Room "${room.name}" deleted successfully!`);
+      navigate({ to: "/dashboard" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete room");
+    } finally {
+      setDeletingRoom(false);
+      setOpenDeleteModal(false);
+    }
+  };
+
+  if (user && !isMemberOrAdmin) {
+    return (
+      <AppShell>
+        <div className="mx-auto max-w-2xl py-16 text-center">
+          <div className="glass-strong rounded-2xl p-8 shadow-card space-y-4">
+            <div className="grid h-16 w-16 place-items-center rounded-2xl bg-destructive/10 text-destructive mx-auto">
+              <ShieldAlert className="h-8 w-8" />
+            </div>
+            <h2 className="text-2xl font-bold">Private Room</h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              You do not have access to <strong>{room.name}</strong>. This workspace is restricted to team members and platform administrators.
+            </p>
+            <div className="flex justify-center gap-3 pt-4">
+              <Link to="/dashboard">
+                <Button variant="outline">Back to Dashboard</Button>
+              </Link>
+              <Link to="/explore">
+                <Button className="bg-gradient-brand text-white">Explore Hackathons</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   const deadlines: Record<string, string> = {
     Registration: room.deadline_registration,
@@ -133,9 +269,16 @@ function RoomPage() {
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{room.problem || room.description}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => setOpenEditModal(true)} className="gap-1.5 h-8">
-                <Edit className="h-3.5 w-3.5" /> Edit Room
-              </Button>
+              {isOwnerOrAdmin && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => setOpenEditModal(true)} className="gap-1.5 h-8">
+                    <Edit className="h-3.5 w-3.5" /> Edit Room
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => setOpenDeleteModal(true)} className="gap-1.5 h-8">
+                    <Trash2 className="h-3.5 w-3.5" /> Delete Room
+                  </Button>
+                </>
+              )}
               <Badge variant="secondary" className="gap-1"><Users className="h-3 w-3" /> {(room.members ?? []).length}/{room.max_size}</Badge>
               <Badge className="bg-gradient-brand text-white border-transparent">{room.status}</Badge>
             </div>
@@ -174,10 +317,10 @@ function RoomPage() {
 
         <div className="animate-fade-in">
           {tab === "overview" && <OverviewTab room={room} onRoomUpdate={refreshRoom} currentUser={currentUserName} />}
-          {tab === "members" && <MembersTab room={room} onRoomUpdate={refreshRoom} />}
+          {tab === "members" && <MembersTab room={room} onRoomUpdate={refreshRoom} isOwnerOrAdmin={isOwnerOrAdmin} />}
           {tab === "chat" && <ChatTab roomId={room.id} initialMessages={initialMessages} userName={currentUserName} userAvatar={currentUserAvatar} />}
           {tab === "ai" && <AITab />}
-          {tab === "github" && <GithubTab />}
+          {tab === "github" && <GithubTab room={room} />}
           {tab === "files" && <FilesTab room={room} onRoomUpdate={refreshRoom} userName={currentUserName} />}
           {tab === "timeline" && <TimelineTab room={room} />}
           {tab === "tasks" && <TasksTab room={room} onRoomUpdate={refreshRoom} userName={currentUserName} />}
@@ -186,6 +329,26 @@ function RoomPage() {
 
         {/* Edit Room Dialog */}
         <EditRoomModal open={openEditModal} onOpenChange={setOpenEditModal} room={room} onRoomUpdate={refreshRoom} />
+
+        {/* Delete Room Dialog */}
+        <Dialog open={openDeleteModal} onOpenChange={setOpenDeleteModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="h-5 w-5" /> Delete Room
+              </DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete <strong>{room.name}</strong>? This action cannot be undone and will permanently remove all messages, tasks, and files for this room.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setOpenDeleteModal(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleDeleteRoom} disabled={deletingRoom}>
+                {deletingRoom ? "Deleting..." : "Delete Room"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppShell>
   );
@@ -346,19 +509,13 @@ function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoom
     Result: room.deadline_result,
   };
 
-  const projectLinks = (room.project_links && room.project_links.length > 0)
-    ? room.project_links
-    : [
-        { label: "GitHub Repo", url: "https://github.com/Temp/Hackord" },
-        { label: "Figma Specs", url: "https://figma.com" },
-        { label: "Demo Video", url: "https://demo.hackord.com" },
-      ];
+  const projectLinks = room.project_links || [];
 
   const activities = (room.activities && room.activities.length > 0)
     ? room.activities
     : [
-        { id: "1", who: currentUser.split(" ")[0], what: "created room " + room.name, when: "Today" },
-      ];
+      { id: "1", who: currentUser.split(" ")[0], what: "created room " + room.name, when: "Today" },
+    ];
 
   async function handleSaveLink(e: React.FormEvent) {
     e.preventDefault();
@@ -454,20 +611,24 @@ function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoom
               <Plus className="h-3.5 w-3.5" /> Add
             </Button>
           </div>
-          <ul className="space-y-2 text-sm max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
-            {projectLinks.map((l) => (
-              <li key={l.label + l.url}>
-                <a
-                  href={l.url.startsWith("http") ? l.url : `https://${l.url}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground hover:underline"
-                >
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-primary" /> {l.label}
-                </a>
-              </li>
-            ))}
-          </ul>
+          {projectLinks.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No project links added yet. Click "+ Add" to attach GitHub, Figma, or Demo links.</p>
+          ) : (
+            <ul className="space-y-2 text-sm max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+              {projectLinks.map((l) => (
+                <li key={l.label + l.url}>
+                  <a
+                    href={l.url.startsWith("http") ? l.url : `https://${l.url}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground hover:underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-primary" /> {l.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
 
@@ -498,12 +659,16 @@ function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoom
 }
 
 /* ------------------------ Members ------------------------ */
-function MembersTab({ room, onRoomUpdate }: { room: DbRoom; onRoomUpdate: () => void }) {
+function MembersTab({ room, onRoomUpdate, isOwnerOrAdmin }: { room: DbRoom; onRoomUpdate: () => void; isOwnerOrAdmin: boolean }) {
   const [openAdd, setOpenAdd] = useState(false);
   const members = room.members ?? [];
   const { user: currentUser } = useAuth();
 
   const handleRemove = async (userId: string, userName: string) => {
+    if (!isOwnerOrAdmin) {
+      toast.error("Only the Room Owner or Admin can remove team members.");
+      return;
+    }
     try {
       await removeMemberFromRoom({
         roomId: room.id,
@@ -521,9 +686,15 @@ function MembersTab({ room, onRoomUpdate }: { room: DbRoom; onRoomUpdate: () => 
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Team members</h2>
-        <Button onClick={() => setOpenAdd(true)} className="bg-gradient-brand text-white shadow-glow hover:opacity-90">
-          <Plus className="h-4 w-4 mr-1.5" /> Add member
-        </Button>
+        {isOwnerOrAdmin ? (
+          <Button onClick={() => setOpenAdd(true)} className="bg-gradient-brand text-white shadow-glow hover:opacity-90">
+            <Plus className="h-4 w-4 mr-1.5" /> Add member
+          </Button>
+        ) : (
+          <Badge variant="outline" className="text-xs text-muted-foreground">
+            <ShieldAlert className="h-3 w-3 mr-1 text-primary" /> Member View (Owner/Admin manages team)
+          </Badge>
+        )}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {members.map((m) => (
@@ -541,7 +712,7 @@ function MembersTab({ room, onRoomUpdate }: { room: DbRoom; onRoomUpdate: () => 
                 <p className="text-xs text-muted-foreground">{m.role}</p>
               </div>
             </div>
-            {m.role !== "Owner" && (
+            {isOwnerOrAdmin && m.role !== "Owner" && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -555,7 +726,7 @@ function MembersTab({ room, onRoomUpdate }: { room: DbRoom; onRoomUpdate: () => 
           </div>
         ))}
       </div>
-      <AddMemberDialog room={room} open={openAdd} onOpenChange={setOpenAdd} onRoomUpdate={onRoomUpdate} />
+      {isOwnerOrAdmin && <AddMemberDialog room={room} open={openAdd} onOpenChange={setOpenAdd} onRoomUpdate={onRoomUpdate} />}
     </div>
   );
 }
@@ -728,7 +899,7 @@ function ChatTab({
             return [...prev, ...fresh];
           });
         }
-      } catch {}
+      } catch { }
     };
     const timer = setInterval(poll, POLL_INTERVAL);
     return () => clearInterval(timer);
@@ -1233,16 +1404,16 @@ function AITab() {
 }
 
 /* ------------------------ GitHub (Untouched) ------------------------ */
-function GithubTab() {
-  const g = GITHUB_DATA;
+function GithubTab({ room }: { room: DbRoom }) {
+  const g = GITHUB_DATA || { url: "#", repo: "Not connected", commits: [], prs: [], issues: [] };
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">Repository</h2>
-            <a href={g.url} className="mt-1 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-              <Github className="h-4 w-4" /> {g.repo}
+            <a href={g.url || "#"} className="mt-1 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+              <Github className="h-4 w-4" /> {g.repo || "Not connected"}
             </a>
           </div>
           <Button variant="outline"><GitBranch className="h-4 w-4" /> Connect repository</Button>
@@ -1261,7 +1432,7 @@ function GithubTab() {
         <div className="mt-6">
           <h3 className="mb-3 text-sm font-medium">Latest commits</h3>
           <ul className="space-y-2">
-            {g.commits.map((c) => (
+            {(g.commits || []).map((c: any) => (
               <li key={c.sha} className="flex items-center justify-between rounded-xl border border-border/60 bg-card/50 p-3 text-sm">
                 <div className="flex items-center gap-3">
                   <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">{c.sha}</span>
@@ -1278,7 +1449,7 @@ function GithubTab() {
         <section className="glass rounded-2xl p-6 shadow-card">
           <h3 className="mb-3 text-sm font-medium">Open PRs</h3>
           <ul className="space-y-2">
-            {g.prs.map((p) => (
+            {(g.prs || []).map((p: any) => (
               <li key={p.id} className="flex items-center gap-3 rounded-lg border border-border/60 bg-card/50 p-3 text-sm">
                 <GitPullRequest className="h-4 w-4 text-primary" />
                 <span className="flex-1">#{p.id} {p.title}</span>
@@ -1290,7 +1461,7 @@ function GithubTab() {
         <section className="glass rounded-2xl p-6 shadow-card">
           <h3 className="mb-3 text-sm font-medium">Issues</h3>
           <ul className="space-y-2">
-            {g.issues.map((i) => (
+            {(g.issues || []).map((i: any) => (
               <li key={i.id} className="flex items-center gap-3 rounded-lg border border-border/60 bg-card/50 p-3 text-sm">
                 <CircleDot className="h-4 w-4 text-warning" />
                 <span className="flex-1">#{i.id} {i.title}</span>
@@ -1302,12 +1473,11 @@ function GithubTab() {
         <section className="glass rounded-2xl p-6 shadow-card">
           <h3 className="mb-3 text-sm font-medium">Contributors</h3>
           <div className="flex flex-wrap gap-2">
-            {[
-              { id: "u_me", name: "Aarav sharma", avatar: "https://api.dicebear.com/9.x/glass/svg?seed=tempuser" },
-              { id: "u1", name: "Priya Nair", avatar: "https://api.dicebear.com/9.x/glass/svg?seed=Priya" },
-              { id: "u2", name: "Rohan Mehta", avatar: "https://api.dicebear.com/9.x/glass/svg?seed=Rohan" },
-            ].map((m) => (
-              <Avatar key={m.id} className="h-8 w-8"><AvatarImage src={m.avatar} /><AvatarFallback>{m.name[0]}</AvatarFallback></Avatar>
+            {(room.members || []).map((m: any) => (
+              <Avatar key={m.user_id || m.user_name} className="h-8 w-8">
+                <AvatarImage src={m.user_avatar} />
+                <AvatarFallback>{(m.user_name || "U")[0]}</AvatarFallback>
+              </Avatar>
             ))}
           </div>
         </section>
@@ -1318,6 +1488,7 @@ function GithubTab() {
 
 /* ------------------------ Meetings (Untouched) ------------------------ */
 function MeetingsTab() {
+  const mData = MEETINGS || { upcoming: [], past: [] };
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2">
@@ -1337,7 +1508,7 @@ function MeetingsTab() {
         <section className="glass rounded-2xl p-6 shadow-card">
           <h3 className="mb-3 text-sm font-medium">Upcoming</h3>
           <ul className="space-y-2">
-            {MEETINGS.upcoming.map((m) => (
+            {(mData.upcoming || []).map((m: any) => (
               <li key={m.id} className="rounded-lg border border-border/60 bg-card/50 p-3 text-sm">
                 <p className="font-medium">{m.title}</p>
                 <p className="text-xs text-muted-foreground">{m.when} · {m.participants} attendees</p>
@@ -1348,7 +1519,7 @@ function MeetingsTab() {
         <section className="glass rounded-2xl p-6 shadow-card">
           <h3 className="mb-3 text-sm font-medium">Past</h3>
           <ul className="space-y-2">
-            {MEETINGS.past.map((m) => (
+            {(mData.past || []).map((m: any) => (
               <li key={m.id} className="rounded-lg border border-border/60 bg-card/50 p-3 text-sm">
                 <p className="font-medium">{m.title}</p>
                 <p className="text-xs text-muted-foreground">{m.when} · {m.participants} attendees</p>

@@ -18,13 +18,30 @@ import {
   ChevronRight,
   Clock,
   Zap,
+  Plus,
+  Loader2,
+  Trash2,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QuickCreateRoomModal } from "@/components/QuickCreateRoomModal";
-import { HACKATHONS, AI_RECOMMENDATIONS, ALL_TAGS, type Hackathon } from "@/lib/hackathon-data";
+import { ALL_TAGS, type Hackathon } from "@/lib/hackathon-data";
+import { getHackathons, createHackathon, deleteHackathon } from "@/lib/hackathons-api";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -36,6 +53,7 @@ export const Route = createFileRoute("/explore")({
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string) {
+  if (!iso) return "TBD";
   return new Date(iso).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
@@ -44,8 +62,9 @@ function formatDate(iso: string) {
 }
 
 function daysUntil(iso: string) {
+  if (!iso) return 999;
   return Math.ceil(
-    (new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+    (new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
 }
 
@@ -60,7 +79,7 @@ function urgencyClass(days: number) {
 function nlSearch(query: string, hackathons: Hackathon[]): Hackathon[] {
   const q = query.toLowerCase();
   return hackathons.filter((h) => {
-    const tagMatch = h.tags.some((t) => q.includes(t.toLowerCase()));
+    const tagMatch = (h.tags || []).some((t) => q.includes(t.toLowerCase()));
     const onlineMatch = q.includes("online") && h.mode !== "Offline";
     const offlineMatch = q.includes("offline") && h.mode !== "Online";
     const weekMatch =
@@ -68,16 +87,16 @@ function nlSearch(query: string, hackathons: Hackathon[]): Hackathon[] {
       daysUntil(h.registrationDeadline) <= 7;
     const prizeMatch =
       (q.includes("5l") || q.includes("₹5l") || q.includes("5 lakh") || q.includes("500k")) &&
-      h.prizePoolUSD >= 6000;
+      (h.prizePoolUSD || 0) >= 6000;
     const bigPrize =
       (q.includes("big prize") || q.includes("large prize") || q.includes("high prize")) &&
-      h.prizePoolUSD >= 50000;
-    const beginnerMatch = q.includes("beginner") && h.tags.includes("Beginner-Friendly");
+      (h.prizePoolUSD || 0) >= 50000;
+    const beginnerMatch = q.includes("beginner") && (h.tags || []).includes("Beginner-Friendly");
     const textMatch =
-      h.name.toLowerCase().includes(q) ||
-      h.organizer.toLowerCase().includes(q) ||
-      h.tags.some((t) => t.toLowerCase().includes(q)) ||
-      h.description.toLowerCase().includes(q);
+      (h.name || "").toLowerCase().includes(q) ||
+      (h.organizer || "").toLowerCase().includes(q) ||
+      (h.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+      (h.description || "").toLowerCase().includes(q);
 
     return tagMatch || onlineMatch || offlineMatch || weekMatch || prizeMatch || bigPrize || beginnerMatch || textMatch;
   });
@@ -99,11 +118,11 @@ function CalendarView({
     kind: "registration" | "submission" | "result";
   };
 
-  const events: CalEvent[] = hackathons.flatMap((h) => [
+  const events: CalEvent[] = hackathons.flatMap((h): CalEvent[] => [
     { date: h.registrationDeadline, label: "Reg. closes", hackathon: h, kind: "registration" },
     { date: h.submissionDeadline, label: "Submission", hackathon: h, kind: "submission" },
     { date: h.resultDate, label: "Results", hackathon: h, kind: "result" },
-  ]);
+  ]).filter((ev) => Boolean(ev.date));
 
   events.sort((a, b) => a.date.localeCompare(b.date));
 
@@ -112,6 +131,14 @@ function CalendarView({
     submission: "bg-primary/20 text-primary border-primary/30",
     result: "bg-green-500/20 text-green-300 border-green-500/30",
   };
+
+  if (events.length === 0) {
+    return (
+      <div className="glass rounded-2xl p-8 text-center shadow-card">
+        <p className="text-sm text-muted-foreground">No upcoming dates scheduled yet.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="glass rounded-2xl p-6 shadow-card">
@@ -168,22 +195,24 @@ function HackathonCard({
   bookmarked,
   onBookmark,
   onCreateRoom,
+  isAdmin,
+  onDelete,
 }: {
   hackathon: Hackathon;
   bookmarked: boolean;
   onBookmark: (id: string) => void;
   onCreateRoom: (h: Hackathon) => void;
+  isAdmin?: boolean;
+  onDelete?: (id: string, name: string) => void;
 }) {
   const regDays = daysUntil(hackathon.registrationDeadline);
-  const isUrgent = regDays <= 7 && regDays >= 0;
-  const isClosed = regDays < 0;
 
   return (
     <div className="group glass rounded-2xl shadow-card flex flex-col overflow-hidden transition hover:-translate-y-0.5">
       {/* Banner */}
       <div className="relative h-36 overflow-hidden bg-gradient-to-br from-primary/20 to-purple-900/40">
         <img
-          src={hackathon.banner}
+          src={hackathon.banner || "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&q=80"}
           alt={hackathon.name}
           className="h-full w-full object-cover opacity-70 transition group-hover:opacity-90 group-hover:scale-105"
           loading="lazy"
@@ -199,120 +228,86 @@ function HackathonCard({
                   : "bg-purple-500/20 text-purple-300 border-purple-500/30",
             )}
           >
-            <MapPin className="mr-1 h-3 w-3" />
             {hackathon.mode}
           </Badge>
-          {isUrgent && (
-            <Badge className="bg-orange-500/90 text-white border-none text-xs backdrop-blur-sm animate-pulse">
-              <Clock className="mr-1 h-3 w-3" />
-              {regDays === 0 ? "Closes today!" : `${regDays}d left`}
-            </Badge>
-          )}
-          {isClosed && (
-            <Badge className="bg-zinc-700/80 text-zinc-300 border-none text-xs backdrop-blur-sm">
-              Registration closed
-            </Badge>
-          )}
-        </div>
-        <div className="absolute bottom-2 right-3">
-          <span className="rounded-full bg-black/50 px-2 py-0.5 text-xs text-zinc-300 backdrop-blur-sm">
-            {hackathon.platform}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {isAdmin && onDelete && (
+              <button
+                onClick={() => onDelete(hackathon.id, hackathon.name)}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-muted-foreground backdrop-blur-md transition hover:bg-destructive hover:text-white"
+                title="Delete Hackathon"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <button
+              onClick={() => onBookmark(hackathon.id)}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition hover:scale-110"
+            >
+              {bookmarked ? (
+                <BookmarkCheck className="h-3.5 w-3.5 text-primary fill-primary" />
+              ) : (
+                <Bookmark className="h-3.5 w-3.5 text-white/80" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Body */}
-      <div className="flex flex-1 flex-col gap-3 p-4">
-        <div>
-          <p className="text-xs text-muted-foreground">{hackathon.organizer}</p>
-          <h3 className="mt-0.5 text-base font-semibold leading-tight">{hackathon.name}</h3>
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+          <span>{hackathon.organizer}</span>
+          <span className="font-semibold text-primary">{hackathon.prizePool}</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex items-center gap-1.5 rounded-lg bg-card/50 px-2 py-1.5">
-            <Trophy className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
-            <span className="text-xs font-medium truncate">{hackathon.prizePool}</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-lg bg-card/50 px-2 py-1.5">
-            <Users className="h-3.5 w-3.5 text-blue-400 shrink-0" />
-            <span className="text-xs text-muted-foreground">
-              {hackathon.teamSize.min}–{hackathon.teamSize.max} members
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-lg bg-card/50 px-2 py-1.5">
-            <CalendarDays className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-            <span className={cn("text-xs", isUrgent ? "text-orange-400 font-medium" : "text-muted-foreground")}>
-              Reg: {isClosed ? "Closed" : formatDate(hackathon.registrationDeadline)}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-lg bg-card/50 px-2 py-1.5">
-            <CalendarDays className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span className="text-xs text-muted-foreground">
-              Sub: {formatDate(hackathon.submissionDeadline)}
-            </span>
-          </div>
-        </div>
+        <h3 className="text-base font-bold leading-snug group-hover:text-primary transition-colors">
+          {hackathon.name}
+        </h3>
 
-        <div className="flex flex-wrap gap-1.5">
-          {hackathon.tags.slice(0, 4).map((tag) => (
+        <p className="mt-2 line-clamp-2 text-xs text-muted-foreground leading-relaxed">
+          {hackathon.description}
+        </p>
+
+        {/* Tags */}
+        <div className="mt-3 flex flex-wrap gap-1">
+          {(hackathon.tags || []).slice(0, 3).map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary"
+              className="rounded-md border border-border/60 bg-card/50 px-2 py-0.5 text-[10px] text-muted-foreground"
             >
               {tag}
             </span>
           ))}
-          {hackathon.tags.length > 4 && (
-            <span className="rounded-full bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
-              +{hackathon.tags.length - 4}
-            </span>
-          )}
         </div>
 
-        <p className="line-clamp-2 text-xs text-muted-foreground flex-1">
-          {hackathon.description}
-        </p>
+        {/* Dates & Footer Actions */}
+        <div className="mt-5 border-t border-border/40 pt-3 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <CalendarDays className="h-3.5 w-3.5" />
+            <span>{formatDate(hackathon.registrationDeadline)}</span>
+          </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 pt-1 border-t border-border/40">
-          <button
-            onClick={() => onBookmark(hackathon.id)}
-            className={cn(
-              "flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition",
-              bookmarked
-                ? "bg-primary/15 text-primary"
-                : "text-muted-foreground hover:bg-card hover:text-foreground",
+          <div className="flex items-center gap-2">
+            {hackathon.platformUrl && (
+              <a
+                href={hackathon.platformUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition hover:border-primary hover:text-foreground"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Details
+              </a>
             )}
-          >
-            {bookmarked ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
-            {bookmarked ? "Saved" : "Save"}
-          </button>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(hackathon.platformUrl).catch(() => { });
-              toast.success("Link copied!");
-            }}
-            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-card hover:text-foreground"
-          >
-            <Share2 className="h-3.5 w-3.5" />
-            Share
-          </button>
-          <a
-            href={hackathon.platformUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-card hover:text-foreground"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            View
-          </a>
-          <button
-            onClick={() => onCreateRoom(hackathon)}
-            className="ml-auto flex items-center gap-1 rounded-lg bg-gradient-brand px-3 py-1.5 text-xs font-medium text-white shadow-glow transition hover:opacity-90"
-          >
-            <Zap className="h-3.5 w-3.5" />
-            Create Room
-          </button>
+            <button
+              onClick={() => onCreateRoom(hackathon)}
+              className="flex items-center gap-1 rounded-lg bg-gradient-brand px-3 py-1.5 text-xs font-semibold text-white shadow-glow transition hover:opacity-90"
+            >
+              <Zap className="h-3 w-3" />
+              Create Room
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -322,12 +317,72 @@ function HackathonCard({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 function ExplorePage() {
-  const [query, setQuery] = useState("");
+  const { user, isAdmin } = useAuth();
+  const [hackathons, setHackathons] = useState<Hackathon[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [query, setQuery] = useState(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      return p.get("q") || localStorage.getItem("explore_query") || "";
+    }
+    return "";
+  });
   const [activeTags, setActiveTags] = useState<string[]>([]);
-  const [modeFilter, setModeFilter] = useState<"All" | "Online" | "Offline" | "Hybrid">("All");
-  const [prizeFilter, setPrizeFilter] = useState<"All" | "50k+" | "100k+" | "500k+">("All");
-  const [deadlineFilter, setDeadlineFilter] = useState<"All" | "thisweek" | "thismonth">("All");
-  const [viewMode, setViewMode] = useState<"grid" | "calendar">("grid");
+  const [modeFilter, setModeFilter] = useState<"All" | "Online" | "Offline" | "Hybrid">(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const v = (p.get("mode") || localStorage.getItem("explore_mode")) as any;
+      if (["All", "Online", "Offline", "Hybrid"].includes(v)) return v;
+    }
+    return "All";
+  });
+  const [prizeFilter, setPrizeFilter] = useState<"All" | "50k+" | "100k+" | "500k+">(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const v = (p.get("prize") || localStorage.getItem("explore_prize")) as any;
+      if (["All", "50k+", "100k+", "500k+"].includes(v)) return v;
+    }
+    return "All";
+  });
+  const [deadlineFilter, setDeadlineFilter] = useState<"All" | "thisweek" | "thismonth">(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const v = (p.get("deadline") || localStorage.getItem("explore_deadline")) as any;
+      if (["All", "thisweek", "thismonth"].includes(v)) return v;
+    }
+    return "All";
+  });
+  const [viewMode, setViewMode] = useState<"grid" | "calendar">(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const v = (p.get("view") || localStorage.getItem("explore_view")) as any;
+      if (["grid", "calendar"].includes(v)) return v;
+    }
+    return "grid";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        if (query) url.searchParams.set("q", query); else url.searchParams.delete("q");
+        if (modeFilter !== "All") url.searchParams.set("mode", modeFilter); else url.searchParams.delete("mode");
+        if (prizeFilter !== "All") url.searchParams.set("prize", prizeFilter); else url.searchParams.delete("prize");
+        if (deadlineFilter !== "All") url.searchParams.set("deadline", deadlineFilter); else url.searchParams.delete("deadline");
+        if (viewMode !== "grid") url.searchParams.set("view", viewMode); else url.searchParams.delete("view");
+        window.history.replaceState({}, "", url.toString());
+
+        localStorage.setItem("explore_query", query);
+        localStorage.setItem("explore_mode", modeFilter);
+        localStorage.setItem("explore_prize", prizeFilter);
+        localStorage.setItem("explore_deadline", deadlineFilter);
+        localStorage.setItem("explore_view", viewMode);
+      } catch {
+        // ignore
+      }
+    }
+  }, [query, modeFilter, prizeFilter, deadlineFilter, viewMode]);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [bookmarks, setBookmarks] = useState<Set<string>>(() => {
     if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
@@ -342,36 +397,144 @@ function ExplorePage() {
   });
   const [showFilters, setShowFilters] = useState(false);
 
-  // Quick-create modal state
+  // Quick-create room modal
   const [quickCreateHackathon, setQuickCreateHackathon] = useState<Hackathon | null>(null);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
 
+  // Admin Add Hackathon Modal
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [submittingHackathon, setSubmittingHackathon] = useState(false);
+  const [newHackathon, setNewHackathon] = useState({
+    name: "",
+    organizer: "",
+    banner: "",
+    prizePool: "₹1 Lakh",
+    prizePoolUSD: 1200,
+    mode: "Online" as "Online" | "Offline" | "Hybrid",
+    registrationDeadline: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
+    submissionDeadline: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+    resultDate: new Date(Date.now() + 35 * 86400000).toISOString().split("T")[0],
+    teamMin: 1,
+    teamMax: 4,
+    tags: "AI, Web3",
+    platform: "Hackord",
+    platformUrl: "",
+    description: "",
+  });
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const data = await getHackathons();
+      setHackathons(data || []);
+    } catch (err) {
+      console.error("[ExplorePage] Error fetching hackathons:", err);
+      setHackathons([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleAddHackathonSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHackathon.name.trim() || !newHackathon.organizer.trim() || !newHackathon.description.trim()) {
+      toast.error("Please fill in all required fields (Name, Organizer, Description)");
+      return;
+    }
+
+    setSubmittingHackathon(true);
+    try {
+      const created = await createHackathon({
+        name: newHackathon.name.trim(),
+        organizer: newHackathon.organizer.trim(),
+        banner: newHackathon.banner.trim() || "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&q=80",
+        prizePool: newHackathon.prizePool,
+        prizePoolUSD: Number(newHackathon.prizePoolUSD) || 0,
+        mode: newHackathon.mode,
+        registrationDeadline: newHackathon.registrationDeadline,
+        submissionDeadline: newHackathon.submissionDeadline,
+        resultDate: newHackathon.resultDate,
+        teamSize: { min: Number(newHackathon.teamMin) || 1, max: Number(newHackathon.teamMax) || 4 },
+        tags: newHackathon.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        platform: newHackathon.platform.trim() || "Hackord",
+        platformUrl: newHackathon.platformUrl.trim(),
+        description: newHackathon.description.trim(),
+      });
+
+      setHackathons((prev) => [created, ...prev]);
+      toast.success(`Hackathon "${created.name}" created successfully!`);
+      setAddModalOpen(false);
+      setNewHackathon({
+        name: "",
+        organizer: "",
+        banner: "",
+        prizePool: "₹1 Lakh",
+        prizePoolUSD: 1200,
+        mode: "Online",
+        registrationDeadline: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
+        submissionDeadline: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+        resultDate: new Date(Date.now() + 35 * 86400000).toISOString().split("T")[0],
+        teamMin: 1,
+        teamMax: 4,
+        tags: "AI, Web3",
+        platform: "Hackord",
+        platformUrl: "",
+        description: "",
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create hackathon");
+    } finally {
+      setSubmittingHackathon(false);
+    }
+  };
+
+  const handleDeleteHackathon = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete hackathon "${name}"?`)) return;
+    try {
+      await deleteHackathon(id);
+      setHackathons((prev) => prev.filter((h) => h.id !== id));
+      toast.success(`Hackathon "${name}" deleted`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete hackathon");
+    }
+  };
+
   const filtered = useMemo(() => {
-    let list = query.trim() ? nlSearch(query, HACKATHONS) : HACKATHONS;
+    let list = query.trim() ? nlSearch(query, hackathons) : hackathons;
 
     if (showBookmarks) list = list.filter((h) => bookmarks.has(h.id));
     if (modeFilter !== "All") list = list.filter((h) => h.mode === modeFilter);
 
     if (prizeFilter !== "All") {
       const thresholds: Record<string, number> = { "50k+": 50000, "100k+": 100000, "500k+": 500000 };
-      list = list.filter((h) => h.prizePoolUSD >= thresholds[prizeFilter]);
+      list = list.filter((h) => (h.prizePoolUSD || 0) >= thresholds[prizeFilter]);
     }
 
     if (deadlineFilter === "thisweek") {
-      list = list.filter((h) => { const d = daysUntil(h.registrationDeadline); return d >= 0 && d <= 7; });
+      list = list.filter((h) => {
+        const d = daysUntil(h.registrationDeadline);
+        return d >= 0 && d <= 7;
+      });
     } else if (deadlineFilter === "thismonth") {
-      list = list.filter((h) => { const d = daysUntil(h.registrationDeadline); return d >= 0 && d <= 30; });
+      list = list.filter((h) => {
+        const d = daysUntil(h.registrationDeadline);
+        return d >= 0 && d <= 30;
+      });
     }
 
     if (activeTags.length > 0) {
-      list = list.filter((h) => activeTags.every((t) => h.tags.includes(t)));
+      list = list.filter((h) => activeTags.every((t) => (h.tags || []).includes(t)));
     }
 
     return list;
-  }, [query, showBookmarks, bookmarks, modeFilter, prizeFilter, deadlineFilter, activeTags]);
+  }, [query, showBookmarks, bookmarks, modeFilter, prizeFilter, deadlineFilter, activeTags, hackathons]);
 
   function toggleTag(tag: string) {
-    setActiveTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
+    setActiveTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   }
 
   function toggleBookmark(id: string) {
@@ -400,13 +563,8 @@ function ExplorePage() {
     setQuickCreateOpen(true);
   }
 
-  const recommendedHackathons = AI_RECOMMENDATIONS.map((r) => ({
-    ...r,
-    hackathon: HACKATHONS.find((h) => h.id === r.hackathonId)!,
-  })).filter((r) => r.hackathon);
-
-  const openCount = HACKATHONS.filter((h) => daysUntil(h.registrationDeadline) >= 0).length;
-  const closingThisWeek = HACKATHONS.filter((h) => {
+  const openCount = hackathons.filter((h) => daysUntil(h.registrationDeadline) >= 0).length;
+  const closingThisWeek = hackathons.filter((h) => {
     const d = daysUntil(h.registrationDeadline);
     return d >= 0 && d <= 7;
   }).length;
@@ -420,28 +578,57 @@ function ExplorePage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl space-y-8">
-        {/* Hero */}
+        {/* Hero Section & Admin Buttons */}
         <section className="glass-strong overflow-hidden rounded-2xl p-6 shadow-card sm:p-8">
-          <div className="flex flex-col gap-3">
-            <div className="inline-flex items-center gap-2 self-start rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
-              <Sparkles className="h-3.5 w-3.5" />
-              Curated from Devfolio, Devpost, ETHGlobal, DoraHacks, MLH, Unstop, HackerEarth, Hack2Skill &amp; Luma
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="inline-flex items-center gap-2 self-start rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Live Hackathon Registry</span>
+              </div>
+
+              {/* ADMIN ACTIONS */}
+              {isAdmin && (
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <Button
+                    onClick={() => setAddModalOpen(true)}
+                    className="bg-gradient-brand text-white shadow-glow hover:opacity-90"
+                    size="sm"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Add Hackathon
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      toast.info(
+                        "AI Hackathon Feeding will scrape web data automatically in an upcoming release."
+                      )
+                    }
+                    className="glass text-xs"
+                    size="sm"
+                  >
+                    <Bot className="mr-1.5 h-4 w-4 text-primary" />
+                    AI Feeding
+                  </Button>
+                </div>
+              )}
             </div>
+
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Hackathon{" "}
-              <span className="text-gradient-brand">Explorer</span>
+              Hackathon <span className="text-gradient-brand">Explorer</span>
             </h1>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Discover upcoming hackathons from 9 major platforms — all in one searchable hub. Find one you like, then create a team room in one click.
+              Discover real hackathons stored in your database. Find an upcoming event you like and spin up a dedicated room for your team.
             </p>
 
-            {/* Search */}
+            {/* Search Input */}
             <div className="relative mt-2 max-w-2xl">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder='Try "AI hackathons closing this week" or "Web3 with big prize"'
+                placeholder='Try "AI hackathons" or "Web3"'
                 className="h-12 rounded-xl pl-12 pr-4 text-sm"
               />
               {query && (
@@ -466,61 +653,13 @@ function ExplorePage() {
               </span>
               <span className="flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                {HACKATHONS.length} hackathons indexed
+                {hackathons.length} hackathons indexed
               </span>
             </div>
           </div>
         </section>
 
-        {/* Personalised picks */}
-        <section>
-          <div className="mb-4 flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-brand shadow-glow">
-              <Bot className="h-4 w-4 text-white" />
-            </div>
-            <h2 className="text-lg font-semibold">Recommended for you</h2>
-            <Badge variant="secondary" className="text-xs">Based on your GitHub &amp; profile</Badge>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {recommendedHackathons.map(({ hackathon, reason }) => (
-              <div
-                key={hackathon.id}
-                className="glass rounded-2xl p-4 shadow-card ring-1 ring-primary/20 flex flex-col gap-3"
-              >
-                <div className="flex items-start gap-3">
-                  <img
-                    src={hackathon.banner}
-                    alt={hackathon.name}
-                    className="h-12 w-12 rounded-xl object-cover shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">{hackathon.organizer}</p>
-                    <p className="text-sm font-semibold leading-tight">{hackathon.name}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2 rounded-lg bg-primary/10 p-2 text-xs text-primary">
-                  <Bot className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                  {reason}
-                </div>
-                <div className="flex items-center gap-2 mt-auto">
-                  <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 text-xs">
-                    <Trophy className="mr-1 h-3 w-3" />
-                    {hackathon.prizePool}
-                  </Badge>
-                  <button
-                    onClick={() => openQuickCreate(hackathon)}
-                    className="ml-auto flex items-center gap-1 rounded-lg bg-gradient-brand px-3 py-1.5 text-xs font-medium text-white shadow-glow transition hover:opacity-90"
-                  >
-                    <Zap className="h-3 w-3" />
-                    Create Room
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Filter bar */}
+        {/* Filter Bar */}
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {/* View toggles */}
@@ -529,7 +668,7 @@ function ExplorePage() {
                 onClick={() => setViewMode("grid")}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 text-xs transition",
-                  viewMode === "grid" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground",
+                  viewMode === "grid" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
@@ -539,7 +678,7 @@ function ExplorePage() {
                 onClick={() => setViewMode("calendar")}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 text-xs transition",
-                  viewMode === "calendar" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground",
+                  viewMode === "calendar" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Calendar className="h-3.5 w-3.5" />
@@ -554,7 +693,7 @@ function ExplorePage() {
                 "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition",
                 showBookmarks
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
+                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
               )}
             >
               <BookmarkCheck className="h-3.5 w-3.5" />
@@ -570,7 +709,7 @@ function ExplorePage() {
                   "rounded-lg border px-3 py-2 text-xs transition",
                   modeFilter === m
                     ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
+                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
                 )}
               >
                 {m}
@@ -584,7 +723,7 @@ function ExplorePage() {
                 "ml-auto flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition",
                 showFilters || activeFilterCount > 0
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
+                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
               )}
             >
               <Filter className="h-3.5 w-3.5" />
@@ -597,11 +736,10 @@ function ExplorePage() {
             </button>
           </div>
 
-          {/* Expanded filters */}
+          {/* Expanded Filters */}
           {showFilters && (
             <div className="glass rounded-xl p-4 shadow-card">
               <div className="grid gap-4 sm:grid-cols-3">
-                {/* Prize pool */}
                 <div>
                   <p className="mb-2 text-xs font-medium text-muted-foreground">Prize pool</p>
                   <div className="flex flex-wrap gap-2">
@@ -613,7 +751,7 @@ function ExplorePage() {
                           "rounded-lg border px-2.5 py-1.5 text-xs transition",
                           prizeFilter === p
                             ? "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground hover:border-primary/50",
+                            : "border-border text-muted-foreground hover:border-primary/50"
                         )}
                       >
                         {p === "All" ? "Any" : `$${p}`}
@@ -622,7 +760,6 @@ function ExplorePage() {
                   </div>
                 </div>
 
-                {/* Deadline */}
                 <div>
                   <p className="mb-2 text-xs font-medium text-muted-foreground">Registration closes</p>
                   <div className="flex flex-wrap gap-2">
@@ -634,7 +771,7 @@ function ExplorePage() {
                           "rounded-lg border px-2.5 py-1.5 text-xs transition",
                           deadlineFilter === v
                             ? "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground hover:border-primary/50",
+                            : "border-border text-muted-foreground hover:border-primary/50"
                         )}
                       >
                         {v === "All" ? "Anytime" : v === "thisweek" ? "This week" : "This month"}
@@ -643,7 +780,6 @@ function ExplorePage() {
                   </div>
                 </div>
 
-                {/* Clear */}
                 {activeFilterCount > 0 && (
                   <div className="flex items-end">
                     <button
@@ -662,7 +798,6 @@ function ExplorePage() {
                 )}
               </div>
 
-              {/* Tag cloud */}
               <div className="mt-4 border-t border-border/50 pt-4">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">Filter by domain</p>
                 <div className="flex flex-wrap gap-1.5">
@@ -674,7 +809,7 @@ function ExplorePage() {
                         "rounded-full border px-2.5 py-1 text-xs transition",
                         activeTags.includes(tag)
                           ? "border-primary bg-primary/15 text-primary"
-                          : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                          : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
                       )}
                     >
                       {tag}
@@ -686,16 +821,22 @@ function ExplorePage() {
           )}
         </div>
 
-        {/* Results */}
-        {viewMode === "calendar" ? (
+        {/* Results Grid / Calendar */}
+        {loading ? (
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="glass rounded-2xl p-5 h-64 animate-pulse bg-card/30" />
+            ))}
+          </div>
+        ) : viewMode === "calendar" ? (
           <CalendarView hackathons={filtered} onCreateRoom={openQuickCreate} />
         ) : (
           <div>
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                {filtered.length === HACKATHONS.length
-                  ? `${HACKATHONS.length} hackathons`
-                  : `${filtered.length} of ${HACKATHONS.length} hackathons`}
+                {filtered.length === hackathons.length
+                  ? `${hackathons.length} hackathons`
+                  : `${filtered.length} of ${hackathons.length} hackathons`}
                 {query && (
                   <span className="ml-1">
                     for <span className="font-medium text-foreground">"{query}"</span>
@@ -714,21 +855,18 @@ function ExplorePage() {
                 <Search className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
                 <p className="text-base font-medium">No hackathons found</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Try a different search or adjust your filters.
+                  {hackathons.length === 0
+                    ? "No hackathons have been added yet. Admin can click 'Add Hackathon' to add real hackathons."
+                    : "Try a different search or adjust your filters."}
                 </p>
-                <button
-                  onClick={() => {
-                    setQuery("");
-                    setActiveTags([]);
-                    setModeFilter("All");
-                    setPrizeFilter("All");
-                    setDeadlineFilter("All");
-                  }}
-                  className="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  Show all hackathons
-                </button>
+                {isAdmin && hackathons.length === 0 && (
+                  <Button
+                    onClick={() => setAddModalOpen(true)}
+                    className="mt-4 bg-gradient-brand text-white shadow-glow"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" /> Add First Hackathon
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -739,6 +877,8 @@ function ExplorePage() {
                     bookmarked={bookmarks.has(h.id)}
                     onBookmark={toggleBookmark}
                     onCreateRoom={openQuickCreate}
+                    isAdmin={isAdmin}
+                    onDelete={handleDeleteHackathon}
                   />
                 ))}
               </div>
@@ -753,6 +893,198 @@ function ExplorePage() {
         open={quickCreateOpen}
         onOpenChange={setQuickCreateOpen}
       />
+
+      {/* Admin Add Hackathon Modal */}
+      <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Plus className="h-5 w-5 text-primary" /> Add New Hackathon
+            </DialogTitle>
+            <DialogDescription>
+              Fill in the hackathon overview and registration details to display on the platform.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddHackathonSubmit} className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="h-name">Hackathon Name *</Label>
+                <Input
+                  id="h-name"
+                  required
+                  placeholder="e.g. Smart India Hackathon 2026"
+                  value={newHackathon.name}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="h-organizer">Organizer *</Label>
+                <Input
+                  id="h-organizer"
+                  required
+                  placeholder="e.g. Ministry of Education"
+                  value={newHackathon.organizer}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, organizer: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="h-prizepool">Prize Pool Text</Label>
+                <Input
+                  id="h-prizepool"
+                  placeholder="e.g. ₹5 Lakhs or $50,000"
+                  value={newHackathon.prizePool}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, prizePool: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="h-prizeusd">Prize Pool USD (for filter)</Label>
+                <Input
+                  id="h-prizeusd"
+                  type="number"
+                  placeholder="e.g. 6000"
+                  value={newHackathon.prizePoolUSD}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, prizePoolUSD: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="h-mode">Mode</Label>
+                <Select
+                  value={newHackathon.mode}
+                  onValueChange={(val: "Online" | "Offline" | "Hybrid") =>
+                    setNewHackathon((prev) => ({ ...prev, mode: val }))
+                  }
+                >
+                  <SelectTrigger id="h-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Online">Online</SelectItem>
+                    <SelectItem value="Offline">Offline</SelectItem>
+                    <SelectItem value="Hybrid">Hybrid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="h-minteam">Min Team Size</Label>
+                <Input
+                  id="h-minteam"
+                  type="number"
+                  min={1}
+                  value={newHackathon.teamMin}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, teamMin: Number(e.target.value) }))}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="h-maxteam">Max Team Size</Label>
+                <Input
+                  id="h-maxteam"
+                  type="number"
+                  min={1}
+                  value={newHackathon.teamMax}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, teamMax: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="h-regdate">Registration Deadline</Label>
+                <Input
+                  id="h-regdate"
+                  type="date"
+                  value={newHackathon.registrationDeadline}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, registrationDeadline: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="h-subdate">Submission Deadline</Label>
+                <Input
+                  id="h-subdate"
+                  type="date"
+                  value={newHackathon.submissionDeadline}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, submissionDeadline: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="h-resdate">Result Date</Label>
+                <Input
+                  id="h-resdate"
+                  type="date"
+                  value={newHackathon.resultDate}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, resultDate: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="h-banner">Banner Image URL</Label>
+              <Input
+                id="h-banner"
+                placeholder="https://images.unsplash.com/..."
+                value={newHackathon.banner}
+                onChange={(e) => setNewHackathon((prev) => ({ ...prev, banner: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="h-tags">Tags (comma separated)</Label>
+                <Input
+                  id="h-tags"
+                  placeholder="AI, Web3, FinTech"
+                  value={newHackathon.tags}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, tags: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="h-platformurl">Platform Link URL</Label>
+                <Input
+                  id="h-platformurl"
+                  placeholder="https://devfolio.co/hackathons/..."
+                  value={newHackathon.platformUrl}
+                  onChange={(e) => setNewHackathon((prev) => ({ ...prev, platformUrl: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="h-desc">Description *</Label>
+              <Textarea
+                id="h-desc"
+                required
+                rows={3}
+                placeholder="Detailed overview of problem statements, eligibility, and tracks..."
+                value={newHackathon.description}
+                onChange={(e) => setNewHackathon((prev) => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setAddModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submittingHackathon} className="bg-gradient-brand text-white shadow-glow">
+                {submittingHackathon ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  "Create Hackathon"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

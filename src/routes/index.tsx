@@ -92,11 +92,11 @@ function Landing() {
                 <span className="relative">Create a workspace</span>
               </Link>
               <Link
-                to="/dashboard"
+                to="/explore"
                 className="rounded-xl glass-strong px-8 py-3 text-center font-semibold transition hover:bg-muted/50 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
               >
-                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                Live demo
+                <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                Explore hackathons
               </Link>
             </div>
           </div>

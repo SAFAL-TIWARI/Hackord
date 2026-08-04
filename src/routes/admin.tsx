@@ -14,14 +14,17 @@ import {
   Layers3,
   ExternalLink,
   Crown,
+  Trash2,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth, type AuthUser } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
-import { getRooms, type DbRoom } from "@/lib/rooms-api";
+import { getRooms, deleteRoom, type DbRoom } from "@/lib/rooms-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
@@ -94,6 +97,17 @@ function AdminPage() {
     }
   };
 
+  const handleDeleteAdminRoom = async (roomId: string, roomName: string) => {
+    if (!confirm(`[ADMIN] Delete room "${roomName}"? This cannot be undone.`)) return;
+    try {
+      await deleteRoom(roomId);
+      setRooms((prev) => prev.filter((r) => r.id !== roomId));
+      toast.success(`Room "${roomName}" deleted successfully by admin.`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete room");
+    }
+  };
+
   useEffect(() => {
     if (!isAdmin) return;
     const timer = setTimeout(() => {
@@ -160,7 +174,19 @@ function AdminPage() {
         </section>
 
         {/* Stats */}
-        {stats && (
+        {loading ? (
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="glass rounded-2xl p-5 shadow-card space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                </div>
+                <Skeleton className="h-8 w-16" />
+              </div>
+            ))}
+          </section>
+        ) : stats ? (
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {statCards.map((s) => (
               <div key={s.label} className="glass rounded-2xl p-5 shadow-card">
@@ -174,7 +200,7 @@ function AdminPage() {
               </div>
             ))}
           </section>
-        )}
+        ) : null}
 
         {/* Platform Rooms Stored by User Profile (Admin View) */}
         <section className="glass rounded-2xl p-6 shadow-card">
@@ -199,7 +225,29 @@ function AdminPage() {
             </div>
           </div>
 
-          {filteredRooms.length === 0 ? (
+          {loading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-3.5 w-28" />
+                  <div className="border-t border-border/50 pt-3 mt-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                      <div className="space-y-1">
+                        <Skeleton className="h-3.5 w-24" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredRooms.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
               No rooms found matching "{roomSearch}"
             </div>
@@ -244,14 +292,25 @@ function AdminPage() {
                         </div>
                       </div>
 
-                      <Link
-                        to="/rooms/$roomId"
-                        params={{ roomId: r.id }}
-                        className="rounded-lg bg-sidebar-accent p-2 text-xs hover:bg-primary hover:text-white transition"
-                        title="View Room Details"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteAdminRoom(r.id, r.name)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Delete Room (Admin)"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Link
+                          to="/rooms/$roomId"
+                          params={{ roomId: r.id }}
+                          className="rounded-lg bg-sidebar-accent p-2 text-xs hover:bg-primary hover:text-white transition"
+                          title="View Room Details"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 );
@@ -277,8 +336,17 @@ function AdminPage() {
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="h-6 w-6 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/50 p-4">
+                    <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-56" />
+                    </div>
+                    <Skeleton className="h-6 w-16 rounded-full shrink-0" />
+                  </div>
+                ))}
               </div>
             ) : users.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-12 text-center">

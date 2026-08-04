@@ -52,6 +52,8 @@ export type DbMessage = {
 };
 
 export type DbRoom = {
+  creator_id: boolean;
+  creator_email: string;
   id: string;
   hackathon: string;
   name: string;
@@ -85,7 +87,7 @@ export function getLoggedInUser(): { id: string; name: string; email: string; av
         const u = JSON.parse(raw);
         if (u.name) {
           return {
-            id: u._id || u.id || "u_me",
+            id: u._id || u.id || "",
             name: u.name,
             email: u.email || "",
             avatar: u.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(u.name)}`,
@@ -95,10 +97,10 @@ export function getLoggedInUser(): { id: string; name: string; email: string; av
     } catch {}
   }
   return {
-    id: "u_me",
-    name: "Aarav Sharma",
-    email: "aarav@example.com",
-    avatar: "https://api.dicebear.com/9.x/glass/svg?seed=tempuser",
+    id: "",
+    name: "User",
+    email: "",
+    avatar: "",
   };
 }
 
@@ -137,7 +139,7 @@ export async function getRooms(params?: {
     saveRoomsToStorage(merged);
     return merged;
   } catch (err) {
-    console.warn("[rooms-api] Backend unavailable, falling back to localStorage", err);
+    console.warn("[rooms-api] Backend unavailable, falling back to localStorage:", (err as Error)?.message || err);
     return loadRoomsFromStorage();
   }
 }
@@ -151,7 +153,7 @@ export async function getRoom(params: { data: { roomId: string } }): Promise<DbR
       return room;
     }
   } catch (err) {
-    console.warn("[rooms-api] Backend getRoom failed, checking local storage", err);
+    console.warn("[rooms-api] Backend getRoom failed, checking local storage:", (err as Error)?.message || err);
   }
 
   // Check localStorage
@@ -189,6 +191,8 @@ export async function getRoom(params: { data: { roomId: string } }): Promise<DbR
         role: "Owner",
       },
     ],
+    creator_id: false,
+    creator_email: ""
   };
 
   saveRoomToStorage(generated);
@@ -218,8 +222,10 @@ export async function createRoom(params: {
   const currentUser = getLoggedInUser();
   const requestPayload = {
     ...params.data,
-    creatorName: currentUser.name,
-    creatorAvatar: currentUser.avatar,
+    creatorId: params.data.creatorId || currentUser.id,
+    creatorEmail: params.data.creatorEmail || currentUser.email,
+    creatorName: params.data.creatorName || currentUser.name,
+    creatorAvatar: params.data.creatorAvatar || currentUser.avatar,
   };
 
   let created: DbRoom | null = null;
@@ -267,6 +273,22 @@ export async function updateRoom(params: {
     return rooms[index];
   }
   throw new Error("Room not found");
+}
+
+export async function deleteRoom(roomId: string): Promise<boolean> {
+  try {
+    await apiFetch(`/rooms/${roomId}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    console.warn("[rooms-api] Backend delete failed, removing from local storage", err);
+  }
+
+  // Remove from localStorage
+  const rooms = loadRoomsFromStorage();
+  const filtered = rooms.filter((r) => r.id !== roomId && r.id?.toLowerCase() !== roomId.toLowerCase());
+  saveRoomsToStorage(filtered);
+  return true;
 }
 
 export async function getMessages(params: { data: { roomId: string } }): Promise<DbMessage[]> {
@@ -591,8 +613,11 @@ function saveMessagesToStorage(messages: DbMessage[]): void {
 function createRoomLocally(data: any): DbRoom {
   const rooms = loadRoomsFromStorage();
   const links = Array.isArray(data.projectLinks) ? data.projectLinks.filter((l: any) => l.url) : [];
-  const ownerName = data.creatorName || getLoggedInUser().name;
-  const ownerAvatar = data.creatorAvatar || getLoggedInUser().avatar;
+  const currentUser = getLoggedInUser();
+  const ownerId = data.creatorId || currentUser.id || `u_${Date.now()}`;
+  const ownerEmail = data.creatorEmail || currentUser.email || "";
+  const ownerName = data.creatorName || currentUser.name || "Owner";
+  const ownerAvatar = data.creatorAvatar || currentUser.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(ownerName)}`;
 
   const newRoom: DbRoom = {
     id: data.id,
@@ -613,7 +638,7 @@ function createRoomLocally(data: any): DbRoom {
     member_count: 1,
     members: [
       {
-        user_id: "u_me",
+        user_id: ownerId,
         user_name: ownerName,
         user_avatar: ownerAvatar,
         role: "Owner",
@@ -624,6 +649,8 @@ function createRoomLocally(data: any): DbRoom {
     activities: [
       { id: `act_${Date.now()}`, who: ownerName.split(" ")[0], what: `created room "${data.name}"`, when: new Date().toISOString() },
     ],
+    creator_id: ownerId,
+    creator_email: ownerEmail,
   };
 
   rooms.unshift(newRoom);
