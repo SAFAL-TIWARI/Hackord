@@ -6,7 +6,10 @@ import {
   Crown, ExternalLink, Search, Send, Paperclip, Smile, Pin, Plus, Edit,
   FileText, Image as ImageIcon, Film, Archive, Sparkles, GitBranch,
   GitPullRequest, CircleDot, Check, Clock, Play, Link as LinkIcon, Trash2, Lock, ShieldAlert,
+  Star, GitFork, RefreshCw, Unlink, AlertCircle, GitCommit,
 } from "lucide-react";
+import { fetchGithubWorkspaceData, parseGithubUrl, type GithubWorkspaceData } from "@/lib/github-api";
+import { AgoraMeeting } from "@/components/AgoraMeeting";
 import { AppShell } from "@/components/AppShell";
 import { RoomSkeleton } from "@/components/RoomSkeleton";
 import { Button } from "@/components/ui/button";
@@ -320,11 +323,21 @@ function RoomPage() {
           {tab === "members" && <MembersTab room={room} onRoomUpdate={refreshRoom} isOwnerOrAdmin={isOwnerOrAdmin} />}
           {tab === "chat" && <ChatTab roomId={room.id} initialMessages={initialMessages} userName={currentUserName} userAvatar={currentUserAvatar} />}
           {tab === "ai" && <AITab />}
-          {tab === "github" && <GithubTab room={room} />}
+          {tab === "github" && <GithubTab room={room} onRoomUpdate={refreshRoom} isOwnerOrAdmin={isOwnerOrAdmin} />}
           {tab === "files" && <FilesTab room={room} onRoomUpdate={refreshRoom} userName={currentUserName} />}
           {tab === "timeline" && <TimelineTab room={room} />}
           {tab === "tasks" && <TasksTab room={room} onRoomUpdate={refreshRoom} userName={currentUserName} />}
-          {tab === "meetings" && <MeetingsTab />}
+          {/* Keep Meetings tab always mounted so active calls stay connected in background */}
+          <div className={cn(tab !== "meetings" && "hidden")}>
+            <MeetingsTab
+              room={room}
+              userName={currentUserName}
+              userAvatar={currentUserAvatar}
+              isMemberOrAdmin={isMemberOrAdmin}
+              isOwnerOrAdmin={isOwnerOrAdmin}
+              roomMembersCount={(room.members || []).length}
+            />
+          </div>
         </div>
 
         {/* Edit Room Dialog */}
@@ -1403,131 +1416,561 @@ function AITab() {
   );
 }
 
-/* ------------------------ GitHub (Untouched) ------------------------ */
-function GithubTab({ room }: { room: DbRoom }) {
-  const g = GITHUB_DATA || { url: "#", repo: "Not connected", commits: [], prs: [], issues: [] };
+/* ------------------------ GitHub Live Stats ------------------------ */
+function GithubTab({
+  room, onRoomUpdate, isOwnerOrAdmin = false,
+}: {
+  room: DbRoom; onRoomUpdate?: () => void; isOwnerOrAdmin?: boolean;
+}) {
+  const defaultGithubUrl = room.github_url || room.project_links?.find(l => l.url?.includes("github.com"))?.url || "https://github.com/SAFAL-TIWARI/Hackord";
+  
+  const [repoUrl, setRepoUrl] = useState<string>(defaultGithubUrl);
+  const [data, setData] = useState<GithubWorkspaceData | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Modal state for connecting/changing repo
+  const [openModal, setOpenModal] = useState<boolean>(false);
+  const [inputUrl, setInputUrl] = useState<string>("");
+  const [connecting, setConnecting] = useState<boolean>(false);
+
+  const parsedCurrent = useMemo(() => parseGithubUrl(repoUrl), [repoUrl]);
+
+  // Determine Live Demo Website URL (from GitHub homepage or room project links)
+  const liveDemoUrl = useMemo(() => {
+    if (data?.repoInfo.homepage) return data.repoInfo.homepage;
+    const roomDemoLink = room.project_links?.find(l => 
+      l.label?.toLowerCase().includes("demo") || 
+      l.label?.toLowerCase().includes("live") || 
+      l.url?.includes("vercel.app") || 
+      l.url?.includes("netlify.app") || 
+      l.url?.includes("render.com")
+    );
+    return roomDemoLink ? roomDemoLink.url : null;
+  }, [data?.repoInfo.homepage, room.project_links]);
+
+  const loadData = async (targetUrl: string, forceRefresh = false) => {
+    if (!parseGithubUrl(targetUrl)) {
+      setData(null);
+      setError("No valid GitHub repository connected yet.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchGithubWorkspaceData(targetUrl, forceRefresh);
+      setData(res);
+    } catch (err: any) {
+      console.error("[GithubTab]", err);
+      setError(err.message || "Failed to load live GitHub repository stats.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (defaultGithubUrl) {
+      setRepoUrl(defaultGithubUrl);
+      loadData(defaultGithubUrl);
+    }
+  }, [room.github_url]);
+
+  const handleSaveRepo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isOwnerOrAdmin) {
+      toast.error("Only the Room Owner or Admin can change the connected repository.");
+      return;
+    }
+    const parsed = parseGithubUrl(inputUrl);
+    if (!parsed) {
+      toast.error("Please enter a valid GitHub URL or owner/repo format (e.g. SAFAL-TIWARI/Hackord)");
+      return;
+    }
+    setConnecting(true);
+    try {
+      const fullUrl = parsed.repoUrl;
+      await updateRoom({
+        roomId: room.id,
+        data: {
+          github_url: fullUrl,
+        },
+      });
+      setRepoUrl(fullUrl);
+      toast.success(`Connected repository: ${parsed.fullRepoName}`);
+      setOpenModal(false);
+      if (onRoomUpdate) onRoomUpdate();
+      await loadData(fullUrl);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to connect repository");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!isOwnerOrAdmin) {
+      toast.error("Only the Room Owner or Admin can disconnect the repository.");
+      return;
+    }
+    try {
+      await updateRoom({
+        roomId: room.id,
+        data: {
+          github_url: "",
+        },
+      });
+      setRepoUrl("");
+      setData(null);
+      setError("No GitHub repository connected.");
+      toast.success("Disconnected repository");
+      if (onRoomUpdate) onRoomUpdate();
+    } catch (err: any) {
+      toast.error("Failed to disconnect repository");
+    }
+  };
+
+  const timeAgo = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
+      if (diffSec < 60) return "just now";
+      if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+      if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+      return `${Math.floor(diffSec / 86400)}d ago`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Repository</h2>
-            <a href={g.url || "#"} className="mt-1 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-              <Github className="h-4 w-4" /> {g.repo || "Not connected"}
-            </a>
+    <div className="space-y-6">
+      {/* GitHub Repository Header Card */}
+      <section className="glass rounded-2xl p-4 sm:p-6 shadow-card">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-2xl bg-gradient-brand-soft border border-primary/20 shrink-0">
+              <Github className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg sm:text-xl font-bold tracking-tight truncate max-w-full">
+                  {data?.repoInfo.full_name || parsedCurrent?.fullRepoName || "Repository"}
+                </h2>
+                {data?.isRateLimited ? (
+                  <Badge variant="outline" className="gap-1.5 bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px] sm:text-[11px] font-medium">
+                    <Clock className="h-3 w-3 text-amber-400" /> Cached (API Paused)
+                  </Badge>
+                ) : data ? (
+                  <Badge variant="outline" className="gap-1.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] sm:text-[11px] font-medium">
+                    <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-500 animate-pulse" /> Live Synced
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground text-[10px] sm:text-[11px]">
+                    Not connected
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1 max-w-xl">
+                {data?.repoInfo.description || (parsedCurrent ? `Live repository stats for ${parsedCurrent.fullRepoName}` : "Connect a GitHub repository to track real-time commits, open PRs, issues, and team contributors.")}
+              </p>
+            </div>
           </div>
-          <Button variant="outline"><GitBranch className="h-4 w-4" /> Connect repository</Button>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {parsedCurrent && (
+              <Button size="sm" variant="outline" onClick={() => loadData(repoUrl, true)} disabled={loading} className="gap-1.5 h-8 sm:h-9 text-xs">
+                <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> {loading ? "Syncing..." : "Refresh"}
+              </Button>
+            )}
+            
+            {/* Owner & Admin Only Controls */}
+            {isOwnerOrAdmin && (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setInputUrl(repoUrl || "https://github.com/SAFAL-TIWARI/Hackord");
+                    setOpenModal(true);
+                  }}
+                  className="bg-gradient-brand text-white shadow-glow hover:opacity-90 gap-1.5 h-8 sm:h-9 text-xs"
+                >
+                  <GitBranch className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  {parsedCurrent ? "Change Repo" : "Connect Repository"}
+                </Button>
+                {parsedCurrent && (
+                  <Button size="sm" variant="ghost" onClick={handleDisconnect} title="Disconnect Repository" className="text-xs text-muted-foreground hover:text-destructive h-8 sm:h-9 px-2">
+                    <Unlink className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="mt-6 rounded-xl border border-border/60 bg-card/50 p-4">
-          <p className="mb-3 text-sm font-medium">Commit graph</p>
-          <div className="flex h-24 items-end gap-1">
-            {Array.from({ length: 28 }).map((_, i) => (
-              <div key={i} className="flex-1 rounded-t bg-gradient-brand"
-                style={{ height: `${20 + Math.round(Math.sin(i / 2) * 30 + Math.random() * 40)}%`, opacity: 0.4 + Math.random() * 0.6 }} />
-            ))}
+        {/* Repository Key Metrics Bar */}
+        {data?.repoInfo && (
+          <div className="mt-4 sm:mt-5 grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4 pt-4 border-t border-border/50">
+            <div className="rounded-xl border border-border/60 bg-card/40 p-2.5 sm:p-3">
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-400" /> Stars
+              </p>
+              <p className="mt-0.5 sm:mt-1 text-base sm:text-lg font-bold">{data.repoInfo.stargazers_count}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card/40 p-2.5 sm:p-3">
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                <GitFork className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" /> Forks
+              </p>
+              <p className="mt-0.5 sm:mt-1 text-base sm:text-lg font-bold">{data.repoInfo.forks_count}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card/40 p-2.5 sm:p-3">
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                <CircleDot className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-warning" /> Open Issues
+              </p>
+              <p className="mt-0.5 sm:mt-1 text-base sm:text-lg font-bold">{data.repoInfo.open_issues_count}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card/40 p-2.5 sm:p-3">
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                <GitBranch className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400" /> Default Branch
+              </p>
+              <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-semibold truncate">{data.repoInfo.default_branch}</p>
+            </div>
           </div>
-        </div>
-
-        <div className="mt-6">
-          <h3 className="mb-3 text-sm font-medium">Latest commits</h3>
-          <ul className="space-y-2">
-            {(g.commits || []).map((c: any) => (
-              <li key={c.sha} className="flex items-center justify-between rounded-xl border border-border/60 bg-card/50 p-3 text-sm">
-                <div className="flex items-center gap-3">
-                  <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">{c.sha}</span>
-                  <span>{c.msg}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">{c.author} · {c.time}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        )}
       </section>
 
-      <div className="space-y-6">
-        <section className="glass rounded-2xl p-6 shadow-card">
-          <h3 className="mb-3 text-sm font-medium">Open PRs</h3>
-          <ul className="space-y-2">
-            {(g.prs || []).map((p: any) => (
-              <li key={p.id} className="flex items-center gap-3 rounded-lg border border-border/60 bg-card/50 p-3 text-sm">
-                <GitPullRequest className="h-4 w-4 text-primary" />
-                <span className="flex-1">#{p.id} {p.title}</span>
-                <span className="text-xs text-muted-foreground">{p.author}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section className="glass rounded-2xl p-6 shadow-card">
-          <h3 className="mb-3 text-sm font-medium">Issues</h3>
-          <ul className="space-y-2">
-            {(g.issues || []).map((i: any) => (
-              <li key={i.id} className="flex items-center gap-3 rounded-lg border border-border/60 bg-card/50 p-3 text-sm">
-                <CircleDot className="h-4 w-4 text-warning" />
-                <span className="flex-1">#{i.id} {i.title}</span>
-                <span className="text-xs text-muted-foreground">{i.author}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section className="glass rounded-2xl p-6 shadow-card">
-          <h3 className="mb-3 text-sm font-medium">Contributors</h3>
-          <div className="flex flex-wrap gap-2">
-            {(room.members || []).map((m: any) => (
-              <Avatar key={m.user_id || m.user_name} className="h-8 w-8">
-                <AvatarImage src={m.user_avatar} />
-                <AvatarFallback>{(m.user_name || "U")[0]}</AvatarFallback>
-              </Avatar>
-            ))}
+      {/* Main Responsive Grid: Commits vs Side Cards */}
+      {loading ? (
+        <div className="glass rounded-2xl p-8 sm:p-12 text-center shadow-card space-y-3">
+          <RefreshCw className="h-7 w-7 sm:h-8 sm:w-8 text-primary animate-spin mx-auto" />
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium">Fetching real-time GitHub data for {parsedCurrent?.fullRepoName}...</p>
+        </div>
+      ) : error || !data ? (
+        <div className="glass rounded-2xl p-6 sm:p-10 text-center shadow-card space-y-4 max-w-2xl mx-auto">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-destructive/10 text-destructive mx-auto">
+            <AlertCircle className="h-6 w-6" />
           </div>
-        </section>
-      </div>
+          <div>
+            <h3 className="text-base sm:text-lg font-semibold">{error || "No GitHub Repository Connected"}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Connect a public GitHub repository (e.g. <code>https://github.com/SAFAL-TIWARI/Hackord</code>) to view real commit activity, open PRs, issues, and contributors.
+            </p>
+          </div>
+          {isOwnerOrAdmin && (
+            <Button
+              onClick={() => {
+                setInputUrl("https://github.com/SAFAL-TIWARI/Hackord");
+                setOpenModal(true);
+              }}
+              className="bg-gradient-brand text-white shadow-glow text-xs sm:text-sm"
+            >
+              <GitBranch className="h-4 w-4 mr-2" /> Connect Repo Now
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+          {/* Left Column: Commit Graph & Latest Commits */}
+          <section className="glass rounded-2xl p-4 sm:p-6 shadow-card lg:col-span-2 space-y-6">
+            {/* Interactive Responsive Commit Graph */}
+            <div className="rounded-xl border border-border/60 bg-card/50 p-3.5 sm:p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
+                <div>
+                  <h3 className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+                    <GitCommit className="h-4 w-4 text-primary" /> Recent Commit Activity
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-muted-foreground">Frequency of commits over the last 28 activity days</p>
+                </div>
+                <Badge variant="secondary" className="text-[10px] sm:text-xs w-fit">{data.commits.length} recent commits</Badge>
+              </div>
+
+              <div className="w-full overflow-x-auto custom-scrollbar pt-6 pb-1">
+                <div className="flex h-24 sm:h-28 items-end gap-1 sm:gap-1.5 pt-6 min-w-[260px] px-1 relative">
+                  {data.commitGraph.map((bar, i) => (
+                    <div key={i} className="group relative flex-1 flex flex-col items-center h-full justify-end">
+                      {/* Floating hover tooltip showing Date & total commits */}
+                      <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 z-30 opacity-0 group-hover:opacity-100 transition-all duration-200 rounded-md bg-popover px-2.5 py-1 text-[10px] font-medium text-popover-foreground shadow-xl border border-border/80 whitespace-nowrap flex items-center gap-1.5">
+                        <span className="font-semibold text-primary">{bar.dateLabel || bar.dayLabel}:</span>
+                        <span>{bar.count} commit{bar.count === 1 ? "" : "s"}</span>
+                      </div>
+                      <div
+                        className={cn(
+                          "w-full rounded-t transition-all duration-300 cursor-pointer",
+                          bar.count > 0 ? "bg-gradient-brand group-hover:brightness-125 group-hover:shadow-glow" : "bg-muted/40 hover:bg-muted/70",
+                        )}
+                        style={{ height: `${bar.heightPercent}%` }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Latest Commits List */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+                  <GitCommit className="h-4 w-4 text-primary" /> Latest Commits ({data.commits.length})
+                </h3>
+                <a href={`${data.repoInfo.html_url}/commits`} target="_blank" rel="noreferrer" className="text-[11px] sm:text-xs text-primary hover:underline flex items-center gap-1">
+                  View all on GitHub <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+
+              {data.commits.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-6 text-center">No recent commits found.</p>
+              ) : (
+                <ul className="space-y-2 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
+                  {data.commits.map((c) => (
+                    <li key={c.sha} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border border-border/60 bg-card/50 p-2.5 sm:p-3 text-xs sm:text-sm hover:border-border transition gap-2">
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                        <Avatar className="h-6 w-6 sm:h-7 sm:w-7 shrink-0">
+                          <AvatarImage src={c.authorAvatar} />
+                          <AvatarFallback>{c.authorName[0]}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-xs text-foreground">{c.message}</p>
+                          <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate mt-0.5">
+                            by <span className="text-foreground font-medium">{c.authorName}</span> {c.authorLogin ? `(@${c.authorLogin})` : ""}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <span className="text-[10px] sm:text-[11px] text-muted-foreground">{timeAgo(c.date)}</span>
+                        <a
+                          href={c.htmlUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded bg-muted px-2 py-0.5 font-mono text-[10px] sm:text-[11px] hover:bg-primary/20 hover:text-primary transition flex items-center gap-1"
+                        >
+                          {c.shortSha} <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          {/* Right Column: About, Open PRs, Issues, and Contributors */}
+          <div className="space-y-6">
+            {/* About & Live Demo URL Section */}
+            <section className="glass rounded-2xl p-4 sm:p-5 shadow-card space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs sm:text-sm font-semibold text-foreground">About</h3>
+                {isOwnerOrAdmin && (
+                  <button
+                    onClick={() => {
+                      setInputUrl(repoUrl || "https://github.com/SAFAL-TIWARI/Hackord");
+                      setOpenModal(true);
+                    }}
+                    className="text-muted-foreground hover:text-foreground transition"
+                    title="Manage repository settings"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {data.repoInfo.description && (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {data.repoInfo.description}
+                </p>
+              )}
+
+              {liveDemoUrl ? (
+                <div className="flex items-center gap-2 pt-1">
+                  <LinkIcon className="h-4 w-4 text-primary shrink-0" />
+                  <a
+                    href={liveDemoUrl.startsWith("http") ? liveDemoUrl : `https://${liveDemoUrl}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-medium text-primary hover:underline truncate"
+                  >
+                    {liveDemoUrl.replace(/^https?:\/\//i, "").replace(/\/+$/, "")}
+                  </a>
+                </div>
+              ) : (
+                isOwnerOrAdmin && (
+                  <div className="text-[11px] text-muted-foreground italic flex items-center gap-1.5 pt-1">
+                    <LinkIcon className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                    <span>No live demo URL configured</span>
+                  </div>
+                )
+              )}
+
+              {data.repoInfo.topics && data.repoInfo.topics.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-2">
+                  {data.repoInfo.topics.map((topic) => (
+                    <Badge key={topic} variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20 hover:bg-primary/20">
+                      {topic}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Open PRs */}
+            <section className="glass rounded-2xl p-4 sm:p-5 shadow-card space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+                  <GitPullRequest className="h-4 w-4 text-primary" /> Open PRs ({data.prs.length})
+                </h3>
+                <a href={`${data.repoInfo.html_url}/pulls`} target="_blank" rel="noreferrer" className="text-[11px] sm:text-xs text-muted-foreground hover:text-primary">
+                  View all
+                </a>
+              </div>
+              {data.prs.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-3.5 text-center">
+                  <p className="text-xs text-muted-foreground">No open pull requests</p>
+                </div>
+              ) : (
+                <ul className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                  {data.prs.map((p) => (
+                    <li key={p.id} className="rounded-lg border border-border/60 bg-card/50 p-2.5 text-xs hover:border-primary/40 transition">
+                      <a href={p.htmlUrl} target="_blank" rel="noreferrer" className="flex items-start gap-2 group">
+                        <GitPullRequest className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium group-hover:text-primary transition line-clamp-1">
+                            #{p.number} {p.title}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            by @{p.authorLogin} · {timeAgo(p.createdAt)}
+                          </p>
+                        </div>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {/* Open Issues */}
+            <section className="glass rounded-2xl p-4 sm:p-5 shadow-card space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+                  <CircleDot className="h-4 w-4 text-warning" /> Open Issues ({data.issues.length})
+                </h3>
+                <a href={`${data.repoInfo.html_url}/issues`} target="_blank" rel="noreferrer" className="text-[11px] sm:text-xs text-muted-foreground hover:text-primary">
+                  View all
+                </a>
+              </div>
+              {data.issues.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-3.5 text-center">
+                  <p className="text-xs text-muted-foreground">No open issues found</p>
+                </div>
+              ) : (
+                <ul className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                  {data.issues.map((i) => (
+                    <li key={i.id} className="rounded-lg border border-border/60 bg-card/50 p-2.5 text-xs hover:border-warning/40 transition">
+                      <a href={i.htmlUrl} target="_blank" rel="noreferrer" className="flex items-start gap-2 group">
+                        <CircleDot className="h-3.5 w-3.5 text-warning mt-0.5 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium group-hover:text-warning transition line-clamp-1">
+                            #{i.number} {i.title}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            by @{i.authorLogin} · {i.commentsCount} comment{i.commentsCount === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {/* Contributors */}
+            <section className="glass rounded-2xl p-4 sm:p-5 shadow-card space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+                  <Users className="h-4 w-4 text-emerald-400" /> Contributors ({data.contributors.length})
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[240px] overflow-y-auto custom-scrollbar pr-1">
+                {data.contributors.map((ct) => (
+                  <a
+                    key={ct.id}
+                    href={ct.htmlUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/50 p-2 hover:bg-card hover:border-primary/30 transition group"
+                  >
+                    <Avatar className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 border border-border">
+                      <AvatarImage src={ct.avatarUrl} />
+                      <AvatarFallback>{ct.login[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium group-hover:text-primary transition">@{ct.login}</p>
+                      <p className="text-[10px] text-muted-foreground">{ct.contributions} commit{ct.contributions === 1 ? "" : "s"}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+
+      {/* Connect Repository Modal (Owner / Admin Only) */}
+      <Dialog open={openModal} onOpenChange={setOpenModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Github className="h-5 w-5 text-primary" /> Connect GitHub Repository
+            </DialogTitle>
+            <DialogDescription>
+              Enter the full GitHub repository URL or <code>owner/repo</code> name to sync live stats.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveRepo} className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>GitHub Repository URL or Path</Label>
+              <Input
+                placeholder="e.g. https://github.com/SAFAL-TIWARI/Hackord or owner/repository"
+                value={inputUrl}
+                onChange={(e) => setInputUrl(e.target.value)}
+                required
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Example: <code>https://github.com/SAFAL-TIWARI/Hackord</code>
+              </p>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="ghost" onClick={() => setOpenModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={connecting} className="bg-gradient-brand text-white shadow-glow">
+                {connecting ? "Connecting..." : "Connect Repository"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-/* ------------------------ Meetings (Untouched) ------------------------ */
-function MeetingsTab() {
-  const mData = MEETINGS || { upcoming: [], past: [] };
+/* ------------------------ Meetings (Agora Video & Voice) ------------------------ */
+function MeetingsTab({
+  room, userName, userAvatar, isMemberOrAdmin = true, isOwnerOrAdmin = false, roomMembersCount,
+}: {
+  room: DbRoom; userName: string; userAvatar: string; isMemberOrAdmin?: boolean; isOwnerOrAdmin?: boolean; roomMembersCount?: number;
+}) {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2">
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card/50 p-10 text-center">
-          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-brand shadow-glow">
-            <Video className="h-6 w-6 text-white" />
-          </div>
-          <h2 className="text-xl font-semibold">Start a team meeting</h2>
-          <p className="text-sm text-muted-foreground">HD video, screen share, and meeting notes.</p>
-          <div className="mt-2 flex gap-2">
-            <Button className="bg-gradient-brand text-white shadow-glow hover:opacity-90"><Play className="h-4 w-4" /> Start meeting</Button>
-            <Button variant="outline">Join with code</Button>
-          </div>
-        </div>
-      </section>
-      <div className="space-y-6">
-        <section className="glass rounded-2xl p-6 shadow-card">
-          <h3 className="mb-3 text-sm font-medium">Upcoming</h3>
-          <ul className="space-y-2">
-            {(mData.upcoming || []).map((m: any) => (
-              <li key={m.id} className="rounded-lg border border-border/60 bg-card/50 p-3 text-sm">
-                <p className="font-medium">{m.title}</p>
-                <p className="text-xs text-muted-foreground">{m.when} · {m.participants} attendees</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section className="glass rounded-2xl p-6 shadow-card">
-          <h3 className="mb-3 text-sm font-medium">Past</h3>
-          <ul className="space-y-2">
-            {(mData.past || []).map((m: any) => (
-              <li key={m.id} className="rounded-lg border border-border/60 bg-card/50 p-3 text-sm">
-                <p className="font-medium">{m.title}</p>
-                <p className="text-xs text-muted-foreground">{m.when} · {m.participants} attendees</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
-    </div>
+    <AgoraMeeting
+      roomId={room.id}
+      roomName={room.name}
+      userName={userName}
+      userAvatar={userAvatar}
+      existingMeetingCode={room.meeting_code}
+      isMemberOrAdmin={isMemberOrAdmin}
+      isOwnerOrAdmin={isOwnerOrAdmin}
+      roomMembersCount={roomMembersCount}
+    />
   );
 }

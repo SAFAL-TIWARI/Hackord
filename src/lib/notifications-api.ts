@@ -1,5 +1,5 @@
 import { getRooms, getLoggedInUser } from "./rooms-api";
-import { getPendingInvitations } from "./users-api";
+import { getPendingInvitations, getUserSettings } from "./users-api";
 
 export type RealNotification = {
   id: string;
@@ -22,25 +22,40 @@ export async function fetchRealNotifications(user?: { _id: string; email: string
   const notifs: RealNotification[] = [];
 
   try {
-    // 1. Real Room Invitations
-    const pendingInvs = await getPendingInvitations({
+    // 0. Fetch User Notification Preferences
+    const userSettings = await getUserSettings({
       userId: currentUser.id,
       email: currentUser.email,
     });
+    const prefs = userSettings?.notificationPreferences || {
+      emailEnabled: true,
+      roomInvites: true,
+      deadlines: true,
+      chatMessages: true,
+      reminders: true,
+    };
 
-    if (Array.isArray(pendingInvs)) {
-      pendingInvs.forEach((inv) => {
-        notifs.push({
-          id: `inv_${inv.id}`,
-          title: `Room Invitation: ${inv.roomName}`,
-          detail: `${inv.sender?.name || "A platform user"} invited you to join "${inv.roomName}" for ${inv.hackathon || "hackathon"}.`,
-          time: "Pending",
-          unread: true,
-          type: "invite",
-          link: "/dashboard",
-          createdAt: inv.createdAt ? new Date(inv.createdAt).getTime() : Date.now(),
-        });
+    // 1. Real Room Invitations (if roomInvites toggle is ON)
+    if (prefs.roomInvites !== false) {
+      const pendingInvs = await getPendingInvitations({
+        userId: currentUser.id,
+        email: currentUser.email,
       });
+
+      if (Array.isArray(pendingInvs)) {
+        pendingInvs.forEach((inv) => {
+          notifs.push({
+            id: `inv_${inv.id}`,
+            title: `Room Invitation: ${inv.roomName}`,
+            detail: `${inv.sender?.name || "A platform user"} invited you to join "${inv.roomName}" for ${inv.hackathon || "hackathon"}.`,
+            time: "Pending",
+            unread: true,
+            type: "invite",
+            link: "/dashboard",
+            createdAt: inv.createdAt ? new Date(inv.createdAt).getTime() : Date.now(),
+          });
+        });
+      }
     }
 
     // 2. Real Room Deadlines and Activity Items
@@ -51,37 +66,39 @@ export async function fetchRealNotifications(user?: { _id: string; email: string
 
     if (Array.isArray(rooms)) {
       rooms.forEach((r) => {
-        // Deadlines
-        const deadlines = [
-          { name: "Registration", val: r.deadline_registration },
-          { name: "PPT Submission", val: r.deadline_ppt },
-          { name: "Prototype", val: r.deadline_prototype },
-          { name: "Final Submission", val: r.deadline_final },
-        ].filter((d) => Boolean(d.val));
+        // Deadlines (if deadlines toggle is ON)
+        if (prefs.deadlines !== false) {
+          const deadlines = [
+            { name: "Registration", val: r.deadline_registration },
+            { name: "PPT Submission", val: r.deadline_ppt },
+            { name: "Prototype", val: r.deadline_prototype },
+            { name: "Final Submission", val: r.deadline_final },
+          ].filter((d) => Boolean(d.val));
 
-        deadlines.forEach((d) => {
-          if (!d.val) return;
-          const target = new Date(d.val);
-          if (isNaN(target.getTime())) return;
-          const diffMs = target.getTime() - Date.now();
-          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          deadlines.forEach((d) => {
+            if (!d.val) return;
+            const target = new Date(d.val);
+            if (isNaN(target.getTime())) return;
+            const diffMs = target.getTime() - Date.now();
+            const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-          if (diffDays >= -1 && diffDays <= 30) {
-            notifs.push({
-              id: `dl_${r.id}_${d.name}`,
-              title: `${d.name}: ${r.name}`,
-              detail: `${d.name} for ${r.hackathon} is scheduled for ${target.toDateString().slice(4)} (${diffDays <= 0 ? "Due Now" : `${diffDays} days left`}).`,
-              time: diffDays <= 0 ? "Due Now" : `${diffDays}d left`,
-              unread: diffDays <= 3,
-              type: "deadline",
-              link: `/rooms/${r.id}`,
-              createdAt: target.getTime() - 86400000 * 2,
-            });
-          }
-        });
+            if (diffDays >= -1 && diffDays <= 30) {
+              notifs.push({
+                id: `dl_${r.id}_${d.name}`,
+                title: `${d.name}: ${r.name}`,
+                detail: `${d.name} for ${r.hackathon} is scheduled for ${target.toDateString().slice(4)} (${diffDays <= 0 ? "Due Now" : `${diffDays} days left`}).`,
+                time: diffDays <= 0 ? "Due Now" : `${diffDays}d left`,
+                unread: diffDays <= 3,
+                type: "deadline",
+                link: `/rooms/${r.id}`,
+                createdAt: target.getTime() - 86400000 * 2,
+              });
+            }
+          });
+        }
 
-        // Team Activities
-        if (Array.isArray(r.activities)) {
+        // Team Activities / Messages (if chatMessages toggle is ON)
+        if (prefs.chatMessages !== false && Array.isArray(r.activities)) {
           r.activities.slice(0, 3).forEach((act) => {
             notifs.push({
               id: `act_${act.id}`,

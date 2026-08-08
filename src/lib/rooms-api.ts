@@ -59,6 +59,8 @@ export type DbRoom = {
   name: string;
   problem: string;
   description: string;
+  github_url?: string;
+  meeting_code?: string;
   max_size: number;
   status: "Active" | "Planning" | "Submission";
   progress: number;
@@ -712,4 +714,8 @@ function sendMessageLocally(data: any): DbMessage {
   messages.push(newMsg);
   saveMessagesToStorage(messages);
   return newMsg;
+}
+
+export async function getAgoraToken(roomId: string): Promise<{ token: string; appId: string; warning?: string }> {
+  return apiFetch<{ token: string; appId: string; warning?: string }>(`/rooms/${roomId}/token`);
 }

@@ -53,11 +53,23 @@ export function UserProfileModal({
       setInviteSent(false);
       setShowInviteDialog(false);
       getRooms().then((r) => {
-        setRooms(r);
-        if (r.length > 0) setSelectedRoomId(r[0].id);
+        const ownedRooms = (r || []).filter((room) => {
+          if (currentUser?.role === "admin") return true;
+          const isCreatorId = room.creator_id === currentUser?._id || room.creator_id === currentUser?.id;
+          const isCreatorEmail = currentUser?.email && room.creator_email?.toLowerCase() === currentUser.email.toLowerCase();
+          const isOwnerMember = room.members?.some(
+            (m) =>
+              (m.user_id === currentUser?._id || m.user_id === currentUser?.id || (currentUser?.email && m.user_id?.toLowerCase() === currentUser.email.toLowerCase())) &&
+              (m.role === "Owner" || m.role === "Admin")
+          );
+          return isCreatorId || isCreatorEmail || isOwnerMember;
+        });
+        setRooms(ownedRooms);
+        if (ownedRooms.length > 0) setSelectedRoomId(ownedRooms[0].id);
+        else setSelectedRoomId("");
       });
     }
-  }, [open]);
+  }, [open, currentUser]);
 
   if (!userProp) return null;
 
@@ -69,6 +81,10 @@ export function UserProfileModal({
 
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedRoomId) {
+      toast.error("Please select a room you own to send an invite.");
+      return;
+    }
     const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
     if (selectedRoom) {
       const currentCount = selectedRoom.members?.length ?? 0;
@@ -255,17 +271,19 @@ export function UserProfileModal({
       <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Invite {userProp.name} to a Room</DialogTitle>
+            <DialogTitle>Invite {userProp.name} to Your Room</DialogTitle>
             <DialogDescription>
-              Select which hackathon room you want to invite this user to join.
+              Select which hackathon room you own to invite this hacker.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSendInvite} className="space-y-4 pt-2">
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted-foreground">Select Room</label>
+              <label className="text-xs font-semibold text-muted-foreground">Select Owned Room</label>
               {rooms.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No rooms found. Please create a room first.</p>
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+                  ⚠️ Only the <strong>Owner</strong> of a room (or Platform Admin) can send room invitations. You do not currently own any active rooms.
+                </div>
               ) : (
                 <select
                   value={selectedRoomId}
@@ -274,23 +292,25 @@ export function UserProfileModal({
                 >
                   {rooms.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.name} ({r.hackathon})
+                      {r.name} ({r.hackathon}) — [Owner]
                     </option>
                   ))}
                 </select>
               )}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted-foreground">Personal Message (Optional)</label>
-              <Textarea
-                rows={3}
-                placeholder={`Hey ${userProp.name.split(" ")[0]}! Join our team to work together.`}
-                value={inviteNote}
-                onChange={(e) => setInviteNote(e.target.value)}
-                className="rounded-xl"
-              />
-            </div>
+            {rooms.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground">Personal Message (Optional)</label>
+                <Textarea
+                  rows={3}
+                  placeholder={`Hey ${userProp.name.split(" ")[0]}! Join our team to work together.`}
+                  value={inviteNote}
+                  onChange={(e) => setInviteNote(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="ghost" onClick={() => setShowInviteDialog(false)}>
