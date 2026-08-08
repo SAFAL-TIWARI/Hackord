@@ -91,6 +91,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Invite teammates by skill, manage deadlines, and ship your hackathon project in one private workspace." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "google-site-verification", content: "KOi1bvu2tRkeojuYE0ABHOWsA8_frAbvSeMWsQGhBM4" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
