@@ -46,7 +46,22 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/explore")({
-  head: () => ({ meta: [{ title: "Hackathon Explorer — Hackord" }] }),
+  head: () => ({
+    meta: [
+      { title: "Explore Global Hackathons & Project Ideas — Hackord" },
+      {
+        name: "description",
+        content:
+          "Discover top upcoming global hackathons, filter by tracks and prize pools, track submission deadlines, and connect with hackathon team members.",
+      },
+      { property: "og:title", content: "Explore Global Hackathons & Project Ideas — Hackord" },
+      {
+        property: "og:description",
+        content:
+          "Discover top upcoming global hackathons, filter by tracks and prize pools, track submission deadlines, and connect with hackathon team members.",
+      },
+    ],
+  }),
   component: ExplorePage,
 });
 

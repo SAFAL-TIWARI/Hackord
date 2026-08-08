@@ -80,22 +80,51 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Hackord — Private Hackathon Workspaces for Teams" },
+      { title: "Hackord — Real-Time Hackathon Workspaces & Dev Rooms" },
       {
         name: "description",
         content:
-          "Hackord is a private collaboration workspace for hackathon teams — invite by skills, manage deadlines, chat, share files, and ship together.",
+          "Hackord is an all-in-one developer workspace platform. Discover global hackathons, launch virtual project rooms with HD video calls (Agora RTC), track live GitHub repositories, and build software with your team.",
+      },
+      {
+        name: "keywords",
+        content:
+          "hackathon, developer workspace, hackathon team finder, real time video call, agora rtc, github integration, developer collaboration, virtual project room, open source projects, coding rooms",
       },
       { name: "author", content: "Hackord" },
-      { property: "og:title", content: "Hackord — Hackathon Workspaces for Developers" },
-      { property: "og:description", content: "Invite teammates by skill, manage deadlines, and ship your hackathon project in one private workspace." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      { name: "robots", content: "index, follow" },
+      { name: "theme-color", content: "#090d16" },
       { name: "google-site-verification", content: "KOi1bvu2tRkeojuYE0ABHOWsA8_frAbvSeMWsQGhBM4" },
+
+      // OpenGraph Metadata
+      { property: "og:site_name", content: "Hackord" },
+      { property: "og:title", content: "Hackord — Real-Time Hackathon Workspaces & Dev Rooms" },
+      {
+        property: "og:description",
+        content:
+          "Discover hackathons, launch virtual project rooms with HD video calls (Agora RTC), track live GitHub repos, and ship software with your team.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://hackord.vercel.app" },
+      { property: "og:image", content: "https://hackord.vercel.app/logo.png" },
+
+      // Twitter Card Metadata
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:site", content: "@hackord_app" },
+      { name: "twitter:title", content: "Hackord — Real-Time Hackathon Workspaces & Dev Rooms" },
+      {
+        name: "twitter:description",
+        content:
+          "Discover hackathons, launch virtual project rooms with HD video calls, track live GitHub repos, and ship software together.",
+      },
+      { name: "twitter:image", content: "https://hackord.vercel.app/logo.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/favicon.png" },
+      { rel: "manifest", href: "/site.webmanifest" },
+      { rel: "canonical", href: "https://hackord.vercel.app" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
@@ -111,10 +140,37 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  const jsonLdData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Hackord",
+    operatingSystem: "All",
+    applicationCategory: "DeveloperApplication",
+    description:
+      "Hackord is an all-in-one developer workspace and collaboration platform for hackathons, virtual project rooms, HD video calls, and GitHub integration.",
+    url: "https://hackord.vercel.app",
+    image: "https://hackord.vercel.app/logo.png",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Hackord",
+      url: "https://hackord.vercel.app",
+      logo: "https://hackord.vercel.app/logo.png",
+    },
+  };
+
   return (
     <html lang="en">
       <head>
         <HeadContent />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdData) }}
+        />
       </head>
       <body>
         {children}
