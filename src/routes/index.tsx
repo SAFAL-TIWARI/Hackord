@@ -1,18 +1,29 @@
 import React, { Suspense, useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Video, Code2, Users, Rocket, ShieldCheck } from "lucide-react";
 import { AnimatedRole } from "@/components/AnimatedRole";
 import { BrandLogo } from "@/components/BrandLogo";
 import { FeaturedRooms } from "@/components/FeaturedRooms";
 import { FeaturesBento } from "@/components/FeaturesBento";
 import { HeroShowcase } from "@/components/HeroShowcase";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AboutHackordSection } from "@/components/AboutHackordSection";
 
 const HeroBackground = React.lazy(() =>
   import("@/components/HeroBackground").then((m) => ({ default: m.HeroBackground }))
 );
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Hackord — Collaborative Hackathon Workspaces & Dev Rooms" },
+      {
+        name: "description",
+        content:
+          "Hackord is an all-in-one developer workspace platform to discover hackathons, create real-time rooms with audio/video calls, track team tasks, and build projects together.",
+      },
+    ],
+  }),
   component: Landing,
 });
 
@@ -44,10 +55,9 @@ function Landing() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-2.5">
           <BrandLogo size="md" />
 
-          <nav className="flex items-center gap-2 sm:gap-3">
-            <ThemeToggle theme={theme} onToggle={toggleTheme} />
-
+          <nav className="flex items-center gap-3 sm:gap-4 text-sm font-medium">
            
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
             <Link
               to="/signup"
               className="rounded-lg bg-gradient-brand px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white shadow-glow transition hover:opacity-90 whitespace-nowrap"
@@ -68,7 +78,7 @@ function Landing() {
           <div className="text-left">
             <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 text-xs text-muted-foreground animate-fade-in">
               <Sparkles className="h-3 w-3 text-primary" />
-              <span>The Intelligence Engine for Hackathons</span>
+              <span>The Intelligence Engine for Hackathons & Developers</span>
             </div>
 
             <h1 className="mt-6 sm:mt-8 text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight animate-fade-in animate-delay-100">
@@ -79,7 +89,7 @@ function Landing() {
             </h1>
 
             <p className="mt-6 sm:mt-8 max-w-xl text-base sm:text-xl text-muted-foreground leading-relaxed animate-fade-in animate-delay-200">
-              The premium workspace for elite hackathon teams. Automate pull requests, generate pitch decks, and collaborate in real-time with an intelligent AI copilot.
+              <strong className="text-foreground font-semibold">Hackord</strong> is the private workspace platform for elite hackathon teams. Host HD audio/video meetings, manage tasks, track live GitHub repositories, and collaborate in real-time.
             </p>
 
             <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-4 animate-fade-in animate-delay-300">
@@ -113,17 +123,22 @@ function Landing() {
       {/* Bento Grid Features */}
       <FeaturesBento />
 
-      {/* Premium Footer */}
+      {/* Application Purpose & 3D Interactive Showcase */}
+      <AboutHackordSection />
+
+      {/* Premium Footer with Direct Privacy & Terms Links */}
       <footer className="border-t border-white/10 dark:border-white/5 bg-background/80 py-16 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-center md:items-start gap-2">
             <BrandLogo size="md" />
+            <p className="text-xs text-muted-foreground">
+              © 2026 Hackord. The real-time workspace for hackathon teams and developers.
+            </p>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors">Documentation</a>
-            <a href="#" className="hover:text-foreground transition-colors">API Reference</a>
-            <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
-            <a href="#" className="hover:text-foreground transition-colors">Terms</a>
+            <Link to="/explore" className="hover:text-foreground transition-colors">Explore</Link>
+            <Link to="/privacy" className="hover:text-foreground font-medium text-foreground transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-foreground font-medium text-foreground transition-colors">Terms of Service</Link>
           </div>
         </div>
       </footer>

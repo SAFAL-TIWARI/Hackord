@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { getUserSettings, updateUserSettings, deleteUserAccount, type UserSettings } from "@/lib/users-api";
-import { Bell, Mail, MessageSquare, PhoneCall, Shield, AlertTriangle, Loader2 } from "lucide-react";
+import { Bell, Mail, MessageSquare, PhoneCall, Shield, AlertTriangle, Loader2, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Hackord" }] }),
@@ -252,6 +252,31 @@ function SettingsPage() {
                     checked={privacyPrefs.activityStatus}
                     onCheckedChange={(val) => togglePrivacy("activityStatus", val)}
                   />
+                </div>
+              </div>
+            </Section>
+
+            {/* Legal & Privacy Section */}
+            <Section title="Legal & Policies" icon={FileText}>
+              <div className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Review Hackord platform policies, Google OAuth compliance disclosures, and terms of service.
+                </p>
+                <div className="flex flex-wrap gap-4 pt-1">
+                  <Link
+                    to="/privacy"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs font-medium text-foreground transition hover:bg-accent"
+                  >
+                    <Shield className="h-4 w-4 text-primary" />
+                    Read Privacy Policy
+                  </Link>
+                  <Link
+                    to="/terms"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs font-medium text-foreground transition hover:bg-accent"
+                  >
+                    <FileText className="h-4 w-4 text-primary" />
+                    Read Terms of Service
+                  </Link>
                 </div>
               </div>
             </Section>

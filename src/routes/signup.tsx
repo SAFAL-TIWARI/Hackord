@@ -116,21 +116,21 @@ function SignupPage() {
 
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-white/10" />
+          <div className="w-full border-t border-border" />
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-[#0b1028] px-2 text-muted-foreground">Or continue with</span>
+        <div className="relative flex justify-center text-xs uppercase tracking-wider">
+          <span className="bg-card px-3 text-muted-foreground font-medium">Or continue with</span>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="flex items-center justify-center gap-4">
         <GoogleAuthButton mode="signup" />
         <GitHubAuthButton mode="signup" />
       </div>
 
       <p className="mt-5 text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link to="/login" className="text-foreground underline-offset-4 hover:underline">Log in</Link>
+        <Link to="/login" className="text-foreground font-medium underline-offset-4 hover:underline">Log in</Link>
       </p>
     </AuthShell>
   );
