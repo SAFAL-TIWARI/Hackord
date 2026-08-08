@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { GoogleAuthButton } from "@/components/GoogleAuthButton";
+import { GitHubAuthButton } from "@/components/GitHubAuthButton";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Log in — Hackord" }] }),
@@ -91,6 +93,21 @@ function LoginPage() {
           {loading ? "Logging in…" : "Log in"}
         </Button>
       </form>
+
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-white/10" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-[#0b1028] px-2 text-muted-foreground">Or continue with</span>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <GoogleAuthButton mode="login" />
+        <GitHubAuthButton mode="login" />
+      </div>
+
       <p className="mt-5 text-center text-sm text-muted-foreground">
         Don't have an account?{" "}
         <Link to="/signup" className="text-foreground underline-offset-4 hover:underline">Sign up</Link>

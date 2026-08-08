@@ -38,6 +38,8 @@ type AuthContextType = {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
+  googleLogin: (credential: string) => Promise<{ isNewUser?: boolean }>;
+  githubLogin: (code: string) => Promise<{ isNewUser?: boolean }>;
   logout: () => void;
   updateProfile: (data: Partial<AuthUser>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -126,6 +128,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   };
 
+  const googleLogin = async (credential: string): Promise<{ isNewUser?: boolean }> => {
+    const data = await apiFetch<{ token: string; user: AuthUser; isNewUser?: boolean }>("/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential }),
+    });
+    setToken(data.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hackord_user", JSON.stringify(data.user));
+    }
+    setUser(data.user);
+    return { isNewUser: data.isNewUser };
+  };
+
+  const githubLogin = async (code: string): Promise<{ isNewUser?: boolean }> => {
+    const data = await apiFetch<{ token: string; user: AuthUser; isNewUser?: boolean }>("/auth/github", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+    setToken(data.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hackord_user", JSON.stringify(data.user));
+    }
+    setUser(data.user);
+    return { isNewUser: data.isNewUser };
+  };
+
   const logout = () => {
     removeToken();
     if (typeof window !== "undefined") {
@@ -151,6 +179,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin: user?.role === "admin",
         login,
         signup,
+        googleLogin,
+        githubLogin,
         logout,
         updateProfile,
         refreshUser,
