@@ -15,7 +15,16 @@ export type DbUser = {
   github?: string;
   linkedin?: string;
   portfolio?: string;
+  completedHackathons?: {
+    name?: string;
+    result?: string;
+  }[];
+  privacySettings?: {
+    discoverable?: boolean;
+    showEmail?: boolean;
+  };
   role?: string;
+  createdAt?: string;
 };
 
 export type DbInvitation = {

@@ -4,7 +4,6 @@ import {
   Users2,
   UserPlus,
   ShieldCheck,
-  TrendingUp,
   Search,
   GraduationCap,
   MapPin,
@@ -15,6 +14,17 @@ import {
   ExternalLink,
   Crown,
   Trash2,
+  Database,
+  RefreshCw,
+  CheckCircle2,
+  FileText,
+  Check,
+  X,
+  Bot,
+  Globe,
+  Tag,
+  Trophy,
+  MessageSquare,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
@@ -25,6 +35,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth, type AuthUser } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { getRooms, deleteRoom, type DbRoom } from "@/lib/rooms-api";
+import {
+  getScrapedFileStatus,
+  triggerHackathonScrape,
+  feedScrapedHackathonsToDb,
+  rejectScrapedHackathon,
+  getHostRequests,
+  approveHostRequest,
+  deleteHostRequest,
+  getContactMessages,
+  deleteContactMessage,
+  type ScrapedFileStatus,
+  type HostRequestSubmission,
+  type ContactMessageItem,
+} from "@/lib/hackathons-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
@@ -52,6 +76,19 @@ function AdminPage() {
   const [roomSearch, setRoomSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Scraper File State
+  const [scrapedStatus, setScrapedStatus] = useState<ScrapedFileStatus | null>(null);
+  const [scraping, setScraping] = useState(false);
+  const [feedingDb, setFeedingDb] = useState(false);
+
+  // Host Requests State
+  const [hostRequests, setHostRequests] = useState<HostRequestSubmission[]>([]);
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  // User Contact Messages State
+  const [contactMessages, setContactMessages] = useState<ContactMessageItem[]>([]);
+  const [deletingMsgId, setDeletingMsgId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!authLoading && !isAdmin) {
       toast.error("Access denied — admin only");
@@ -67,18 +104,124 @@ function AdminPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [usersRes, statsRes, roomsRes] = await Promise.all([
-        apiFetch<{ users: AuthUser[] }>(`/admin/users?limit=100`),
-        apiFetch<AdminStats>("/admin/stats"),
-        getRooms({ all: true }),
+      const [usersRes, statsRes, roomsRes, scrapedRes, requestsRes, messagesRes] = await Promise.all([
+        apiFetch<{ users: AuthUser[] }>(`/admin/users?limit=100`).catch(() => ({ users: [] })),
+        apiFetch<AdminStats>("/admin/stats").catch(() => null),
+        getRooms({ all: true }).catch(() => []),
+        getScrapedFileStatus().catch(() => ({ exists: false, totalCount: 0, updatedAt: null, hackathons: [] })),
+        getHostRequests().catch(() => []),
+        getContactMessages().catch(() => []),
       ]);
-      setUsers(usersRes.users);
+      setUsers(usersRes?.users || []);
       setStats(statsRes);
       setRooms(roomsRes || []);
+      setScrapedStatus(scrapedRes);
+      setHostRequests(requestsRes || []);
+      setContactMessages(messagesRes || []);
     } catch (err: any) {
       toast.error(err.message || "Failed to load admin data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteContactMessage = async (id: string, name: string) => {
+    if (!confirm(`Delete message from "${name}"?`)) return;
+    setDeletingMsgId(id);
+    try {
+      await deleteContactMessage(id);
+      toast.success(`Message from "${name}" deleted`);
+      setContactMessages((prev) => prev.filter((m) => m._id !== id));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete contact message");
+    } finally {
+      setDeletingMsgId(null);
+    }
+  };
+
+  const handleTriggerScrape = async () => {
+    setScraping(true);
+    try {
+      const res = await triggerHackathonScrape();
+      toast.success(res.message || "Scraping complete! Data stored in JSON file.");
+      if (res.fileStatus) {
+        setScrapedStatus(res.fileStatus);
+      } else {
+        const updatedStatus = await getScrapedFileStatus();
+        setScrapedStatus(updatedStatus);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Scraping failed");
+    } finally {
+      setScraping(false);
+    }
+  };
+
+  const handleFeedScrapedToDb = async () => {
+    if (!scrapedStatus || scrapedStatus.totalCount === 0) {
+      toast.error("No scraped data in file to merge");
+      return;
+    }
+    setFeedingDb(true);
+    try {
+      const res = await feedScrapedHackathonsToDb();
+      toast.success(res.message || "Scraped hackathons successfully merged into DB!");
+      const updatedStatus = await getScrapedFileStatus();
+      setScrapedStatus(updatedStatus);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to feed scraped data to DB");
+    } finally {
+      setFeedingDb(false);
+    }
+  };
+
+  const [rejectingScrapedId, setRejectingScrapedId] = useState<string | null>(null);
+
+  const handleRejectScrapedHackathon = async (id: string, name?: string) => {
+    if (!id) return;
+    setRejectingScrapedId(id);
+    try {
+      const res = await rejectScrapedHackathon(id);
+      toast.success(res.message || `Scraped hackathon "${name || "item"}" rejected & removed from file`);
+      if (res.fileStatus) {
+        setScrapedStatus(res.fileStatus);
+      } else {
+        const updatedStatus = await getScrapedFileStatus();
+        setScrapedStatus(updatedStatus);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reject scraped hackathon");
+    } finally {
+      setRejectingScrapedId(null);
+    }
+  };
+
+  const handleApproveHostRequest = async (id: string, name: string) => {
+    setActionId(id);
+    try {
+      const res = await approveHostRequest(id);
+      toast.success(res.message || `Hackathon "${name}" approved & published!`);
+      setHostRequests((prev) =>
+        prev.map((req) => (req._id === id ? { ...req, status: "approved" } : req))
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to approve hackathon request");
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleDeleteHostRequest = async (id: string, name: string) => {
+    if (!confirm(`Reject submission for "${name}"?`)) return;
+    setActionId(id);
+    try {
+      await deleteHostRequest(id);
+      toast.success(`Submission for "${name}" rejected & removed`);
+      setHostRequests((prev) => prev.filter((req) => req._id !== id));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reject submission");
+    } finally {
+      setActionId(null);
     }
   };
 
@@ -132,8 +275,9 @@ function AdminPage() {
     ? [
         { label: "Total Users", value: stats.totalUsers, icon: Users2, color: "text-primary" },
         { label: "Platform Rooms", value: rooms.length, icon: Layers3, color: "text-blue-400" },
-        { label: "Today's Signups", value: stats.todaySignups, icon: UserPlus, color: "text-emerald-400" },
-        { label: "Admins", value: stats.totalAdmins, icon: ShieldCheck, color: "text-rose-400" },
+        { label: "User Messages", value: contactMessages.length, icon: MessageSquare, color: "text-purple-400" },
+        { label: "Scraped JSON Items", value: scrapedStatus?.totalCount || 0, icon: Database, color: "text-amber-400" },
+        { label: "Host Requests", value: hostRequests.filter((r) => r.status === "pending").length, icon: FileText, color: "text-emerald-400" },
       ]
     : [];
 
@@ -161,10 +305,10 @@ function AdminPage() {
             <div>
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-6 w-6 text-primary" />
-                <h1 className="text-3xl font-semibold tracking-tight">Admin Panel</h1>
+                <h1 className="text-3xl font-semibold tracking-tight">Admin Control Center</h1>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Monitor user accounts and manage platform rooms grouped by specific user profiles
+                Manage scraped hackathon files, grant DB permissions, approve community host submissions & monitor user profiles
               </p>
             </div>
             <Badge className="bg-gradient-brand text-white px-3 py-1 text-xs self-start">
@@ -202,7 +346,321 @@ function AdminPage() {
           </section>
         ) : null}
 
-        {/* Platform Rooms Stored by User Profile (Admin View) */}
+        {/* ─── 1. Scraped Hackathons File & Admin DB Feed Manager ─── */}
+        <section className="glass rounded-2xl p-6 shadow-card border border-primary/20">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-amber-400" />
+                <h2 className="text-lg font-semibold">Scraped Hackathons File Storage</h2>
+                <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30">
+                  Step 1: Save to File → Step 2: Feed DB
+                </Badge>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Automated & manual scrapers store 200-OK validated hackathons into server file (`scraped_hackathons.json`). Click below to grant permission and merge to Explore page DB.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={scraping}
+                onClick={handleTriggerScrape}
+                size="sm"
+                className="text-xs border-primary/30 hover:border-primary text-primary"
+              >
+                <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${scraping ? "animate-spin" : ""}`} />
+                {scraping ? "Scraping Platforms..." : "Run Scraper Now (Save to File)"}
+              </Button>
+              <Button
+                disabled={feedingDb || !scrapedStatus?.totalCount}
+                onClick={handleFeedScrapedToDb}
+                size="sm"
+                className="bg-gradient-brand text-white shadow-glow hover:opacity-90 text-xs"
+              >
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                {feedingDb ? "Feeding to DB..." : `Feed / Merge ${scrapedStatus?.totalCount || 0} Hackathons to DB`}
+              </Button>
+            </div>
+          </div>
+
+          {/* Stored File Summary */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground bg-card/40 p-3 rounded-xl border border-border/40">
+            <div className="flex items-center gap-4">
+              <span>
+                <strong>Stored File:</strong> `data/scraped_hackathons.json`
+              </span>
+              <span>
+                <strong>Total Valid Items:</strong>{" "}
+                <span className="text-primary font-bold">{scrapedStatus?.totalCount || 0}</span>
+              </span>
+              <span>
+                <strong>Last Updated:</strong>{" "}
+                {scrapedStatus?.updatedAt
+                  ? new Date(scrapedStatus.updatedAt).toLocaleString()
+                  : "Never"}
+              </span>
+            </div>
+            <span className="text-[10px] text-green-400 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20 font-medium">
+              ✓ 200-OK URL Verified (Zero 404 links)
+            </span>
+          </div>
+
+          {/* Pending Scraped Preview Cards */}
+          {scrapedStatus?.hackathons && scrapedStatus.hackathons.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Pending Scraped Hackathons Preview ({scrapedStatus.hackathons.length})
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+                {scrapedStatus.hackathons.map((h, idx) => {
+                  const itemId = (h as any).id || h.platformUrl || `scraped-${idx}`;
+                  return (
+                    <div key={itemId} className="rounded-xl border border-border/60 bg-card/60 p-3.5 space-y-2 text-xs flex flex-col justify-between">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className="text-[9px] font-bold text-primary bg-primary/10 border-primary/20">
+                            {h.platform || "Platform"}
+                          </Badge>
+                          <span className="text-[10px] text-emerald-400 font-medium">✓ 200 OK</span>
+                        </div>
+                        <p className="font-semibold text-sm truncate">{h.name}</p>
+                        <p className="text-muted-foreground text-[11px] truncate">{h.organizer}</p>
+                      </div>
+
+                      <div className="pt-2 border-t border-border/40 space-y-2">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-primary font-semibold">{h.prizePool}</span>
+                          <span className="text-muted-foreground">{h.mode}</span>
+                        </div>
+
+                        {/* Actions: Details & Reject */}
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          {h.platformUrl ? (
+                            <a
+                              href={h.platformUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg border border-border bg-card/80 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary hover:text-foreground transition"
+                            >
+                              <ExternalLink className="h-3 w-3 text-primary" /> Details
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">No URL</span>
+                          )}
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={rejectingScrapedId === itemId}
+                            onClick={() => handleRejectScrapedHackathon(itemId, h.name)}
+                            className="h-7 px-2.5 text-[11px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition"
+                            title="Reject & remove from JSON file"
+                          >
+                            <X className="mr-1 h-3 w-3" /> Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* ─── 2. Pending Community Host Hackathon Requests ─── */}
+        <section className="glass rounded-2xl p-6 shadow-card border border-emerald-500/20">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-emerald-400" />
+                <h2 className="text-lg font-semibold">Hosted Hackathon Submissions</h2>
+                <Badge variant="secondary" className="text-[10px]">
+                  {hostRequests.filter((r) => r.status === "pending").length} Pending
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Submissions sent via the "Host Your Hackathon" form on Contact page. One-click approve to publish to Explore registry.
+              </p>
+            </div>
+          </div>
+
+          {hostRequests.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
+              No host requests submitted yet.
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-h-[450px] overflow-y-auto custom-scrollbar pr-1">
+              {hostRequests.map((req) => (
+                <div
+                  key={req._id}
+                  className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Badge
+                        variant="outline"
+                        className={
+                          req.status === "approved"
+                            ? "bg-green-500/10 text-green-400 border-green-500/30 text-[10px]"
+                            : "bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]"
+                        }
+                      >
+                        {req.status === "approved" ? "✓ Published on Explore" : "Pending Admin Review"}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(req.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-2 text-base font-semibold truncate">{req.name}</h3>
+                    <p className="text-xs text-muted-foreground font-medium">By: {req.organizer}</p>
+                    <p className="text-[11px] text-primary flex items-center gap-1 mt-0.5">
+                      <Mail className="h-3 w-3 shrink-0" /> {req.contactEmail}
+                    </p>
+                    {req.platformUrl ? (
+                      <a
+                        href={req.platformUrl.startsWith("http") ? req.platformUrl : `https://${req.platformUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 mt-1 truncate max-w-full font-mono"
+                        title={req.platformUrl}
+                      >
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{req.platformUrl}</span>
+                      </a>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground italic mt-1 flex items-center gap-1">
+                        <Globe className="h-3 w-3 shrink-0" /> No event URL provided
+                      </p>
+                    )}
+
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20">
+                        {req.prizePool}
+                      </span>
+                      <span className="bg-card px-2 py-0.5 rounded border border-border">
+                        {req.mode}
+                      </span>
+                      <span className="bg-card px-2 py-0.5 rounded border border-border">
+                        {req.level} Level
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{req.description}</p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="border-t border-border/50 pt-3 mt-2 flex items-center justify-between">
+                    {req.status === "pending" ? (
+                      <div className="flex items-center gap-2 w-full">
+                        <Button
+                          size="sm"
+                          disabled={actionId === req._id}
+                          onClick={() => handleApproveHostRequest(req._id, req.name)}
+                          className="flex-1 bg-gradient-brand text-white text-xs h-8"
+                        >
+                          <Check className="mr-1 h-3.5 w-3.5" /> Approve & Add to DB
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={actionId === req._id}
+                          onClick={() => handleDeleteHostRequest(req._id, req.name)}
+                          className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-green-400 flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Live on Explore page
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ─── 3. User Messages & Queries ("Send us message") Section ─── */}
+        <section className="glass rounded-2xl p-6 shadow-card border border-purple-500/20">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-purple-400" />
+                <h2 className="text-lg font-semibold">User Messages & Queries</h2>
+                <Badge variant="secondary" className="text-[10px] bg-purple-500/10 text-purple-300 border-purple-500/20">
+                  {contactMessages.length} Messages Received
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Inquiries, bug reports, and general feedbacks.
+              </p>
+            </div>
+          </div>
+
+          {contactMessages.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
+              No user messages submitted yet.
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-h-[450px] overflow-y-auto custom-scrollbar pr-1">
+              {contactMessages.map((msg) => (
+                <div
+                  key={msg._id}
+                  className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Badge
+                        variant="outline"
+                        className="bg-purple-500/10 text-purple-300 border-purple-500/30 text-[10px]"
+                      >
+                        {msg.category || "General Query"}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(msg.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-2 text-sm font-semibold truncate text-foreground">{msg.name}</h3>
+                    <p className="text-[11px] text-primary flex items-center gap-1 mt-0.5">
+                      <Mail className="h-3 w-3 shrink-0" /> {msg.email}
+                    </p>
+
+                    {msg.subject && (
+                      <p className="text-xs font-medium text-purple-300 mt-1.5 truncate">
+                        Subject: {msg.subject}
+                      </p>
+                    )}
+
+                    <div className="mt-2 text-xs text-muted-foreground bg-background/50 rounded-lg p-2.5 border border-border/40 whitespace-pre-wrap max-h-32 overflow-y-auto custom-scrollbar">
+                      {msg.message}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border/50 pt-2.5 mt-2 flex items-center justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={deletingMsgId === msg._id}
+                      onClick={() => handleDeleteContactMessage(msg._id, msg.name)}
+                      className="h-7 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete Message
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ─── 3. Platform Rooms Stored by User Profile (Admin View) ─── */}
         <section className="glass rounded-2xl p-6 shadow-card">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -252,14 +710,19 @@ function AdminPage() {
               No rooms found matching "{roomSearch}"
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
               {filteredRooms.map((r) => {
                 const owner = r.members?.[0];
                 const creatorName = r.creator_name || owner?.user_name || "Platform User";
-                const creatorAvatar = owner?.user_avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(creatorName)}`;
+                const creatorAvatar =
+                  owner?.user_avatar ||
+                  `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(creatorName)}`;
 
                 return (
-                  <div key={r.id} className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3 flex flex-col justify-between">
+                  <div
+                    key={r.id}
+                    className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3 flex flex-col justify-between"
+                  >
                     <div>
                       <div className="flex items-center justify-between">
                         <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
@@ -319,6 +782,7 @@ function AdminPage() {
           )}
         </section>
 
+        {/* Registered User Profiles Table & Stats */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Users Table */}
           <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2">
@@ -352,12 +816,9 @@ function AdminPage() {
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-12 text-center">
                 <Users2 className="h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-sm font-medium">No users found</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {search ? "Try a different search term" : "No users have signed up yet"}
-                </p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
+              <div className="space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
                 {users.map((u) => (
                   <div
                     key={u._id}
@@ -390,32 +851,10 @@ function AdminPage() {
                             <GraduationCap className="h-3 w-3" /> {u.college}
                           </span>
                         )}
-                        {u.city && (
-                          <span className="inline-flex items-center gap-1">
-                            <MapPin className="h-3 w-3" /> {u.city}
-                          </span>
-                        )}
                         <span className="inline-flex items-center gap-1">
                           <Clock className="h-3 w-3" /> {new Date(u.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      {u.skills && u.skills.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {u.skills.slice(0, 5).map((s) => (
-                            <span
-                              key={s}
-                              className="rounded-full bg-gradient-brand-soft px-2 py-0.5 text-[10px] text-foreground"
-                            >
-                              {s}
-                            </span>
-                          ))}
-                          {u.skills.length > 5 && (
-                            <span className="text-[10px] text-muted-foreground px-1">
-                              +{u.skills.length - 5} more
-                            </span>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -425,7 +864,6 @@ function AdminPage() {
 
           {/* Sidebar Stats */}
           <section className="space-y-6">
-            {/* Top Skills */}
             {stats && stats.topSkills.length > 0 && (
               <div className="glass rounded-2xl p-6 shadow-card">
                 <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
@@ -438,34 +876,6 @@ function AdminPage() {
                       <Badge variant="secondary">{s.count}</Badge>
                     </div>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {/* Experience Distribution */}
-            {stats && stats.experienceDistribution.length > 0 && (
-              <div className="glass rounded-2xl p-6 shadow-card">
-                <h2 className="mb-4 text-lg font-semibold">Experience Levels</h2>
-                <div className="space-y-3">
-                  {stats.experienceDistribution.map((e) => {
-                    const pct = stats.totalUsers > 0 ? Math.round((e.count / stats.totalUsers) * 100) : 0;
-                    return (
-                      <div key={e.level}>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span>{e.level}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {e.count} ({pct}%)
-                          </span>
-                        </div>
-                        <div className="h-2 rounded-full bg-card overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-gradient-brand transition-all duration-500"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             )}

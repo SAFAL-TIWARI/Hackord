@@ -40,7 +40,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QuickCreateRoomModal } from "@/components/QuickCreateRoomModal";
 import { ALL_TAGS, type Hackathon } from "@/lib/hackathon-data";
-import { getHackathons, createHackathon, deleteHackathon } from "@/lib/hackathons-api";
+import { getHackathons, createHackathon, deleteHackathon, triggerHackathonScrape } from "@/lib/hackathons-api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -233,18 +233,34 @@ function HackathonCard({
           loading="lazy"
         />
         <div className="absolute inset-0 flex items-start justify-between p-3">
-          <Badge
-            className={cn(
-              "text-xs font-medium backdrop-blur-sm border",
-              hackathon.mode === "Online"
-                ? "bg-green-500/20 text-green-300 border-green-500/30"
-                : hackathon.mode === "Offline"
-                  ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-                  : "bg-purple-500/20 text-purple-300 border-purple-500/30",
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge
+              className={cn(
+                "text-[10px] font-medium backdrop-blur-sm border",
+                hackathon.mode === "Online"
+                  ? "bg-green-500/20 text-green-300 border-green-500/30"
+                  : hackathon.mode === "Offline"
+                    ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                    : "bg-purple-500/20 text-purple-300 border-purple-500/30",
+              )}
+            >
+              {hackathon.mode}
+            </Badge>
+            {hackathon.level && (
+              <Badge
+                className={cn(
+                  "text-[10px] font-medium backdrop-blur-sm border",
+                  hackathon.level === "State"
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                    : hackathon.level === "National"
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                      : "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+                )}
+              >
+                {hackathon.level} Level
+              </Badge>
             )}
-          >
-            {hackathon.mode}
-          </Badge>
+          </div>
           <div className="flex items-center gap-1.5">
             {isAdmin && onDelete && (
               <button
@@ -272,13 +288,27 @@ function HackathonCard({
       {/* Body */}
       <div className="flex flex-1 flex-col p-5">
         <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-          <span>{hackathon.organizer}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="truncate max-w-[140px]">{hackathon.organizer}</span>
+            {hackathon.platform && (
+              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary border border-primary/20">
+                {hackathon.platform}
+              </span>
+            )}
+          </div>
           <span className="font-semibold text-primary">{hackathon.prizePool}</span>
         </div>
 
-        <h3 className="text-base font-bold leading-snug group-hover:text-primary transition-colors">
-          {hackathon.name}
-        </h3>
+        <div className="flex items-start justify-between gap-2 mt-1">
+          <h3 className="text-base font-bold leading-snug group-hover:text-primary transition-colors">
+            {hackathon.name}
+          </h3>
+          {hackathon.createdAt && (Date.now() - new Date(hackathon.createdAt).getTime() < 7 * 86400000) && (
+            <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full border border-amber-400/30">
+              <Sparkles className="h-2.5 w-2.5" /> New
+            </span>
+          )}
+        </div>
 
         <p className="mt-2 line-clamp-2 text-xs text-muted-foreground leading-relaxed">
           {hackathon.description}
@@ -399,6 +429,24 @@ function ExplorePage() {
     }
   }, [query, modeFilter, prizeFilter, deadlineFilter, viewMode]);
   const [showBookmarks, setShowBookmarks] = useState(false);
+  const [levelFilter, setLevelFilter] = useState<"All" | "State" | "National" | "Global">("All");
+  const [platformFilter, setPlatformFilter] = useState<
+    "All" | "Devpost" | "Unstop" | "MLH" | "Devfolio" | "Luma" | "GDG" | "Community Host" | "Hackord"
+  >("All");
+  const [syncingScraper, setSyncingScraper] = useState(false);
+
+  const handleTriggerScrape = async () => {
+    setSyncingScraper(true);
+    try {
+      const res = await triggerHackathonScrape();
+      await loadData();
+      toast.success(res.message || "Scraped valid hackathons to JSON file! Admin approval required on Admin Panel to feed DB.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to trigger auto-feeding scraper");
+    } finally {
+      setSyncingScraper(false);
+    }
+  };
   const [bookmarks, setBookmarks] = useState<Set<string>>(() => {
     if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
       try {
@@ -523,6 +571,8 @@ function ExplorePage() {
 
     if (showBookmarks) list = list.filter((h) => bookmarks.has(h.id));
     if (modeFilter !== "All") list = list.filter((h) => h.mode === modeFilter);
+    if (levelFilter !== "All") list = list.filter((h) => h.level === levelFilter);
+    if (platformFilter !== "All") list = list.filter((h) => (h.platform || "").toLowerCase() === platformFilter.toLowerCase());
 
     if (prizeFilter !== "All") {
       const thresholds: Record<string, number> = { "50k+": 50000, "100k+": 100000, "500k+": 500000 };
@@ -546,7 +596,7 @@ function ExplorePage() {
     }
 
     return list;
-  }, [query, showBookmarks, bookmarks, modeFilter, prizeFilter, deadlineFilter, activeTags, hackathons]);
+  }, [query, showBookmarks, bookmarks, modeFilter, levelFilter, platformFilter, prizeFilter, deadlineFilter, activeTags, hackathons]);
 
   function toggleTag(tag: string) {
     setActiveTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -586,6 +636,8 @@ function ExplorePage() {
 
   const activeFilterCount =
     (modeFilter !== "All" ? 1 : 0) +
+    (levelFilter !== "All" ? 1 : 0) +
+    (platformFilter !== "All" ? 1 : 0) +
     (prizeFilter !== "All" ? 1 : 0) +
     (deadlineFilter !== "All" ? 1 : 0) +
     activeTags.length;
@@ -602,39 +654,42 @@ function ExplorePage() {
                 <span>Live Hackathon Registry</span>
               </div>
 
-              {/* ADMIN ACTIONS */}
-              {isAdmin && (
-                <div className="flex items-center gap-2 self-start sm:self-auto">
-                  <Button
-                    onClick={() => setAddModalOpen(true)}
-                    className="bg-gradient-brand text-white shadow-glow hover:opacity-90"
-                    size="sm"
-                  >
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    Add Hackathon
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      toast.info(
-                        "AI Hackathon Feeding will scrape web data automatically in an upcoming release."
-                      )
-                    }
-                    className="glass text-xs"
-                    size="sm"
-                  >
-                    <Bot className="mr-1.5 h-4 w-4 text-primary" />
-                    AI Feeding
-                  </Button>
-                </div>
-              )}
+              {/* AUTO FEED / ADMIN ACTIONS (ADMIN ONLY) */}
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                {isAdmin && (
+                  <>
+                    <Button
+                      onClick={() => setAddModalOpen(true)}
+                      className="bg-gradient-brand text-white shadow-glow hover:opacity-90"
+                      size="sm"
+                    >
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      Add Hackathon
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={syncingScraper}
+                      onClick={handleTriggerScrape}
+                      className="glass text-xs border-primary/30 hover:border-primary text-primary"
+                      size="sm"
+                    >
+                      {syncingScraper ? (
+                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin text-primary" />
+                      ) : (
+                        <Bot className="mr-1.5 h-4 w-4 text-primary" />
+                      )}
+                      {syncingScraper ? "Scraping to File..." : "AI Auto-Feed"}
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
 
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Hackathon <span className="text-gradient-brand">Explorer</span>
             </h1>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Discover real hackathons stored in your database. Find an upcoming event you like and spin up a dedicated room for your team.
+              Discover latest hackathons. Find an upcoming event you like and spin up a dedicated room for your team.
             </p>
 
             {/* Search Input */}
@@ -657,7 +712,7 @@ function ExplorePage() {
             </div>
 
             {/* Stats row */}
-            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <div className="flex gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
                 {openCount} open for registration
@@ -666,10 +721,10 @@ function ExplorePage() {
                 <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
                 {closingThisWeek} closing this week
               </span>
-              <span className="flex items-center gap-1">
+              {/* <span className="flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                 {hackathons.length} hackathons indexed
-              </span>
+              </span> */}
             </div>
           </div>
         </section>
@@ -731,6 +786,23 @@ function ExplorePage() {
               </button>
             ))}
 
+            {/* Level filters */}
+            <div className="h-4 w-px bg-border/60 mx-1 hidden sm:block" />
+            {(["All", "National", "State", "Global"] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLevelFilter(l)}
+                className={cn(
+                  "rounded-lg border px-3 py-2 text-xs transition",
+                  levelFilter === l
+                    ? "border-primary bg-primary/10 text-primary font-semibold"
+                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                )}
+              >
+                {l === "All" ? "All Scope" : `${l}`}
+              </button>
+            ))}
+
             {/* More filters */}
             <button
               onClick={() => setShowFilters((p) => !p)}
@@ -754,7 +826,39 @@ function ExplorePage() {
           {/* Expanded Filters */}
           {showFilters && (
             <div className="glass rounded-xl p-4 shadow-card">
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-4">
+                <div>
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Platform</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(
+                      [
+                        "All",
+                        "Devpost",
+                        "Unstop",
+                        "MLH",
+                        "Devfolio",
+                        "Luma",
+                        "GDG",
+                        "Community Host",
+                        "Hackord",
+                      ] as const
+                    ).map((plat) => (
+                      <button
+                        key={plat}
+                        onClick={() => setPlatformFilter(plat)}
+                        className={cn(
+                          "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition",
+                          platformFilter === plat
+                            ? "border-primary bg-primary/10 text-primary font-semibold shadow-sm"
+                            : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                        )}
+                      >
+                        {plat === "All" ? "All Platforms" : plat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <p className="mb-2 text-xs font-medium text-muted-foreground">Prize pool</p>
                   <div className="flex flex-wrap gap-2">
@@ -801,6 +905,8 @@ function ExplorePage() {
                       onClick={() => {
                         setActiveTags([]);
                         setModeFilter("All");
+                        setLevelFilter("All");
+                        setPlatformFilter("All");
                         setPrizeFilter("All");
                         setDeadlineFilter("All");
                       }}

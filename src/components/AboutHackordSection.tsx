@@ -98,7 +98,7 @@ export function AboutHackordSection() {
   return (
     <section
       id="about-hackord"
-      className="relative mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-28 border-t border-white/10 dark:border-white/5 overflow-hidden"
+      className="relative mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-28 overflow-hidden"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -213,7 +213,7 @@ export function AboutHackordSection() {
           <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-primary/30 via-indigo-500/20 to-purple-500/30 blur-3xl opacity-75 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
           {/* 3D Tilted Glass Canvas Window */}
-          <div className="relative rounded-3xl border border-white/15 dark:border-white/10 bg-card/90 backdrop-blur-2xl p-6 sm:p-8 shadow-2xl transition-all duration-700 transform lg:perspective-[1000px] lg:rotate-x-2 lg:-rotate-y-2 group-hover:rotate-x-0 group-hover:rotate-y-0 group-hover:scale-[1.01]">
+          <div className="relative rounded-3xl border border-border bg-card/30 backdrop-blur-2xl p-6 sm:p-8 shadow-card hover:shadow-spatial transition-all duration-700 transform lg:perspective-[1000px] lg:rotate-x-2 lg:-rotate-y-2 group-hover:rotate-x-0 group-hover:rotate-y-0 group-hover:scale-[1.01]">
             {/* Stage Top Header Bar */}
             <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-6">
               <div className="flex items-center gap-2">

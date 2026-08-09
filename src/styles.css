@@ -10,7 +10,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-3xl: calc(var(--radius) + 14px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -48,95 +48,106 @@
 }
 
 :root {
-  --radius: 0.75rem;
-  /* Dark theme by default (Deep Navy) */
-  --background: #050816;
+  --radius: 0.85rem;
+
+  /* ─── Dark Mode Spatial UI (Deep Spatial Obsidian Midnight) ─── */
+  --background: #060813;
   --foreground: #f8fafc;
-  --card: #0F172A;
+  --card: rgba(8, 12, 28, 0.18);
   --card-foreground: #f8fafc;
-  --popover: #0F172A;
+  --popover: rgba(10, 15, 30, 0.75);
   --popover-foreground: #f8fafc;
-  --primary: #7C3AED;
+  --primary: #8b5cf6;
   --primary-foreground: #ffffff;
-  --secondary: #1E293B;
+  --secondary: rgba(255, 255, 255, 0.05);
   --secondary-foreground: #f8fafc;
-  --muted: #1E293B;
+  --muted: rgba(255, 255, 255, 0.05);
   --muted-foreground: #94a3b8;
-  --accent: #1E293B;
+  --accent: rgba(255, 255, 255, 0.05);
   --accent-foreground: #f8fafc;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.08);
-  --ring: #7C3AED;
-  --brand: #7C3AED;        /* neon purple */
-  --brand-2: #38BDF8;      /* electric blue */
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.05);
+  --ring: #8b5cf6;
+  --brand: #8b5cf6;        /* spatial violet */
+  --brand-2: #38bdf8;      /* cyan spark */
   --success: #10b981;
   --warning: #f59e0b;
 
-  --gradient-brand: linear-gradient(135deg, #7C3AED, #38BDF8);
-  --gradient-brand-soft: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(56, 189, 248, 0.15));
-  --gradient-mesh: radial-gradient(1200px 600px at 20% -10%, rgba(124, 58, 237, 0.15), transparent 60%),
-                   radial-gradient(1000px 500px at 80% 20%, rgba(56, 189, 248, 0.12), transparent 60%);
-  --shadow-glow: 0 20px 80px -15px rgba(124, 58, 237, 0.45);
-  --shadow-card: 0 1px 0 0 rgba(255,255,255,0.05) inset, 0 12px 40px -12px rgba(0,0,0,0.5);
+  --gradient-brand: linear-gradient(135deg, #8b5cf6 0%, #38bdf8 100%);
+  --gradient-brand-soft: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(56, 189, 248, 0.15));
+  --gradient-mesh: radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.22) 0px, transparent 55%),
+                   radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.22) 0px, transparent 55%),
+                   radial-gradient(at 50% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 60%),
+                   radial-gradient(at 20% 70%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
+  --shadow-glow: 0 20px 80px -15px rgba(139, 92, 246, 0.45);
+  --shadow-card: 0 12px 40px -8px rgba(0, 0, 0, 0.45), inset 0 1.5px 0px 0px rgba(255, 255, 255, 0.22), inset 0 -1px 0px 0px rgba(0, 0, 0, 0.2);
+  --shadow-spatial: 0 30px 70px -10px rgba(0, 0, 0, 0.6), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.35), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.3);
 
-  --sidebar: #050816;
+  --sidebar: rgba(6, 8, 20, 0.22);
   --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #7C3AED;
+  --sidebar-primary: #8b5cf6;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1E293B;
+  --sidebar-accent: rgba(255, 255, 255, 0.06);
   --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: rgba(255,255,255,0.08);
-  --sidebar-ring: #7C3AED;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #8b5cf6;
 }
 
-/* Apply dark class visuals to root by default */
-html {
-  color-scheme: dark;
-}
-
+/* ─── Light Mode Spatial UI (Alabaster Frost & Premium Glass) ─── */
 html.light {
   color-scheme: light;
-  --background: oklch(0.98 0.005 260);
-  --foreground: oklch(0.18 0.02 275);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.02 275);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.02 275);
-  --primary: oklch(0.55 0.22 290);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.95 0.01 260);
-  --secondary-foreground: oklch(0.20 0.02 275);
-  --muted: oklch(0.94 0.01 260);
-  --muted-foreground: oklch(0.45 0.02 265);
-  --accent: oklch(0.92 0.02 285);
-  --accent-foreground: oklch(0.18 0.02 275);
-  --border: oklch(0.88 0.02 265);
-  --input: oklch(0.92 0.01 260);
-  --ring: oklch(0.55 0.22 290);
-  --shadow-card: 0 4px 20px -4px rgba(0, 0, 0, 0.08);
-  --sidebar: oklch(0.97 0.008 260);
-  --sidebar-foreground: oklch(0.20 0.02 275);
-  --sidebar-accent: oklch(0.92 0.015 260);
-  --sidebar-accent-foreground: oklch(0.18 0.02 275);
-  --sidebar-border: oklch(0.88 0.02 265);
+  --background: #EBF3FF;
+  --foreground: #0f172a;
+  --card: rgba(255, 255, 255, 0.18);
+  --card-foreground: #0f172a;
+  --popover: rgba(255, 255, 255, 0.75);
+  --popover-foreground: #0f172a;
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(15, 23, 42, 0.04);
+  --secondary-foreground: #0f172a;
+  --muted: rgba(15, 23, 42, 0.04);
+  --muted-foreground: #64748b;
+  --accent: rgba(15, 23, 42, 0.04);
+  --accent-foreground: #0f172a;
+  --border: rgba(255, 255, 255, 0.5);
+  --input: rgba(15, 23, 42, 0.04);
+  --ring: #7c3aed;
+  --brand: #7c3aed;
+  --brand-2: #0284c7;
+
+  --gradient-brand: linear-gradient(135deg, #7c3aed 0%, #0284c7 100%);
+  --gradient-brand-soft: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(2, 132, 199, 0.08));
+  --gradient-mesh: radial-gradient(at 0% 0%, rgba(124, 58, 237, 0.18) 0px, transparent 60%),
+                   radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.24) 0px, transparent 60%),
+                   radial-gradient(at 50% 100%, rgba(236, 72, 153, 0.12) 0px, transparent 60%);
+
+  --shadow-card: 0 12px 40px -8px rgba(31, 38, 135, 0.07), inset 0 1.5px 0px 0px rgba(255, 255, 255, 0.8), inset 0 -1px 0px 0px rgba(0, 0, 0, 0.05);
+  --shadow-spatial: 0 30px 70px -10px rgba(31, 38, 135, 0.1), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.9), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.05);
+
+  --sidebar: rgba(255, 255, 255, 0.22);
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #7c3aed;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(15, 23, 42, 0.03);
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: rgba(255, 255, 255, 0.4);
 }
 
 html.light .glass {
-  background-color: rgba(255, 255, 255, 0.85);
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.06);
+  background-color: transparent;
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 10px 30px -5px rgba(31, 38, 135, 0.05), inset 0 1.5px 0 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 0 rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(24px) saturate(220%);
 }
 
 html.light .glass-strong {
-  background-color: rgba(255, 255, 255, 0.95);
-  border-color: rgba(0, 0, 0, 0.1);
-  box-shadow: 0 8px 30px -6px rgba(0, 0, 0, 0.08);
-}
-html.light .bg-mesh {
-  background-image: radial-gradient(1200px 600px at 10% -10%, oklch(0.68 0.22 295 / 0.08), transparent 60%),
-                   radial-gradient(1000px 500px at 90% 10%, oklch(0.65 0.19 240 / 0.06), transparent 60%);
+  background-color: transparent;
+  border-color: rgba(255, 255, 255, 0.65);
+  box-shadow: 0 24px 64px -12px rgba(31, 38, 135, 0.08), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.9), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(32px) saturate(240%);
 }
 
 @layer base {
@@ -148,7 +159,7 @@ html.light .bg-mesh {
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    overflow-x: clip; /* use clip instead of hidden to prevent breaking position: sticky */
+    overflow-x: clip; /* clip prevents scrollbar jumps while keeping position: sticky operational */
   }
   h1, h2, h3, h4, h5 {
     font-family: var(--font-display);
@@ -156,6 +167,7 @@ html.light .bg-mesh {
   }
 }
 
+/* ─── Spatial UI Utilities ─── */
 @utility bg-gradient-brand {
   background-image: var(--gradient-brand);
 }
@@ -177,23 +189,85 @@ html.light .bg-mesh {
 @utility shadow-card {
   box-shadow: var(--shadow-card);
 }
-@utility glass {
-  background-color: oklch(1 0 0 / 0.04);
-  backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid oklch(1 0 0 / 0.08);
-}
-@utility glass-strong {
-  background-color: oklch(0.20 0.025 275 / 0.7);
-  backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid oklch(1 0 0 / 0.08);
+@utility shadow-spatial {
+  box-shadow: var(--shadow-spatial);
 }
 
+/* Spatial Glass Layering */
+@utility glass {
+  background-color: rgba(10, 15, 30, 0.15);
+  backdrop-filter: blur(24px) saturate(220%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4), inset 0 1.5px 0 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 0 rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@utility glass-strong {
+  background-color: rgba(10, 15, 30, 0.3);
+  backdrop-filter: blur(32px) saturate(240%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.65), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.35), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.25);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@utility spatial-card {
+  background-color: var(--card);
+  backdrop-filter: blur(20px) saturate(210%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-spatial);
+  border-radius: var(--radius-2xl);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Apply liquid glass effects to all cards and containers globally */
+[class*="bg-card"], 
+.glass, 
+.glass-strong, 
+.spatial-card {
+  backdrop-filter: blur(20px) saturate(210%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(210%) !important;
+}
+
+@utility spatial-card-hover {
+  &:hover {
+    transform: translateY(-4px) scale(1.005);
+    box-shadow: 0 30px 70px -15px rgba(139, 92, 246, 0.35), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.35);
+    border-color: rgba(139, 92, 246, 0.45);
+  }
+}
+
+/* Light Mode Card Hover Override */
+html.light .spatial-card-hover:hover {
+  box-shadow: 0 30px 70px -15px rgba(124, 58, 237, 0.12), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.85);
+  border-color: rgba(124, 58, 237, 0.45);
+}
+
+/* Hide scrollbars for cleaner mobile navigation views */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Screen sharing and general video container containment */
+.agora_video_player, 
+.agora_video_player video,
+video {
+  object-fit: contain !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+/* ─── Animations ─── */
 @keyframes fade-in-up {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @utility animate-fade-in {
-  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @utility animate-delay-100 { animation-delay: 100ms; }
 @utility animate-delay-200 { animation-delay: 200ms; }
@@ -201,15 +275,13 @@ html.light .bg-mesh {
 @utility animate-delay-400 { animation-delay: 400ms; }
 @utility animate-delay-500 { animation-delay: 500ms; }
 
-
-
 @keyframes float-slow {
   0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(1deg); }
+  50% { transform: translateY(-8px) rotate(0.8deg); }
 }
 @keyframes float-slow-reverse {
   0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(10px) rotate(-1deg); }
+  50% { transform: translateY(8px) rotate(-0.8deg); }
 }
 @utility animate-float {
   animation: float-slow 5s ease-in-out infinite;
@@ -218,21 +290,12 @@ html.light .bg-mesh {
   animation: float-slow-reverse 6s ease-in-out 1s infinite;
 }
 
-@keyframes meteor {
-  0% { transform: rotate(215deg) translateX(0); opacity: 1; }
-  70% { opacity: 1; }
-  100% { transform: rotate(215deg) translateX(-500px); opacity: 0; }
-}
-@utility animate-meteor {
-  animation: meteor 5s linear infinite;
-}
-
 @keyframes text-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 @utility animate-text-shimmer {
-  background: linear-gradient(90deg, currentColor 0%, var(--color-primary) 25%, var(--color-brand) 50%, currentColor 100%);
+  background: linear-gradient(90deg, currentColor 0%, var(--color-primary) 25%, var(--color-brand-2) 50%, currentColor 100%);
   background-size: 200% auto;
   color: transparent;
   -webkit-background-clip: text;
@@ -240,61 +303,10 @@ html.light .bg-mesh {
   animation: text-shimmer 5s linear infinite;
 }
 
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-@utility animate-spin-slow {
-  animation: spin-slow 12s linear infinite;
-}
-
-@keyframes letter-slam {
-  0% {
-    opacity: 0;
-    transform: translateY(-40px) scaleY(1.4) scaleX(0.7);
-  }
-  60% {
-    opacity: 1;
-    transform: translateY(6px) scaleY(0.75) scaleX(1.25);
-  }
-  80% {
-    transform: translateY(-3px) scaleY(1.1) scaleX(0.95);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scaleY(1) scaleX(1);
-  }
-}
-@utility animate-letter-slam {
-  animation: letter-slam 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-15px) rotate(1.5deg); }
-}
-@keyframes float-delayed {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(15px) rotate(-1.5deg); }
-}
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
-}
-@utility animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-@utility animate-float-delayed {
-  animation: float-delayed 7s ease-in-out infinite;
-}
-@utility animate-pulse-glow {
-  animation: pulse-glow 4s ease-in-out infinite;
-}
-
-/* Custom sleek scrollbar for cards and lists */
+/* ─── Custom sleek scrollbar for spatial cards & containers ─── */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(124, 58, 237, 0.4) transparent;
+  scrollbar-color: rgba(139, 92, 246, 0.4) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -308,11 +320,11 @@ html.light .bg-mesh {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(124, 58, 237, 0.35);
+  background: rgba(139, 92, 246, 0.35);
   border-radius: 9999px;
   transition: background 0.2s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(124, 58, 237, 0.65);
+  background: rgba(139, 92, 246, 0.65);
 }

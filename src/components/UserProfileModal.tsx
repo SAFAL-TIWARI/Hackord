@@ -23,6 +23,9 @@ import {
   Check,
   Building2,
   ExternalLink,
+  Trophy,
+  Copy,
+  Hash,
 } from "lucide-react";
 import { type DbUser, sendRoomInvitation } from "@/lib/users-api";
 import { getRooms, type DbRoom } from "@/lib/rooms-api";
@@ -55,11 +58,13 @@ export function UserProfileModal({
       getRooms().then((r) => {
         const ownedRooms = (r || []).filter((room) => {
           if (currentUser?.role === "admin") return true;
-          const isCreatorId = room.creator_id === currentUser?._id || room.creator_id === currentUser?.id;
-          const isCreatorEmail = currentUser?.email && room.creator_email?.toLowerCase() === currentUser.email.toLowerCase();
+          const userId = currentUser?._id;
+          const userEmail = currentUser?.email?.toLowerCase();
+          const isCreatorId = Boolean(userId && String(room.creator_id) === userId);
+          const isCreatorEmail = Boolean(userEmail && room.creator_email?.toLowerCase() === userEmail);
           const isOwnerMember = room.members?.some(
             (m) =>
-              (m.user_id === currentUser?._id || m.user_id === currentUser?.id || (currentUser?.email && m.user_id?.toLowerCase() === currentUser.email.toLowerCase())) &&
+              (Boolean(userId && m.user_id === userId) || Boolean(userEmail && m.user_id?.toLowerCase() === userEmail)) &&
               (m.role === "Owner" || m.role === "Admin")
           );
           return isCreatorId || isCreatorEmail || isOwnerMember;
@@ -192,7 +197,7 @@ export function UserProfileModal({
 
             {/* Bio */}
             {userProp.bio && (
-              <div className="mt-4 rounded-xl border border-border/60 bg-card/40 p-3 text-sm text-foreground/90">
+              <div className="mt-4 rounded-xl border border-border bg-card/45 backdrop-blur-md p-3 text-sm text-foreground/90 shadow-card">
                 <p>{userProp.bio}</p>
               </div>
             )}
@@ -228,7 +233,7 @@ export function UserProfileModal({
                     href={sanitizeUrl(userProp.github)}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-3 py-2 text-xs font-medium hover:border-primary/50 hover:bg-accent transition"
+                    className="flex items-center gap-2 rounded-xl border border-border/80 bg-card/40 backdrop-blur-md px-3 py-2 text-xs font-medium hover:border-primary/50 hover:bg-card/75 shadow-sm transition"
                   >
                     <Github className="h-4 w-4 text-foreground" />
                     <span className="truncate max-w-[140px]">{userProp.github.replace(/^https?:\/\//, "")}</span>
@@ -241,7 +246,7 @@ export function UserProfileModal({
                     href={sanitizeUrl(userProp.linkedin)}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-3 py-2 text-xs font-medium text-blue-400 hover:border-blue-400/50 hover:bg-blue-500/10 transition"
+                    className="flex items-center gap-2 rounded-xl border border-border/80 bg-card/40 backdrop-blur-md px-3 py-2 text-xs font-medium text-blue-400 hover:border-blue-400/50 hover:bg-blue-500/10 shadow-sm transition"
                   >
                     <Linkedin className="h-4 w-4 text-blue-400" />
                     <span className="truncate max-w-[140px]">{userProp.linkedin.replace(/^https?:\/\//, "")}</span>
@@ -254,7 +259,7 @@ export function UserProfileModal({
                     href={sanitizeUrl(userProp.portfolio)}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-3 py-2 text-xs font-medium text-emerald-400 hover:border-emerald-400/50 hover:bg-emerald-500/10 transition"
+                    className="flex items-center gap-2 rounded-xl border border-border/80 bg-card/40 backdrop-blur-md px-3 py-2 text-xs font-medium text-emerald-400 hover:border-emerald-400/50 hover:bg-emerald-500/10 shadow-sm transition"
                   >
                     <Globe className="h-4 w-4 text-emerald-400" />
                     <span className="truncate max-w-[140px]">{userProp.portfolio.replace(/^https?:\/\//, "")}</span>
@@ -263,6 +268,34 @@ export function UserProfileModal({
                 )}
               </div>
             </div>
+
+            {/* Completed Hackathons */}
+            {userProp.completedHackathons && userProp.completedHackathons.length > 0 && (
+              <div className="mt-4 border-t border-border/60 pt-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Trophy className="h-3.5 w-3.5 text-amber-400" />
+                  Completed Hackathons ({userProp.completedHackathons.length})
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {userProp.completedHackathons.map((h, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300"
+                    >
+                      <Trophy className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                      <span className="font-medium">{h.name}</span>
+                      {h.result && (
+                        <Badge variant="outline" className="border-amber-400/40 text-[10px] py-0 px-1 text-amber-300">
+                          {h.result}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            
           </div>
         </DialogContent>
       </Dialog>

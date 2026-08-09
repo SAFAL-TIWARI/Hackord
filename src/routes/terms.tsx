@@ -88,7 +88,7 @@ function TermsOfServicePage() {
       </div>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-4xl px-4 sm:px-6 py-12 space-y-12">
+      <main className="mx-auto max-w-4xl px-4 sm:px-6 py-12 space-y-12 backdrop-blur-2xl">
         {/* Section 1: Acceptance of Terms */}
         <section className="glass-strong rounded-2xl p-6 sm:p-8 space-y-4">
           <div className="flex items-center gap-3 text-primary">

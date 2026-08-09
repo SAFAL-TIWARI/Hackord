@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   X,
@@ -11,6 +12,9 @@ import {
   Linkedin,
   Globe,
   UserCheck,
+  Trophy,
+  Sparkles,
+  Copy,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { getRooms, type DbRoom } from "@/lib/rooms-api";
@@ -19,6 +23,44 @@ import { UserProfileModal } from "./UserProfileModal";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+
+function getMatchTags(user: DbUser, q: string) {
+  if (!q) return [];
+  const queryLower = q.toLowerCase().replace(/^@/, "");
+  const tags: { label: string; color?: string }[] = [];
+
+  if (user._id && user._id.toLowerCase().includes(queryLower)) {
+    tags.push({ label: `ID: ${user._id.slice(-6)}`, color: "bg-purple-500/20 text-purple-300 border-purple-500/30" });
+  }
+  const matchedSkill = (user.skills || []).find((s) => s.toLowerCase().includes(queryLower));
+  if (matchedSkill) {
+    tags.push({ label: `Skill: ${matchedSkill}`, color: "bg-primary/20 text-primary border-primary/30" });
+  }
+  if (user.github && user.github.toLowerCase().includes(queryLower)) {
+    tags.push({ label: `GitHub: ${user.github.replace(/^https?:\/\//, "")}`, color: "bg-zinc-800 text-zinc-200 border-zinc-700" });
+  }
+  if (user.linkedin && user.linkedin.toLowerCase().includes(queryLower)) {
+    tags.push({ label: `LinkedIn: ${user.linkedin.replace(/^https?:\/\//, "")}`, color: "bg-blue-500/20 text-blue-300 border-blue-500/30" });
+  }
+  if (user.portfolio && user.portfolio.toLowerCase().includes(queryLower)) {
+    tags.push({ label: `Portfolio: ${user.portfolio.replace(/^https?:\/\//, "")}`, color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" });
+  }
+  if (user.college && user.college.toLowerCase().includes(queryLower)) {
+    tags.push({ label: `College: ${user.college}`, color: "bg-amber-500/20 text-amber-300 border-amber-500/30" });
+  }
+  if (user.bio && user.bio.toLowerCase().includes(queryLower)) {
+    tags.push({ label: `Bio match`, color: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30" });
+  }
+  const matchedHackathon = (user.completedHackathons || []).find(
+    (h) => (h.name && h.name.toLowerCase().includes(queryLower)) || (h.result && h.result.toLowerCase().includes(queryLower))
+  );
+  if (matchedHackathon) {
+    tags.push({ label: `Hackathon: ${matchedHackathon.name}`, color: "bg-amber-500/20 text-amber-300 border-amber-500/30" });
+  }
+
+  return tags;
+}
 
 type PageResult = {
   id: string;
@@ -50,6 +92,11 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
   const [selectedUser, setSelectedUser] = useState<DbUser | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [dbRooms, setDbRooms] = useState<DbRoom[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     getRooms({ all: true }).then((res) => setDbRooms(res || [])).catch(() => setDbRooms([]));
@@ -61,6 +108,7 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
 
   // Ctrl+K shortcut
   useEffect(() => {
+    if (isMobileTop) return;
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
@@ -70,7 +118,7 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [isMobileTop]);
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 50);
@@ -157,7 +205,7 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
       {/* Search trigger */}
       {isMobileTop ? (
         /* Mobile Top Search Bar (Appears at top of page content for mobile only) */
-        <div className="mb-4 md:hidden sticky top-18 z-40">
+        <div className={cn("mb-4 md:hidden sticky top-18 z-40 transition-all duration-300", open && "opacity-0 pointer-events-none")}>
           <button
             onClick={() => setOpen(true)}
             className="w-full flex items-center gap-3 rounded-xl border border-border/80 bg-sidebar-accent/60 px-4 py-2.5 text-sm text-muted-foreground shadow-sm hover:border-primary/50 transition"
@@ -171,7 +219,10 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
         <button
           id="global-search-trigger"
           onClick={() => setOpen(true)}
-          className="relative hidden md:flex max-w-xs flex-1 items-center gap-2 rounded-lg border border-border bg-sidebar-accent/50 px-3 py-2 text-sm text-muted-foreground hover:border-primary/40 hover:text-foreground transition"
+          className={cn(
+            "relative hidden md:flex max-w-xs flex-1 items-center gap-2 rounded-lg border border-border bg-sidebar-accent/50 px-3 py-2 text-sm text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all duration-300",
+            open && "opacity-0 pointer-events-none"
+          )}
         >
           <Search className="h-4 w-4 shrink-0" />
           <span className="flex-1 text-left truncate">Search name, skill, college…</span>
@@ -181,20 +232,20 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
         </button>
       )}
 
-      {/* Modal overlay */}
-      {open && (
+      {/* Modal overlay portal */}
+      {mounted && typeof document !== "undefined" && open && createPortal(
         <>
           <div
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50  "
             onClick={() => {
               setOpen(false);
               setQuery("");
             }}
           />
-          <div className="fixed left-1/2 top-[5%] sm:top-[10%] z-50 w-full max-w-2xl -translate-x-1/2 px-3 sm:px-4">
+          <div className="fixed left-1/2 top-[10%] sm:top-[6%] z-50 w-full max-w-2xl -translate-x-1/2 px-3 sm:px-4">
             <div
               ref={containerRef}
-              className="overflow-hidden rounded-2xl border border-border bg-sidebar/95 shadow-2xl backdrop-blur-xl"
+              className="overflow-hidden rounded-2xl border border-border bg-sidebar/70 shadow-spatial backdrop-blur-3xl"
             >
               {/* Input */}
               <div className="flex items-center gap-2 sm:gap-3 border-b border-border px-3 py-3 sm:px-4 sm:py-3.5">
@@ -277,94 +328,41 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
                     </div>
 
                     <div className="space-y-2 mt-1">
-                      {userResults.map((user) => (
-                        <div
-                          key={user._id}
-                          onClick={() => handleOpenUserProfile(user)}
-                          className="group cursor-pointer rounded-xl border border-border/60 bg-card/40 p-3 hover:border-primary/50 hover:bg-sidebar-accent/80 transition shadow-sm"
-                        >
-                          <div className="flex items-start gap-3">
-                            <Avatar className="h-11 w-11 border border-border shrink-0">
-                              <AvatarImage src={user.avatar} />
-                              <AvatarFallback className="bg-gradient-brand text-white font-bold">
-                                {user.name[0]}
-                              </AvatarFallback>
-                            </Avatar>
+                      {userResults.map((user) => {
+                        return (
+                          <div
+                            key={user._id}
+                            onClick={() => handleOpenUserProfile(user)}
+                            className="group cursor-pointer rounded-xl border border-border/60 bg-card/45 p-3 hover:border-primary/50 hover:bg-sidebar-accent/80 transition shadow-sm"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <Avatar className="h-10 w-10 border border-border shrink-0">
+                                  <AvatarImage src={user.avatar} />
+                                  <AvatarFallback className="bg-gradient-brand text-white font-bold">
+                                    {user.name[0]}
+                                  </AvatarFallback>
+                                </Avatar>
 
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-sm group-hover:text-primary transition">
-                                  {user.name}
-                                </span>
-                                {user.username && (
-                                  <span className="text-xs text-muted-foreground">
-                                    @{user.username}
+                                <div className="min-w-0">
+                                  <span className="font-semibold text-sm group-hover:text-primary transition block truncate">
+                                    {user.name}
                                   </span>
-                                )}
-                                {user.experience && (
-                                  <Badge variant="outline" className="text-[10px] py-0 px-1.5">
-                                    {user.experience}
-                                  </Badge>
-                                )}
-                              </div>
-
-                              {/* College / Location */}
-                              {user.college && (
-                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                                  <GraduationCap className="h-3 w-3 shrink-0 text-primary/80" />
-                                  {user.college} {user.city ? `· ${user.city}` : ""}
-                                </p>
-                              )}
-
-                              {/* Skills */}
-                              {user.skills && user.skills.length > 0 && (
-                                <div className="mt-1.5 flex flex-wrap gap-1">
-                                  {user.skills.slice(0, 4).map((skill) => (
-                                    <Badge
-                                      key={skill}
-                                      variant="secondary"
-                                      className="text-[10px] py-0 px-1.5 bg-primary/10 text-primary border-transparent"
-                                    >
-                                      {skill}
-                                    </Badge>
-                                  ))}
-                                  {user.skills.length > 4 && (
-                                    <span className="text-[10px] text-muted-foreground self-center">
-                                      +{user.skills.length - 4} more
+                                  {user.username && (
+                                    <span className="text-xs text-muted-foreground block truncate">
+                                      @{user.username}
                                     </span>
                                   )}
                                 </div>
-                              )}
-
-                              {/* Social Handles snippet */}
-                              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted-foreground">
-                                {user.github && (
-                                  <span className="flex items-center gap-1 hover:text-foreground">
-                                    <Github className="h-3 w-3" />
-                                    <span className="truncate max-w-[100px]">{user.github}</span>
-                                  </span>
-                                )}
-                                {user.linkedin && (
-                                  <span className="flex items-center gap-1 text-blue-400">
-                                    <Linkedin className="h-3 w-3" />
-                                    <span className="truncate max-w-[100px]">{user.linkedin}</span>
-                                  </span>
-                                )}
-                                {user.portfolio && (
-                                  <span className="flex items-center gap-1 text-emerald-400">
-                                    <Globe className="h-3 w-3" />
-                                    <span className="truncate max-w-[100px]">{user.portfolio}</span>
-                                  </span>
-                                )}
                               </div>
-                            </div>
 
-                            <button className="shrink-0 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary group-hover:bg-gradient-brand group-hover:text-white transition shadow-sm">
-                              View Profile
-                            </button>
+                              <button className="shrink-0 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary group-hover:bg-gradient-brand group-hover:text-white transition shadow-sm">
+                                View Profile
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -405,7 +403,8 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
               </div>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
 
       {/* User Full Profile Details Modal */}

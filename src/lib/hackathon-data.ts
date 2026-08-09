@@ -6,6 +6,7 @@ export interface Hackathon {
   prizePool: string;
   prizePoolUSD: number; // for filtering
   mode: "Online" | "Offline" | "Hybrid";
+  level?: "State" | "National" | "Global";
   registrationDeadline: string; // ISO date
   submissionDeadline: string;
   resultDate: string;
@@ -15,6 +16,8 @@ export interface Hackathon {
   platformUrl: string;
   description: string;
   bookmarked?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const HACKATHONS: Hackathon[] = [];

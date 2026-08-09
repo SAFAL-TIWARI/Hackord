@@ -39,7 +39,7 @@ export function FeaturedRooms() {
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {/* CREATE NEW ROOM CARD */}
-        <SpotlightCard className="group relative flex flex-col justify-between rounded-2xl border-2 border-dashed border-primary/30 bg-card/30 p-6 transition-all duration-300 hover:border-primary hover:bg-card/60 hover:shadow-glow cursor-pointer">
+        <SpotlightCard className="group relative flex flex-col justify-between rounded-2xl border-2 border-dashed border-primary/40 bg-card/30 p-6 transition-all duration-300 hover:border-primary hover:bg-card/55 hover:shadow-glow cursor-pointer">
           <div>
             <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-brand text-white shadow-glow transition-transform duration-300 group-hover:scale-110">
               <Plus className="h-6 w-6" />
@@ -60,7 +60,7 @@ export function FeaturedRooms() {
 
         {/* DYNAMIC REAL ROOMS */}
         {rooms.slice(0, 3).map((r) => (
-          <SpotlightCard key={r.id} className="flex flex-col justify-between rounded-2xl bg-card/40 p-6 border border-white/10">
+          <SpotlightCard key={r.id} className="flex flex-col justify-between rounded-2xl bg-card/30 backdrop-blur-xl p-6 border border-border shadow-card hover:shadow-spatial hover:-translate-y-1 transition-all duration-300">
             <div>
               <div className="flex items-center justify-between">
                 <Badge variant="secondary" className="text-[10px]">
@@ -79,9 +79,9 @@ export function FeaturedRooms() {
               <div className="mt-4">
                 <div className="flex items-center justify-between text-[10px] font-medium text-muted-foreground mb-1">
                   <span>Progress</span>
-                  <span className="font-mono text-emerald-400">{r.progress || 0}% Complete</span>
+                  <span className="font-mono text-emerald-500 dark:text-emerald-400">{r.progress || 0}% Complete</span>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-foreground/10 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
                     style={{ width: `${r.progress || 0}%` }}
@@ -90,7 +90,7 @@ export function FeaturedRooms() {
               </div>
             </div>
 
-            <div className="mt-6 border-t border-white/10 pt-4 flex items-center justify-between">
+            <div className="mt-6 border-t border-border pt-4 flex items-center justify-between">
               <div className="flex -space-x-2">
                 {(r.members ?? []).slice(0, 3).map((m) => (
                   <Avatar key={m.user_id} className="h-7 w-7 border-2 border-background">

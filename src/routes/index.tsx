@@ -8,6 +8,7 @@ import { FeaturesBento } from "@/components/FeaturesBento";
 import { HeroShowcase } from "@/components/HeroShowcase";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AboutHackordSection } from "@/components/AboutHackordSection";
+import { cn } from "@/lib/utils";
 
 const HeroBackground = React.lazy(() =>
   import("@/components/HeroBackground").then((m) => ({ default: m.HeroBackground }))
@@ -35,6 +36,15 @@ function Landing() {
     }
     return "dark";
   });
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 40);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -49,27 +59,40 @@ function Landing() {
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
   return (
-    <div className="min-h-screen bg-background bg-mesh text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 dark:border-white/5 bg-background/80 backdrop-blur-lg">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-2.5">
-          <BrandLogo size="md" />
+      <div className="sticky top-0 z-50 w-full lg:w-6xl mx-auto lg:flex flex justify-center pointer-events-none">
+        <header
+          className={cn(
+            "w-full ease-in-out pointer-events-auto",
+            scrolled
+              ? "mt-3 w-[88%] max-w-2xl rounded-full border border-border bg-card/85 backdrop-blur-2xl shadow-spatial py-3 px-5"
+              : "mt-0 border-none bg-transparent py-5 px-8 sm:px-12"
+          )}
+          style={{ transition: "all 600ms cubic-bezier(0.16, 1, 0.3, 1)" }}
+        >
+          <div className="w-full flex items-center justify-between">
+            <BrandLogo size={scrolled ? "sm" : "md"} iconOnly={scrolled} className="transition-all duration-500" />
 
-          <nav className="flex items-center gap-3 sm:gap-4 text-sm font-medium">
-           
-            <ThemeToggle theme={theme} onToggle={toggleTheme} />
-            <Link
-              to="/signup"
-              className="rounded-lg bg-gradient-brand px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white shadow-glow transition hover:opacity-90 whitespace-nowrap"
-            >
-              Get started
-            </Link>
-          </nav>
-        </div>
-      </header>
+            <nav className="flex items-center gap-3 sm:gap-4 text-sm font-medium">
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              <Link
+                to="/signup"
+                className={cn(
+                  "rounded-lg bg-gradient-brand text-xs sm:text-sm font-medium text-white shadow-glow hover:opacity-90 whitespace-nowrap",
+                  scrolled ? "px-3 py-1.5 animate-duration-300" : "px-4 py-2"
+                )}
+                style={{ transition: "all 600ms cubic-bezier(0.16, 1, 0.3, 1)" }}
+              >
+                Get started
+              </Link>
+            </nav>
+          </div>
+        </header>
+      </div>
 
       {/* Hero Section */}
-      <section className="relative mx-auto max-w-8xl px-6 pt-24 sm:pt-32 pb-20 sm:pb-24 border-b border-white/10 dark:border-white/5 overflow-hidden lg:overflow-visible">
+      <section className="relative mx-auto max-w-8xl px-6 pt-24 sm:pt-32 pb-20 sm:pb-24 overflow-hidden lg:overflow-visible">
         <Suspense fallback={<div className="absolute inset-0 bg-background" />}>
           <HeroBackground />
         </Suspense>
@@ -127,16 +150,17 @@ function Landing() {
       <AboutHackordSection />
 
       {/* Premium Footer with Direct Privacy & Terms Links */}
-      <footer className="border-t border-white/10 dark:border-white/5 bg-background/80 py-16 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex flex-col items-center md:items-start gap-2">
+      <footer className="py-16 bg-transparent text-foreground">
+        <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6 ">
+          <div className="flex flex-col items-center md:items-start gap-2 ">
             <BrandLogo size="md" />
             <p className="text-xs text-muted-foreground">
               © 2026 Hackord. The real-time workspace for hackathon teams and developers.
             </p>
           </div>
-          <div className="flex items-center gap-6 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
             <Link to="/explore" className="hover:text-foreground transition-colors">Explore</Link>
+            <Link to="/contact" className="hover:text-foreground font-medium text-foreground transition-colors">Contact Us</Link>
             <Link to="/privacy" className="hover:text-foreground font-medium text-foreground transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-foreground font-medium text-foreground transition-colors">Terms of Service</Link>
           </div>

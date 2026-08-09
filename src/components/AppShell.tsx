@@ -17,6 +17,7 @@ import {
   Home,
   Music,
   User,
+  LifeBuoy,
 } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { BrandLogo } from "./BrandLogo";
@@ -83,8 +84,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof document !== "undefined") {
-      if (theme === "light") document.documentElement.classList.add("light");
-      else document.documentElement.classList.remove("light");
+      if (theme === "light") {
+        document.documentElement.classList.add("light");
+        document.documentElement.classList.remove("dark");
+      } else {
+        document.documentElement.classList.remove("light");
+        document.documentElement.classList.add("dark");
+      }
     }
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("hackord_theme", theme);
@@ -133,12 +139,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="min-h-screen bg-background bg-mesh text-foreground pb-16 md:pb-0">
-        <div className="flex">
+      <div className="min-h-screen md:h-screen md:overflow-hidden bg-background bg-mesh text-foreground flex flex-col pb-24 md:pb-0">
+        <div className="flex flex-1 min-h-0">
           {/* ── Sidebar (Desktop) ── */}
           <aside
             className={cn(
-              "sticky top-0 hidden h-screen shrink-0 border-r border-white/5 bg-sidebar/60 backdrop-blur-2xl shadow-lg md:flex flex-col transition-all duration-300 ease-in-out z-30",
+              "hidden md:flex flex-col shrink-0 rounded-3xl border border-border bg-card/25 backdrop-blur-3xl shadow-xl transition-all duration-300 ease-in-out z-30 ml-4 my-4 mr-2 h-[calc(100vh-2rem)] sticky top-4",
               collapsed ? "w-[68px]" : "w-64"
             )}
           >
@@ -251,9 +257,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </aside>
 
           {/* ── Main Content ── */}
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col md:my-4 md:mr-4 md:ml-2 md:gap-4 h-full">
             {/* Topbar */}
-            <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-white/5 bg-background/80 px-4 backdrop-blur-2xl shadow-sm md:px-6">
+            <header className={cn(
+              "z-30 flex h-16 shrink-0 items-center gap-3 bg-background/80 px-4 backdrop-blur-2xl shadow-sm md:px-6",
+              "md:rounded-2xl md:border md:border-border md:bg-card/20 md:shadow-md sticky top-0 md:relative"
+            )}>
               <div className="flex items-center gap-2 md:hidden">
                 <BrandLogo iconOnly size="sm" />
               </div>
@@ -333,6 +342,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild><Link to="/profile">Profile</Link></DropdownMenuItem>
                         <DropdownMenuItem asChild><Link to="/settings">Settings</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/contact">Contact Us</Link></DropdownMenuItem>
                         {isAdmin && (
                           <DropdownMenuItem asChild><Link to="/admin">Admin Panel</Link></DropdownMenuItem>
                         )}
@@ -365,7 +375,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </header>
 
-            <main className="min-w-0 flex-1 p-4 md:p-8">
+            <main className="min-w-0 flex-1 p-4 md:p-8 md:rounded-3xl md:border md:border-border md:bg-card/10 md:backdrop-blur-2xl md:shadow-lg md:overflow-y-auto custom-scrollbar">
               <GlobalSearch isMobileTop />
               {children}
             </main>
@@ -390,7 +400,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
         {/* Mobile Bottom Navigation Bar (Dynamic elevated active link) */}
-        <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-card/95 backdrop-blur-xl border-t border-border shadow-[0_-5px_25px_rgba(0,0,0,0.15)]">
+        <nav className="fixed bottom-4 left-4 right-4 z-40 md:hidden bg-card/40 backdrop-blur-xl border border-border rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
           <div className="relative flex items-center justify-around h-16 px-2 max-w-md mx-auto">
             {NAV.map((item) => {
               const active =
@@ -400,14 +410,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               const Icon = item.icon;
 
               return (
-                <div key={item.to} className="relative flex items-center justify-center w-12">
+                <div key={item.to} className="relative flex items-center justify-center w-15">
                   <Link
                     to={item.to}
                     onClick={() => haptic(active ? "light" : "medium")}
                     className={cn(
                       "flex items-center justify-center transition-all duration-300 ease-out",
                       active
-                        ? "-translate-y-5 h-13 w-13 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-[0_8px_22px_rgba(37,99,235,0.45)] border-4 border-background scale-105"
+                        ? "-translate-y-3 h-13 w-13 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-[0_8px_22px_rgba(37,99,235,0.45)] border-4 border-background scale-105"
                         : "h-10 w-10 text-muted-foreground hover:text-foreground active:scale-90"
                     )}
                   >
@@ -421,14 +431,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             {isAdmin && (() => {
               const active = pathname === "/admin";
               return (
-                <div key="/admin" className="relative flex items-center justify-center w-12">
+                <div key="/admin" className="relative flex items-center justify-center w-15">
                   <Link
                     to="/admin"
                     onClick={() => haptic(active ? "light" : "medium")}
                     className={cn(
                       "flex items-center justify-center transition-all duration-300 ease-out",
                       active
-                        ? "-translate-y-5 h-13 w-13 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-[0_8px_22px_rgba(37,99,235,0.45)] border-4 border-background scale-105"
+                        ? "-translate-y-3 h-13 w-13 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-[0_8px_22px_rgba(37,99,235,0.45)] border-4 border-background scale-105"
                         : "h-10 w-10 text-muted-foreground hover:text-foreground active:scale-90"
                     )}
                   >

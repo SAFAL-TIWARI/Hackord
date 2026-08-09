@@ -8,7 +8,7 @@ export function HeroShowcase() {
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-gradient-brand blur-[120px] opacity-40 animate-pulse-glow" />
 
       {/* Card 1: AI Assistant (Floating top right) */}
-      <div className="absolute right-[5%] top-[10%] w-72 rounded-2xl border border-white/10 bg-card/60 backdrop-blur-xl p-5 shadow-2xl animate-float [transform:rotateY(-15deg)_rotateX(10deg)] z-30">
+      <div className="absolute right-[5%] top-[10%] w-72 rounded-2xl border border-border bg-card/75 backdrop-blur-xl p-5 shadow-card hover:shadow-spatial animate-float [transform:rotateY(-15deg)_rotateX(10deg)] z-30 transition-all duration-300">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
             <Bot className="h-4 w-4 text-primary" />
@@ -16,7 +16,7 @@ export function HeroShowcase() {
           <span className="text-sm font-semibold text-foreground">AI Project Lead</span>
         </div>
         <div className="space-y-3">
-          <div className="rounded-lg bg-background/50 p-3 text-xs text-muted-foreground border border-white/5">
+          <div className="rounded-lg bg-background/50 p-3 text-xs text-muted-foreground border border-border/40">
             <p>Analyzing architecture... <br/><span className="text-primary mt-1 inline-block">Suggestion:</span> Use Redis for real-time state sync.</p>
           </div>
           <div className="flex items-center gap-2">
@@ -27,7 +27,7 @@ export function HeroShowcase() {
       </div>
 
       {/* Card 2: GitHub Integration (Floating bottom left) */}
-      <div className="absolute left-[0%] bottom-[15%] w-80 rounded-2xl border border-white/10 bg-card/60 backdrop-blur-xl p-5 shadow-2xl animate-float-delayed [transform:rotateY(10deg)_rotateX(5deg)] z-20">
+      <div className="absolute left-[0%] bottom-[15%] w-80 rounded-2xl border border-border bg-card/75 backdrop-blur-xl p-5 shadow-card hover:shadow-spatial animate-float-delayed [transform:rotateY(10deg)_rotateX(5deg)] z-20 transition-all duration-300">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded bg-emerald-500/20 flex items-center justify-center">
@@ -43,7 +43,7 @@ export function HeroShowcase() {
             { msg: "fix: websockets disconnect", time: "15m ago", status: "emerald" },
             { msg: "refactor: auth flow", time: "1h ago", status: "blue" },
           ].map((item, i) => (
-            <div key={i} className="flex items-center justify-between p-2 rounded-md hover:bg-white/5 transition-colors">
+            <div key={i} className="flex items-center justify-between p-2 rounded-md hover:bg-foreground/5 transition-colors">
               <span className="text-xs text-foreground font-mono">{item.msg}</span>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-muted-foreground">{item.time}</span>
@@ -55,7 +55,7 @@ export function HeroShowcase() {
       </div>
 
       {/* Card 3: Live Metrics (Center Back) */}
-      <div className="absolute left-[15%] top-[5%] w-64 rounded-2xl border border-white/10 bg-card/40 backdrop-blur-md p-5 shadow-xl animate-float [transform:translateZ(-100px)_rotateY(-5deg)] z-10 opacity-80">
+      <div className="absolute left-[15%] top-[5%] w-64 rounded-2xl border border-border bg-card/65 backdrop-blur-md p-5 shadow-card animate-float [transform:translateZ(-100px)_rotateY(-5deg)] z-10 opacity-80 hover:opacity-100 transition-all duration-300">
         <div className="flex items-center gap-2 mb-4">
           <Activity className="h-4 w-4 text-[#38BDF8]" />
           <span className="text-sm font-medium">Sprint Velocity</span>
@@ -72,7 +72,7 @@ export function HeroShowcase() {
         </div>
       </div>
       {/* Card 4: Deployment Status (Floating bottom right) */}
-      <div className="absolute right-[15%] bottom-[15%] rounded-2xl border border-white/10 bg-card/60 backdrop-blur-xl p-4 shadow-2xl animate-float-delayed [transform:rotateY(-5deg)_rotateX(5deg)] z-20">
+      <div className="absolute right-[15%] bottom-[15%] rounded-2xl border border-border bg-card/75 backdrop-blur-xl p-4 shadow-card hover:shadow-spatial animate-float-delayed [transform:rotateY(-5deg)_rotateX(5deg)] z-20 transition-all duration-300">
         <div className="flex items-center gap-3">
           <div className="relative flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

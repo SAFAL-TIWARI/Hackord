@@ -59,9 +59,22 @@ function DashboardPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
+      toast.error("Please sign in to access your dashboard");
       navigate({ to: "/login" });
     }
   }, [authLoading, user, navigate]);
+
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user) return null;
 
   const [loading, setLoading] = useState(true);
   const [roomsViewMode, setRoomsViewMode] = useState<"list" | "grid">(() => {
@@ -326,11 +339,11 @@ function DashboardPage() {
             <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-900/60 via-indigo-900/40 to-slate-900/80 p-6 sm:p-8 border border-white/10 shadow-2xl">
               <div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Welcome back</p>
+                  <p className="text-sm  light:text-black">Welcome back</p>
                   <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
                     Hey {firstName} 👋
                   </h1>
-                  <p className="mt-2 max-w-lg text-sm text-muted-foreground">
+                  <p className="mt-2 max-w-lg text-sm  light:text-black">
                     You have {invitations.length} pending room invitation{invitations.length === 1 ? "" : "s"} and {realDeadlines.length} upcoming hackathon deadline{realDeadlines.length === 1 ? "" : "s"}.
                   </p>
                 </div>

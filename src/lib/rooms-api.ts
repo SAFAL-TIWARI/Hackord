@@ -49,11 +49,15 @@ export type DbMessage = {
   text: string;
   pinned: boolean;
   created_at: string;
+  recipient_name?: string | null;
+  reply_to?: string | null;
+  edited?: boolean;
 };
 
 export type DbRoom = {
-  creator_id: boolean;
-  creator_email: string;
+  creator_id: string;
+  creator_name?: string;
+  creator_email?: string;
   id: string;
   hackathon: string;
   name: string;
@@ -193,8 +197,9 @@ export async function getRoom(params: { data: { roomId: string } }): Promise<DbR
         role: "Owner",
       },
     ],
-    creator_id: false,
-    creator_email: ""
+    creator_id: defaultUser.id || "system",
+    creator_name: defaultUser.name,
+    creator_email: defaultUser.email || ""
   };
 
   saveRoomToStorage(generated);
@@ -325,6 +330,8 @@ export async function sendMessage(params: {
     text: string;
     authorName?: string;
     authorAvatar?: string;
+    recipientName?: string | null;
+    replyTo?: string | null;
   };
 }): Promise<DbMessage> {
   const currentUser = getLoggedInUser();
@@ -333,6 +340,8 @@ export async function sendMessage(params: {
     text: params.data.text,
     authorName: params.data.authorName || currentUser.name,
     authorAvatar: params.data.authorAvatar || currentUser.avatar,
+    recipientName: params.data.recipientName || null,
+    replyTo: params.data.replyTo || null,
   };
 
   try {
@@ -710,10 +719,64 @@ function sendMessageLocally(data: any): DbMessage {
     text: data.text,
     pinned: false,
     created_at: new Date().toISOString(),
+    recipient_name: data.recipientName || null,
+    reply_to: data.replyTo || null,
+    edited: false,
   };
   messages.push(newMsg);
   saveMessagesToStorage(messages);
   return newMsg;
+}
+
+export async function updateMessage(params: {
+  roomId: string;
+  messageId: string;
+  data: { text?: string; pinned?: boolean };
+}): Promise<DbMessage> {
+  try {
+    const msg = await apiFetch<DbMessage>(`/rooms/${params.roomId}/messages/${params.messageId}`, {
+      method: "PUT",
+      body: JSON.stringify(params.data),
+    });
+    return msg;
+  } catch (err) {
+    const messages = loadMessagesFromStorage();
+    const msg = messages.find((m) => m.id === params.messageId);
+    if (msg) {
+      if (params.data.text !== undefined) {
+        msg.text = params.data.text;
+        msg.edited = true;
+      }
+      if (params.data.pinned !== undefined) {
+        msg.pinned = params.data.pinned;
+      }
+      saveMessagesToStorage(messages);
+      return msg;
+    }
+    throw err;
+  }
+}
+
+export async function deleteMessage(params: {
+  roomId: string;
+  messageId: string;
+}): Promise<{ message: string; id: string }> {
+  try {
+    const res = await apiFetch<{ message: string; id: string }>(
+      `/rooms/${params.roomId}/messages/${params.messageId}`,
+      { method: "DELETE" }
+    );
+    return res;
+  } catch (err) {
+    const messages = loadMessagesFromStorage();
+    const idx = messages.findIndex((m) => m.id === params.messageId);
+    if (idx !== -1) {
+      messages.splice(idx, 1);
+      saveMessagesToStorage(messages);
+      return { message: "Deleted locally", id: params.messageId };
+    }
+    throw err;
+  }
 }
 
 export async function getAgoraToken(roomId: string): Promise<{ token: string; appId: string; warning?: string }> {
