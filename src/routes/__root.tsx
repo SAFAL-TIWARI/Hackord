@@ -167,6 +167,8 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        {/* Termly Consent Banner — MUST be first script on page */}
+        <script src="https://app.termly.io/resource-blocker/9f2d5f69-0057-49d8-894b-302e07544ca1?autoBlock=on" />
         {/* Google Analytics (GA4) */}
         <script
           async
