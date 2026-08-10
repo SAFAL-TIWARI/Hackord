@@ -95,7 +95,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "robots", content: "index, follow" },
       { name: "theme-color", content: "#090d16" },
       { name: "google-site-verification", content: "KOi1bvu2tRkeojuYE0ABHOWsA8_frAbvSeMWsQGhBM4" },
-      { name="google-site-verification", content="YDKGAoyABhLLOTVU7KzfKTordrMSCabkQTJNUaWgi4w" },
+      { name="google-site-verification", content: "YDKGAoyABhLLOTVU7KzfKTordrMSCabkQTJNUaWgi4w" },
 
       // OpenGraph Metadata
       { property: "og:site_name", content: "Hackord" },
