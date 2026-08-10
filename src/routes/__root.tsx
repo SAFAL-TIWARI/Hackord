@@ -168,7 +168,13 @@ function RootShell({ children }: { children: ReactNode }) {
       <head>
         <HeadContent />
         {/* Termly Consent Banner — MUST be first script on page */}
-        <script src="https://app.termly.io/resource-blocker/9f2d5f69-0057-49d8-894b-302e07544ca1?autoBlock=on" />
+       <script src="https://app.termly.io/resource-blocker/9f2d5f69-0057-49d8-894b-302e07544ca1?autoBlock=on"></script>
+        {/* Google Tag Manager */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-WDZB7GPF');`,
+          }}
+        />
         {/* Google Analytics (GA4) */}
         <script
           async
@@ -210,6 +216,15 @@ function RootShell({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-WDZB7GPF"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
         {children}
         <Scripts />
       </body>

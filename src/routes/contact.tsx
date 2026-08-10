@@ -222,8 +222,8 @@ function ContactPage() {
             <p className="text-xs text-muted-foreground">
               Direct line to our technical support team for account & platform help.
             </p>
-            <a href="mailto:support@hackord.com" className="text-xs text-primary font-medium hover:underline">
-              support@hackord.com
+            <a href="mailto:hackord.support@gmail.com" className="text-xs text-primary font-medium hover:underline">
+              hackord.support@gmail.com
             </a>
           </div>
 

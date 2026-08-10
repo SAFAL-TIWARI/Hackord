@@ -163,6 +163,8 @@ function Landing() {
             <Link to="/contact" className="hover:text-foreground font-medium text-foreground transition-colors">Contact Us</Link>
             <Link to="/privacy" className="hover:text-foreground font-medium text-foreground transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-foreground font-medium text-foreground transition-colors">Terms of Service</Link>
+            <Link to="/cookie-policy" className="hover:text-foreground transition-colors">Cookie Policy</Link>
+            <a href="#" className="termly-display-preferences hover:text-foreground transition-colors">Consent Preferences</a>
           </div>
         </div>
       </footer>

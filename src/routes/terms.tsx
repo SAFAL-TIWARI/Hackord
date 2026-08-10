@@ -196,7 +196,7 @@ function TermsOfServicePage() {
           </p>
           <div className="inline-flex items-center gap-2 rounded-xl bg-card px-4 py-2 border border-border text-sm font-medium text-foreground">
             <Mail className="h-4 w-4 text-primary" />
-            <span>support@hackord.app</span>
+            <span>hackord.support@gmail.com</span>
           </div>
         </section>
       </main>
@@ -212,6 +212,8 @@ function TermsOfServicePage() {
             <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link to="/terms" className="font-semibold text-foreground">Terms of Service</Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+            <Link to="/cookie-policy" className="hover:text-foreground transition-colors">Cookie Policy</Link>
+            <a href="#" className="termly-display-preferences hover:text-foreground transition-colors">Consent Preferences</a>
           </div>
         </div>
       </footer>
