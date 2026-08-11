@@ -9,6 +9,8 @@ import {
   Star, GitFork, RefreshCw, Unlink, AlertCircle, GitCommit,
   Linkedin, Globe, Trophy, GraduationCap,
   Mic, MicOff, Reply, MoreVertical, ChevronLeft, ChevronRight,
+  Brain, ChevronDown, Share2, MoreHorizontal, ArrowUp, Copy, CornerDownRight,
+  Presentation, Workflow, ShieldCheck, Layers, ListChecks, Network, Briefcase, Clapperboard, Rocket
 } from "lucide-react";
 import { fetchGithubWorkspaceData, parseGithubUrl, type GithubWorkspaceData } from "@/lib/github-api";
 import { AgoraMeeting } from "@/components/AgoraMeeting";
@@ -25,6 +27,9 @@ import { Progress } from "@/components/ui/progress";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { AI_TOOLS, GITHUB_DATA, MEETINGS } from "@/lib/dummy-data";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -150,9 +155,29 @@ function RoomPage() {
   }, [initialRoom]);
 
   const refreshRoom = async () => {
+    if (!room?.id) return;
     const fresh = await getRoom({ data: { roomId: room.id } });
     if (fresh) setRoom(fresh);
   };
+
+  // Real-time automatic polling to sync room updates (members, tasks, files, details) live
+  useEffect(() => {
+    if (!room?.id) return;
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await getRoom({ data: { roomId: room.id } });
+        if (fresh) {
+          setRoom((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(fresh)) {
+              return fresh;
+            }
+            return prev;
+          });
+        }
+      } catch {}
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [room?.id]);
 
   const isMemberOrAdmin = useMemo(() => {
     if (!user) return false;
@@ -1042,6 +1067,9 @@ function ChatTab({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileViewChatActive, setMobileViewChatActive] = useState(false);
 
+  // BroadcastChannel for instant multi-tab chat real-time sync
+  const chatChannelRef = useRef<BroadcastChannel | null>(null);
+
   // Voice recording / Speech transcription
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -1158,55 +1186,95 @@ function ChatTab({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeChat]);
 
-  // Real-time polling with notifications
+  // Multi-Tab BroadcastChannel for instantaneous local tab sync
+  useEffect(() => {
+    if (typeof window === "undefined" || !roomId) return;
+    const channel = new BroadcastChannel(`hackord_room_chat_${roomId}`);
+    chatChannelRef.current = channel;
+
+    channel.onmessage = (event) => {
+      const data = event.data;
+      if (data?.type === "MSG_SENT") {
+        const msg: DbMessage = data.payload;
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      } else if (data?.type === "MSG_EDITED") {
+        const updated: DbMessage = data.payload;
+        setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+      } else if (data?.type === "MSG_DELETED") {
+        const msgId: string = data.payload.msgId;
+        setMessages((prev) => prev.filter((m) => m.id !== msgId));
+      } else if (data?.type === "MSG_PINNED") {
+        const updated: DbMessage = data.payload;
+        setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+      }
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, [roomId]);
+
+  // Real-time full state polling (reconciling edits, pins, deletes, and new messages)
   useEffect(() => {
     const poll = async () => {
       try {
-        const newMsgs = await getMessagesSince({
-          data: { roomId, since: latestTsRef.current },
-        });
-        if (newMsgs.length > 0) {
-          // Send notifications for new messages not authored by the current user
-          const fresh = newMsgs.filter((m) => m.author_name !== userName);
-          if (fresh.length > 0) {
-            fresh.forEach((m) => {
-              if (m.recipient_name) {
-                if (m.recipient_name === userName) {
-                  toast.info(`New direct message from ${m.author_name}: "${m.text.slice(0, 30)}..."`, {
+        const freshMsgs = await getMessages({ data: { roomId } });
+        if (Array.isArray(freshMsgs)) {
+          setMessages((prev) => {
+            // Reconcile new incoming messages for toast notifications
+            const prevIds = new Set(prev.map((m) => m.id));
+            const brandNew = freshMsgs.filter((m) => !prevIds.has(m.id) && m.author_name !== userName);
+            if (brandNew.length > 0) {
+              brandNew.forEach((m) => {
+                if (m.recipient_name) {
+                  if (m.recipient_name === userName) {
+                    toast.info(`New direct message from ${m.author_name}: "${m.text.slice(0, 30)}..."`, {
+                      action: {
+                        label: "Chat",
+                        onClick: () => {
+                          setActiveChat(m.author_name);
+                          setMobileViewChatActive(true);
+                        },
+                      },
+                    });
+                  }
+                } else {
+                  toast.info(`New message in #general from ${m.author_name}: "${m.text.slice(0, 30)}..."`, {
                     action: {
-                      label: "Chat",
+                      label: "View",
                       onClick: () => {
-                        setActiveChat(m.author_name);
+                        setActiveChat("general");
                         setMobileViewChatActive(true);
                       },
                     },
                   });
                 }
-              } else {
-                toast.info(`New message in #general from ${m.author_name}: "${m.text.slice(0, 30)}..."`, {
-                  action: {
-                    label: "View",
-                    onClick: () => {
-                      setActiveChat("general");
-                      setMobileViewChatActive(true);
-                    },
-                  },
-                });
-              }
-            });
-          }
+              });
+            }
 
-          setMessages((prev) => {
-            const existingIds = new Set(prev.map((m) => m.id));
-            const freshFiltered = newMsgs.filter((m) => !existingIds.has(m.id));
-            if (freshFiltered.length === 0) return prev;
-            latestTsRef.current = freshFiltered[freshFiltered.length - 1].created_at;
-            return [...prev, ...freshFiltered];
+            // Check if any message properties changed (text edits, edited status, pins, count)
+            const isDifferent =
+              prev.length !== freshMsgs.length ||
+              freshMsgs.some((m, idx) => {
+                const p = prev[idx];
+                return (
+                  !p ||
+                  p.id !== m.id ||
+                  p.text !== m.text ||
+                  Boolean(p.edited) !== Boolean(m.edited) ||
+                  Boolean(p.pinned) !== Boolean(m.pinned)
+                );
+              });
+
+            return isDifferent ? freshMsgs : prev;
           });
         }
       } catch {}
     };
-    const timer = setInterval(poll, 3000);
+    const timer = setInterval(poll, 2500);
     return () => clearInterval(timer);
   }, [roomId, userName]);
 
@@ -1261,7 +1329,7 @@ function ChatTab({
     setActiveMenuId(null);
   };
 
-  // API Message Actions
+  // API Message Actions with BroadcastChannel real-time dispatch
   const handleTogglePin = async (msg: DbMessage) => {
     try {
       const updated = await updateMessage({
@@ -1270,6 +1338,7 @@ function ChatTab({
         data: { pinned: !msg.pinned },
       });
       setMessages((prev) => prev.map((m) => (m.id === msg.id ? updated : m)));
+      chatChannelRef.current?.postMessage({ type: "MSG_PINNED", payload: updated });
       toast.success(msg.pinned ? "Message unpinned" : "Message pinned");
     } catch {
       toast.error("Failed to update message pin state");
@@ -1281,6 +1350,7 @@ function ChatTab({
     try {
       await deleteMessage({ roomId, messageId: msgId });
       setMessages((prev) => prev.filter((m) => m.id !== msgId));
+      chatChannelRef.current?.postMessage({ type: "MSG_DELETED", payload: { msgId } });
       toast.success("Message deleted successfully");
     } catch {
       toast.error("Failed to delete message");
@@ -1302,6 +1372,7 @@ function ChatTab({
           data: { text: text.trim() },
         });
         setMessages((prev) => prev.map((m) => (m.id === editingMessage.id ? updated : m)));
+        chatChannelRef.current?.postMessage({ type: "MSG_EDITED", payload: updated });
         toast.success("Message updated");
         setEditingMessage(null);
       } else {
@@ -1323,6 +1394,7 @@ function ChatTab({
           latestTsRef.current = msg.created_at;
           return [...prev, msg];
         });
+        chatChannelRef.current?.postMessage({ type: "MSG_SENT", payload: msg });
         setReplyingTo(null);
       }
       if (isRecording && recognitionRef.current) {
@@ -1542,7 +1614,7 @@ function ChatTab({
                     </div>
                   )}
 
-                  <div className={cn("flex items-start gap-2.5 max-w-[85%] group relative", isSelf ? "ml-auto flex-row-reverse" : "mr-auto")}>
+                  <div className={cn("flex items-start gap-2 max-w-[88%] sm:max-w-[75%] group relative min-w-0", isSelf ? "ml-auto flex-row-reverse" : "mr-auto")}>
                     
                     {/* Avatar (Left side only for others) */}
                     {!isSelf && (
@@ -1556,7 +1628,7 @@ function ChatTab({
                     <div
                       id={`msg-${m.id}`}
                       className={cn(
-                        "relative p-3 rounded-2xl text-xs leading-relaxed shadow-sm transition-all duration-300 border",
+                        "relative p-3 rounded-2xl text-xs leading-relaxed shadow-sm transition-all duration-300 border min-w-0 overflow-hidden",
                         isSelf
                           ? "bg-primary text-white border-transparent rounded-tr-md rounded-bl-2xl rounded-br-2xl shadow-card"
                           : "bg-card border-border text-foreground rounded-tl-md rounded-tr-2xl rounded-bl-2xl rounded-br-2xl",
@@ -1584,7 +1656,7 @@ function ChatTab({
                       </div>
 
                       {/* Text */}
-                      <p className="break-words font-medium">{m.text}</p>
+                      <p className="break-words [overflow-wrap:anywhere] [word-break:break-word] whitespace-pre-wrap font-medium">{m.text}</p>
 
                       {/* Bottom status badges */}
                       <div className="flex items-center gap-1.5 mt-1 justify-end">
@@ -1599,8 +1671,8 @@ function ChatTab({
                       </div>
                     </div>
 
-                    {/* Three-dots contextual dropdown */}
-                    <div className={cn("opacity-0 group-hover:opacity-100 transition duration-200 self-center shrink-0 relative", isSelf ? "mr-1" : "ml-1")}>
+                    {/* Three-dots contextual dropdown (Always visible on mobile) */}
+                    <div className={cn("sm:opacity-0 opacity-100 group-hover:opacity-100 transition duration-200 self-center shrink-0 relative", isSelf ? "mr-1" : "ml-1")}>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -2079,49 +2151,898 @@ function TasksTab({ room, onRoomUpdate, userName }: { room: DbRoom; onRoomUpdate
   );
 }
 
-/* ------------------------ AI Workspace (Untouched) ------------------------ */
+/* ------------------------ AI Workspace (ChatGPT / Gemini Style) ------------------------ */
+interface AIChatMessage {
+  id: string;
+  sender: "user" | "ai";
+  text: string;
+  timestamp: string;
+  plugin?: string;
+  structuredOutput?: string;
+}
+
+interface AIChat {
+  id: string;
+  title: string;
+  pinned: boolean;
+  activePlugin?: string;
+  updatedAt: string;
+  messages: AIChatMessage[];
+}
+
+const INITIAL_AI_CHATS: AIChat[] = [
+  {
+    id: "chat-1",
+    title: "Link Monetization Process",
+    pinned: true,
+    updatedAt: "2 hours ago",
+    messages: [
+      { id: "m1", sender: "user", text: "How can we monetize external project links effectively?", timestamp: "10:30 AM" },
+      { id: "m2", sender: "ai", text: "Here is a breakdown of link monetization strategies:\n\n1. **Affiliate Link Tracking**: Automatically append affiliate codes to vendor tools.\n2. **Sponsorship Banners**: Show sponsored tech stack logos alongside repository links.\n3. **Paywalled Micro-courses**: Gated deep-dives for project templates.", timestamp: "10:31 AM" },
+    ],
+  },
+  {
+    id: "chat-2",
+    title: "Resume summary rewrite",
+    pinned: true,
+    updatedAt: "Yesterday",
+    messages: [
+      { id: "m3", sender: "user", text: "Rewrite my project summary for full-stack engineer role.", timestamp: "Yesterday" },
+      { id: "m4", sender: "ai", text: "Here is a polished executive summary ready for top tech roles:\n\n> *Full-Stack Engineer with expertise in React, TypeScript, Node.js, and real-time collaboration apps. Proven track record building high-concurrency Agora audio/video integrations and AI-assisted developer tools.*", timestamp: "Yesterday" },
+    ],
+  },
+  {
+    id: "chat-3",
+    title: "Web Dev Project Ideas",
+    pinned: true,
+    updatedAt: "2 days ago",
+    messages: [
+      { id: "m5", sender: "user", text: "Give me 3 innovative hackathon ideas combining AI + WebRTC.", timestamp: "2 days ago" },
+      { id: "m6", sender: "ai", text: "1. **Real-time AI Interview Coach**: Analyzes speech tone, eye contact, and technical accuracy live during WebRTC calls.\n2. **Smart Meeting Summarizer**: Extracts action items, flowcharts, and task tickets live during hackathon syncs.\n3. **Peer-to-Peer Code Pair AI**: Live pair-programming bot that watches canvas state.", timestamp: "2 days ago" },
+    ],
+  },
+  {
+    id: "chat-4",
+    title: "PromptWars Hack2Skill",
+    pinned: true,
+    updatedAt: "3 days ago",
+    messages: [
+      { id: "m7", sender: "user", text: "Help me structure prompt strategy for PromptWars competition.", timestamp: "3 days ago" },
+      { id: "m8", sender: "ai", text: "Use system role-pinning, zero-shot chain of thought, and structured JSON output formats to ensure 99%+ consistency.", timestamp: "3 days ago" },
+    ],
+  },
+  {
+    id: "chat-5",
+    title: "IIT Bombay Internship Guide",
+    pinned: true,
+    updatedAt: "4 days ago",
+    messages: [
+      { id: "m9", sender: "user", text: "What are key points to focus on for research internships?", timestamp: "4 days ago" },
+      { id: "m10", sender: "ai", text: "Focus on published open-source contributions, clear statement of purpose (SOP), and demonstrating proficiency with PyTorch / system architecture.", timestamp: "4 days ago" },
+    ],
+  },
+  {
+    id: "chat-6",
+    title: "Google Campus Ambassador...",
+    pinned: true,
+    updatedAt: "5 days ago",
+    messages: [
+      { id: "m11", sender: "user", text: "Draft application essay for campus ambassador program.", timestamp: "5 days ago" },
+      { id: "m12", sender: "ai", text: "Here is a compelling draft highlighting community leadership, hackathon organizing experience, and technical outreach passion.", timestamp: "5 days ago" },
+    ],
+  },
+  {
+    id: "chat-7",
+    title: "Hackord Project",
+    pinned: false,
+    updatedAt: "Today",
+    messages: [
+      { id: "m13", sender: "user", text: "What features are implemented in Hackord?", timestamp: "11:00 AM" },
+      { id: "m14", sender: "ai", text: "Hackord includes Rooms, Live Agora Audio/Video meetings, Real-time Chat with Voice-to-Text, Task Management, GitHub Live Stats, and AI Workspace.", timestamp: "11:01 AM" },
+    ],
+  },
+  {
+    id: "chat-8",
+    title: "Instagram Carousel Design",
+    pinned: false,
+    updatedAt: "Yesterday",
+    messages: [
+      { id: "m15", sender: "user", text: "Create slide outline for 5-slide tech tips carousel.", timestamp: "Yesterday" },
+      { id: "m16", sender: "ai", text: "Slide 1: Hook Headline\nSlide 2: The Core Problem\nSlide 3: Step-by-Step Solution\nSlide 4: Code Snippet Example\nSlide 5: Call to Action (Follow & Save)", timestamp: "Yesterday" },
+    ],
+  },
+  {
+    id: "chat-9",
+    title: "Face Swap Description",
+    pinned: false,
+    updatedAt: "3 days ago",
+    messages: [
+      { id: "m17", sender: "user", text: "Write technical explanation for face swap pipeline.", timestamp: "3 days ago" },
+      { id: "m18", sender: "ai", text: "Uses InsightFace embeddings + GAN-based face alignment for zero-shot identity transfer.", timestamp: "3 days ago" },
+    ],
+  },
+  {
+    id: "chat-10",
+    title: "Image Modification Request",
+    pinned: false,
+    updatedAt: "4 days ago",
+    messages: [
+      { id: "m19", sender: "user", text: "How to apply background blur dynamically in canvas?", timestamp: "4 days ago" },
+      { id: "m20", sender: "ai", text: "Use HTML5 Canvas `ctx.filter = 'blur(10px)'` or WebGL shaders for hardware-accelerated real-time segmentation.", timestamp: "4 days ago" },
+    ],
+  },
+  {
+    id: "chat-11",
+    title: "Improved Study Prompt",
+    pinned: false,
+    updatedAt: "5 days ago",
+    messages: [
+      { id: "m21", sender: "user", text: "Generate Feynman technique prompt for DSA algorithms.", timestamp: "5 days ago" },
+      { id: "m22", sender: "ai", text: "Prompt created! 'Explain QuickSort as if I am 10 years old, using plain English and visual analogies.'", timestamp: "5 days ago" },
+    ],
+  },
+  {
+    id: "chat-12",
+    title: "AI for SEO Automation",
+    pinned: false,
+    updatedAt: "6 days ago",
+    messages: [
+      { id: "m23", sender: "user", text: "How to automate meta descriptions with LLMs?", timestamp: "6 days ago" },
+      { id: "m24", sender: "ai", text: "Extract page H1 + introductory paragraph -> Pass to Gemini API with strict 155-character constraints -> Write meta tag to head dynamically.", timestamp: "6 days ago" },
+    ],
+  },
+  {
+    id: "chat-13",
+    title: "DSA Roadmap in Java",
+    pinned: false,
+    updatedAt: "1 week ago",
+    messages: [
+      { id: "m25", sender: "user", text: "What order should I learn Java data structures?", timestamp: "1 week ago" },
+      { id: "m26", sender: "ai", text: "Arrays -> ArrayList -> LinkedList -> Stack/Queue -> HashMap/HashSet -> Trees (BST) -> Graphs -> Dynamic Programming.", timestamp: "1 week ago" },
+    ],
+  },
+];
+
 function AITab() {
-  const [open, setOpen] = useState<string | null>(null);
-  const tool = AI_TOOLS.find((t) => t.key === open);
+  const [chats, setChats] = useState<AIChat[]>(INITIAL_AI_CHATS);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>("chat-8"); // default selected chat
+  const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
+  const [recentsCollapsed, setRecentsCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [mobileViewChatActive, setMobileViewChatActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  // Input state
+  const [input, setInput] = useState("");
+  const [selectedPlugin, setSelectedPlugin] = useState<string | null>(null);
+  const [showPluginPicker, setShowPluginPicker] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+
+  // File upload hidden ref & base text ref for speech dictation
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const baseTextRef = useRef<string>("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const activeChat = useMemo(() => {
+    return chats.find((c) => c.id === selectedChatId) || null;
+  }, [chats, selectedChatId]);
+
+  // Filtered chats based on search query
+  const filteredChats = useMemo(() => {
+    if (!searchQuery.trim()) return chats;
+    return chats.filter((c) => c.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [chats, searchQuery]);
+
+  const pinnedChats = useMemo(() => filteredChats.filter((c) => c.pinned), [filteredChats]);
+  const recentChats = useMemo(() => filteredChats.filter((c) => !c.pinned), [filteredChats]);
+
+  // Voice speech to text initialization (Exact non-duplicating logic from ChatTab)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = "en-IN";
+
+        rec.onresult = (event: any) => {
+          let finalSessionTranscript = "";
+          let interimSessionTranscript = "";
+
+          for (let i = 0; i < event.results.length; ++i) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalSessionTranscript += transcript;
+            } else {
+              interimSessionTranscript += transcript;
+            }
+          }
+
+          const sessionTranscript = (finalSessionTranscript + interimSessionTranscript).trim();
+          if (sessionTranscript) {
+            const newText = baseTextRef.current
+              ? `${baseTextRef.current} ${sessionTranscript}`
+              : sessionTranscript;
+            setInput(newText);
+          }
+        };
+
+        rec.onerror = (e: any) => {
+          console.error("[Voice typing error]", e.error);
+          setIsRecording(false);
+          toast.error(`Voice typing error: ${e.error}`);
+        };
+
+        rec.onend = () => setIsRecording(false);
+        recognitionRef.current = rec;
+      }
+    }
+  }, []);
+
+  const toggleRecording = () => {
+    if (!recognitionRef.current) {
+      toast.error("Speech recognition is not supported in this browser. Try Google Chrome.");
+      return;
+    }
+    if (isRecording) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+      setIsRecording(false);
+      toast.info("Voice typing stopped.");
+    } else {
+      baseTextRef.current = input;
+      try {
+        recognitionRef.current.start();
+        setIsRecording(true);
+        toast.info("Listening... Speak English or Hindi!", { duration: 2500 });
+      } catch (err) {
+        console.error(err);
+        toast.error("Could not start microphone.");
+      }
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInput(val);
+    if (val.endsWith("/") || val.endsWith("@")) {
+      setShowPluginPicker(true);
+    } else if (showPluginPicker && !val.includes("/") && !val.includes("@")) {
+      setShowPluginPicker(false);
+    }
+  };
+
+  const handleSelectPlugin = (toolKey: string) => {
+    const tool = AI_TOOLS.find((t) => t.key === toolKey);
+    if (tool) {
+      setSelectedPlugin(tool.title);
+      setShowPluginPicker(false);
+      setInput((prev) => prev.replace(/[/@]$/, ""));
+      toast.success(`Plugin @${tool.title} attached!`);
+    }
+  };
+
+  const handleCreateNewChat = (pluginTitle?: string) => {
+    const newId = `chat-${Date.now()}`;
+    const newChat: AIChat = {
+      id: newId,
+      title: pluginTitle ? `${pluginTitle} Workspace` : "New Conversation",
+      pinned: false,
+      activePlugin: pluginTitle,
+      updatedAt: "Just now",
+      messages: [
+        {
+          id: `msg-welcome-${Date.now()}`,
+          sender: "ai",
+          text: pluginTitle
+            ? `Welcome to **${pluginTitle}** mode! How can I assist you with your project today?`
+            : "Hello! I am your AI Workspace assistant. Ask me anything, generate diagrams, PPTs, or READMEs.",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          plugin: pluginTitle,
+        },
+      ],
+    };
+    setChats((prev) => [newChat, ...prev]);
+    setSelectedChatId(newId);
+    setMobileViewChatActive(true);
+    if (pluginTitle) setSelectedPlugin(pluginTitle);
+  };
+
+  const handleSelectChat = (chatId: string) => {
+    setSelectedChatId(chatId);
+    setMobileViewChatActive(true);
+  };
+
+  const handleSendMessage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!input.trim() && !selectedPlugin) return;
+
+    let targetChatId = selectedChatId;
+    if (!targetChatId) {
+      const newId = `chat-${Date.now()}`;
+      const newChat: AIChat = {
+        id: newId,
+        title: input.trim().slice(0, 24) || "New Chat",
+        pinned: false,
+        activePlugin: selectedPlugin || undefined,
+        updatedAt: "Just now",
+        messages: [],
+      };
+      setChats((prev) => [newChat, ...prev]);
+      targetChatId = newId;
+      setSelectedChatId(newId);
+      setMobileViewChatActive(true);
+    }
+
+    const userMsgText = input.trim();
+    const currentPlugin = selectedPlugin;
+    const userMsg: AIChatMessage = {
+      id: `m-user-${Date.now()}`,
+      sender: "user",
+      text: userMsgText,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      plugin: currentPlugin || undefined,
+    };
+
+    let aiResponseText = `Processing request for: "${userMsgText}"...\n\n`;
+    if (currentPlugin === "Generate PPT") {
+      aiResponseText += "### 📊 Presentation Deck Outline Generated\n\n1. **Slide 1: Executive Summary**\n   - Problem & Opportunity\n   - Market Gap\n2. **Slide 2: System Architecture**\n   - Real-time WebRTC + LLM orchestration\n3. **Slide 3: Roadmap & Financials**\n   - Go-to-market plan.";
+    } else if (currentPlugin === "Workflow Diagram" || currentPlugin === "Architecture Diagram") {
+      aiResponseText += "### 🌐 Mermaid System Flowchart\n\n```mermaid\ngraph TD\n  A[User Web Client] -->|WebSockets| B[Express API Gateway]\n  B -->|Webhooks| C[ViaSocket Automation]\n  C -->|Alerts| D[WhatsApp Business API]\n  B -->|AI Context| E[Gemini / LLM Service]\n```";
+    } else {
+      aiResponseText += `Here is the structured solution for your inquiry:\n\n- **Analysis**: Evaluated prompt input.\n- **Recommendation**: Deploy with modular service boundary.\n- **Status**: Completed successfully.`;
+    }
+
+    const aiMsg: AIChatMessage = {
+      id: `m-ai-${Date.now()}`,
+      sender: "ai",
+      text: aiResponseText,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      plugin: currentPlugin || undefined,
+    };
+
+    setChats((prev) =>
+      prev.map((c) => (c.id === targetChatId ? { ...c, updatedAt: "Just now", messages: [...c.messages, userMsg, aiMsg] } : c))
+    );
+
+    setInput("");
+    setSelectedPlugin(null);
+    setShowPluginPicker(false);
+  };
+
+  const handlePinChat = (chatId: string) => {
+    setChats((prev) =>
+      prev.map((c) => (c.id === chatId ? { ...c, pinned: !c.pinned } : c))
+    );
+    toast.success("Chat pin status updated");
+  };
+
+  const handleRenameChat = (chatId: string) => {
+    const currentChat = chats.find((c) => c.id === chatId);
+    const newTitle = window.prompt("Enter new title for conversation:", currentChat?.title);
+    if (newTitle && newTitle.trim()) {
+      setChats((prev) =>
+        prev.map((c) => (c.id === chatId ? { ...c, title: newTitle.trim() } : c))
+      );
+      toast.success("Chat renamed");
+    }
+  };
+
+  const handleDeleteChat = (chatId: string) => {
+    setChats((prev) => prev.filter((c) => c.id !== chatId));
+    if (selectedChatId === chatId) {
+      setSelectedChatId(null);
+      setMobileViewChatActive(false);
+    }
+    toast.success("Chat deleted");
+  };
+
+  const handleShareChat = (chatId: string) => {
+    const chat = chats.find((c) => c.id === chatId);
+    if (chat) {
+      navigator.clipboard.writeText(`${window.location.href}?chat=${chat.id}`);
+      toast.success(`Share link for "${chat.title}" copied to clipboard!`);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const fileName = files[0].name;
+      setInput((prev) => `${prev} [Attached file: ${fileName}]`);
+      toast.success(`File "${fileName}" attached as context.`);
+    }
+  };
+
   return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {AI_TOOLS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setOpen(t.key)}
-            className="group glass rounded-2xl p-5 text-left shadow-card transition hover:-translate-y-0.5"
-          >
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-brand-soft">
-              <Sparkles className="h-5 w-5 text-primary" />
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-0 glass rounded-3xl border border-border shadow-spatial overflow-hidden h-[620px] transition-all duration-300",
+        isSidebarCollapsed ? "md:grid-cols-[70px_1fr]" : "md:grid-cols-[260px_1fr]"
+      )}
+    >
+      {/* Hidden File Input */}
+      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+
+      {/* ---------------- 1. LEFT SIDEBAR (MATCHES CHATTAB SIDEBAR THEME) ---------------- */}
+      <div
+        className={cn(
+          "border-r border-border bg-sidebar/40 p-4 flex flex-col h-full overflow-hidden transition-all duration-300",
+          isSidebarCollapsed ? "md:p-2 items-center w-full md:w-[70px]" : "w-full md:w-[260px]",
+          mobileViewChatActive ? "hidden md:flex" : "flex"
+        )}
+      >
+        {isSidebarCollapsed ? (
+          /* COLLAPSED SIDEBAR TOOLBAR (Only +, Search, Pin, All Conversations icons) */
+          <div className="flex flex-col items-center gap-3 py-1 w-full">
+            {/* Expand Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="p-1.5 hover:bg-sidebar-accent rounded-lg text-muted-foreground hover:text-foreground transition mb-1"
+              title="Expand Sidebar"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+
+            {/* New Chat (+) Button */}
+            <button
+              type="button"
+              onClick={() => handleCreateNewChat()}
+              className="h-10 w-10 grid place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary hover:bg-primary/20 transition shadow-sm"
+              title="New Chat"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+
+            {/* Search Icon */}
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="p-2.5 rounded-xl text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition"
+              title="Search Conversations"
+            >
+              <Search className="h-4.5 w-4.5" />
+            </button>
+
+            {/* Pin Icon */}
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="p-2.5 rounded-xl text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition"
+              title="Pinned Conversations"
+            >
+              <Pin className="h-4.5 w-4.5 text-primary" />
+            </button>
+
+            {/* All Conversations Icon */}
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="p-2.5 rounded-xl text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition"
+              title="All Conversations"
+            >
+              <MessageSquare className="h-4.5 w-4.5" />
+            </button>
+          </div>
+        ) : (
+          /* EXPANDED SIDEBAR CONTENT */
+          <>
+            {/* Sidebar Header & Collapse Toggle */}
+            <div className="flex items-center justify-between mb-3 w-full">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Workspaces</h3>
+              <button
+                type="button"
+                onClick={() => setIsSidebarCollapsed(true)}
+                className="hidden md:block p-1 hover:bg-sidebar-accent rounded-lg text-muted-foreground transition ml-auto shrink-0"
+                title="Collapse Sidebar"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
             </div>
-            <h3 className="mt-3 font-semibold">{t.title}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">{t.desc}</p>
-          </button>
-        ))}
+
+            {/* New Chat Button */}
+            <button
+              onClick={() => handleCreateNewChat()}
+              className="w-full flex items-center justify-between transition mb-3 rounded-xl border border-primary/20 bg-primary/10 text-primary shadow-sm hover:bg-primary/20 px-3 py-2 text-xs font-medium"
+              title="New Chat"
+            >
+              <span className="flex items-center gap-1.5 font-semibold">
+                <Plus className="h-4 w-4 shrink-0 text-primary" />
+                <span>New Chat</span>
+              </span>
+              <Sparkles className="h-3.5 w-3.5 text-primary/80" />
+            </button>
+
+            {/* Search Bar for Chats */}
+            <div className="relative mb-3 w-full">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search conversations..."
+                className="w-full rounded-xl border border-border bg-background/50 pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Sidebar Scroll Container */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar w-full space-y-4">
+              {/* PINNED SECTION */}
+              <div>
+                <button
+                  onClick={() => setPinnedCollapsed(!pinnedCollapsed)}
+                  className="flex w-full items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground"
+                >
+                  <span className="flex items-center gap-1">
+                    Pinned
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", pinnedCollapsed && "-rotate-90")} />
+                  </span>
+                  <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">{pinnedChats.length}</span>
+                </button>
+
+                {!pinnedCollapsed && (
+                  <div className="space-y-1 w-full">
+                    {pinnedChats.map((c) => (
+                      <div
+                        key={c.id}
+                        className={cn(
+                          "group relative flex items-center justify-between transition cursor-pointer gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium",
+                          selectedChatId === c.id
+                            ? "bg-primary/10 text-primary border border-primary/20 shadow-sm font-semibold"
+                            : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                        )}
+                        onClick={() => handleSelectChat(c.id)}
+                      >
+                        <div className="flex items-center gap-2 truncate min-w-0">
+                          <MessageSquare className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="truncate">{c.title}</span>
+                        </div>
+
+                        {/* 3 Dots Menu (Always visible on mobile!) */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <button className="h-6 w-6 rounded-md sm:opacity-0 opacity-100 group-hover:opacity-100 flex items-center justify-center hover:bg-sidebar-accent transition shrink-0">
+                              <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40 z-50">
+                            <DropdownMenuItem onClick={() => handleShareChat(c.id)}>
+                              <Share2 className="mr-2 h-4 w-4" /> Share
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleRenameChat(c.id)}>
+                              <Edit className="mr-2 h-4 w-4" /> Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handlePinChat(c.id)}>
+                              <Pin className="mr-2 h-4 w-4" /> Unpin chat
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteChat(c.id)}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ALL CONVERSATIONS / RECENTS SECTION */}
+              <div>
+                <button
+                  onClick={() => setRecentsCollapsed(!recentsCollapsed)}
+                  className="flex w-full items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground"
+                >
+                  <span className="flex items-center gap-1">
+                    All Conversations
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", recentsCollapsed && "-rotate-90")} />
+                  </span>
+                  <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">{recentChats.length}</span>
+                </button>
+
+                {!recentsCollapsed && (
+                  <div className="space-y-1 w-full">
+                    {recentChats.map((c) => (
+                      <div
+                        key={c.id}
+                        className={cn(
+                          "group relative flex items-center justify-between transition cursor-pointer gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium",
+                          selectedChatId === c.id
+                            ? "bg-primary/10 text-primary border border-primary/20 shadow-sm font-semibold"
+                            : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                        )}
+                        onClick={() => handleSelectChat(c.id)}
+                      >
+                        <div className="flex items-center gap-2 truncate min-w-0">
+                          <span className="truncate">{c.title}</span>
+                        </div>
+
+                        {/* 3 Dots Menu (Always visible on mobile!) */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <button className="h-6 w-6 rounded-md sm:opacity-0 opacity-100 group-hover:opacity-100 flex items-center justify-center hover:bg-sidebar-accent transition shrink-0">
+                              <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40 z-50">
+                            <DropdownMenuItem onClick={() => handleShareChat(c.id)}>
+                              <Share2 className="mr-2 h-4 w-4" /> Share
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleRenameChat(c.id)}>
+                              <Edit className="mr-2 h-4 w-4" /> Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handlePinChat(c.id)}>
+                              <Pin className="mr-2 h-4 w-4" /> Pin chat
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteChat(c.id)}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
-      <Dialog open={!!open} onOpenChange={(v) => !v && setOpen(null)}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>{tool?.title}</DialogTitle>
-            <DialogDescription>{tool?.desc}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Label>Prompt</Label>
-            <Textarea rows={5} placeholder="Tell the assistant what you need…" defaultValue="Our project is an AI-driven crop yield predictor for smallholder farmers." />
-            <div className="rounded-xl border border-dashed border-border bg-card/50 p-4 text-sm text-muted-foreground">
-              Placeholder response will appear here. Connect an AI provider to generate real output.
+
+      {/* ---------------- 2. RIGHT MAIN PANEL (MATCHES CHATTAB RIGHT PANE THEME) ---------------- */}
+      <div
+        className={cn(
+          "flex flex-col h-full bg-card/10 overflow-hidden relative transition-all duration-300",
+          mobileViewChatActive ? "flex" : "hidden md:flex"
+        )}
+      >
+        {/* Header Bar */}
+        <div className="flex items-center justify-between border-b border-border p-4 gap-3 bg-card/30 backdrop-blur-md">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Mobile Back Button (WhatsApp style navigation) */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileViewChatActive(false);
+                setSelectedChatId(null);
+              }}
+              className="p-1.5 hover:bg-sidebar-accent rounded-lg text-muted-foreground transition shrink-0"
+              title="Back to conversation list"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+
+            <div className="min-w-0">
+              <h2 className="font-semibold text-sm sm:text-base truncate flex items-center gap-2">
+                {activeChat ? activeChat.title : "AI Workspace"}
+                {activeChat?.activePlugin && (
+                  <Badge variant="outline" className="border-primary/40 text-primary bg-primary/5 text-xs shrink-0">
+                    @{activeChat.activePlugin}
+                  </Badge>
+                )}
+              </h2>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {activeChat ? `AI Workspace conversation thread` : "Specialized AI automation & plugin tools"}
+              </p>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(null)}>Close</Button>
-            <Button className="bg-gradient-brand text-white shadow-glow hover:opacity-90" onClick={() => toast.success("Generated (demo)")}>
-              <Sparkles className="h-4 w-4" /> Generate
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleCreateNewChat()}
+              className="h-8 gap-1.5 text-xs border-border hover:bg-accent shrink-0"
+            >
+              <Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">New Chat</span>
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+          </div>
+        </div>
+
+        {/* Message Thread Box / Tools Overview (Scrollable, identical background) */}
+        <div className="flex-1 space-y-3.5 overflow-y-auto p-4 custom-scrollbar bg-slate-950/5 dark:bg-black/5">
+          {!selectedChatId ? (
+            /* TOOLS OVERVIEW & PURPOSE SECTION */
+            <div className="space-y-5 max-w-4xl mx-auto py-2">
+              {/* Purpose Header & New Chat Button */}
+              <div className="glass rounded-2xl p-6 border border-border bg-card/30 text-center space-y-4 shadow-sm my-auto">
+                <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-gradient-brand-soft shadow-md">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-xl sm:text-2xl font-bold bg-gradient-brand bg-clip-text text-transparent">
+                    AI Workspace & Plugin Suite
+                  </h2>
+                  <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                    AI Workspace empowers your team with specialized AI plugins for generating presentation pitch decks, architecture flowcharts, automated READMEs, tech stack proposals, and structured project documentation.
+                  </p>
+                </div>
+
+                <div>
+                  <Button
+                    onClick={() => handleCreateNewChat()}
+                    className="bg-gradient-brand text-white shadow-glow hover:opacity-90 px-5 py-2.5 text-sm gap-2 rounded-xl font-semibold"
+                  >
+                    <Plus className="h-4 w-4" /> Start New Conversation
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* ACTIVE CHAT MESSAGES THREAD (MATCHES CHATTAB BUBBLES 1:1) */
+            <div className="space-y-3.5 max-w-4xl mx-auto">
+              {activeChat?.messages.map((m) => {
+                const isSelf = m.sender === "user";
+                return (
+                  <div key={m.id} className={cn("flex items-start gap-2 max-w-[88%] sm:max-w-[75%] group relative min-w-0", isSelf ? "ml-auto flex-row-reverse" : "mr-auto")}>
+                    {/* AI Avatar */}
+                    {!isSelf && (
+                      <Avatar className="h-8.5 w-8.5 shrink-0 border border-border shadow-sm">
+                        <AvatarFallback className="bg-primary/20 text-[10px] font-bold text-primary">AI</AvatarFallback>
+                      </Avatar>
+                    )}
+
+                    {/* Speech Bubble (Identical to ChatTab) */}
+                    <div
+                      className={cn(
+                        "relative p-3 rounded-2xl text-xs leading-relaxed shadow-sm transition-all duration-300 border min-w-0 overflow-hidden",
+                        isSelf
+                          ? "bg-primary text-white border-transparent rounded-tr-md rounded-bl-2xl rounded-br-2xl shadow-card"
+                          : "bg-card border-border text-foreground rounded-tl-md rounded-tr-2xl rounded-bl-2xl rounded-br-2xl"
+                      )}
+                    >
+                      {/* Header (Author & Time) */}
+                      <div className="flex items-center gap-2 mb-1 justify-between flex-wrap">
+                        <span className={cn("font-bold text-[11px]", isSelf ? "text-white/90" : "text-primary")}>
+                          {isSelf ? "You" : "Hackord AI Assistant"}
+                        </span>
+                        <span className={cn("text-[9px]", isSelf ? "text-white/60" : "text-muted-foreground")}>
+                          {m.timestamp}
+                        </span>
+                      </div>
+
+                      {/* Text */}
+                      <div className="break-words [overflow-wrap:anywhere] [word-break:break-word] whitespace-pre-wrap font-medium">
+                        {m.text}
+                      </div>
+
+                      {/* Copy Action */}
+                      {!isSelf && (
+                        <div className="flex items-center gap-2 pt-1.5 border-t border-border/30 mt-1.5">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(m.text);
+                              toast.success("Response copied to clipboard!");
+                            }}
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition"
+                          >
+                            <Copy className="h-3 w-3" /> Copy
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+
+        {/* ---------------- 3. INPUT FORM (MATCHES CHATTAB INPUT BAR THEME) ---------------- */}
+        <form
+          className="flex items-center gap-2 border-t border-border p-3 bg-card/25 backdrop-blur-md relative"
+          onSubmit={handleSendMessage}
+        >
+          {/* Plugin Autocomplete Popover (Triggered by / or @) */}
+          {showPluginPicker && (
+            <div className="absolute bottom-full left-4 sm:left-6 mb-2 w-72 sm:w-80 rounded-xl border border-border bg-popover/95 p-2 shadow-spatial backdrop-blur-md z-50 space-y-1 text-xs">
+              <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Select Plugin Tool
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-0.5 custom-scrollbar">
+                {AI_TOOLS.map((tool) => (
+                  <button
+                    key={tool.key}
+                    type="button"
+                    onClick={() => handleSelectPlugin(tool.key)}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs text-foreground hover:bg-accent transition text-left"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <div>
+                      <div className="font-medium">@{tool.title}</div>
+                      <div className="text-[10px] text-muted-foreground line-clamp-1">{tool.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Plus / Attach Button Dropdown (Styled like ChatTab controls) */}
+          <DropdownMenu open={showAttachMenu} onOpenChange={setShowAttachMenu}>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="p-2.5 rounded-xl border border-border bg-sidebar-accent/60 text-muted-foreground hover:border-primary/50 hover:text-primary transition shadow-sm shrink-0"
+                title="Attach files or choose plugins"
+              >
+                <Plus className="h-4.5 w-4.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side="top" className="w-56 z-50 space-y-0.5 text-xs">
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <Paperclip className="mr-2 h-4 w-4" /> Add photos & files
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowPluginPicker(true)}>
+                <Sparkles className="mr-2 h-4 w-4 text-primary" /> Plugins
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleCreateNewChat()}>
+                <Plus className="mr-2 h-4 w-4" /> New chat
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toggleRecording()}>
+                <Mic className="mr-2 h-4 w-4" /> Dictate
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => selectedChatId && handlePinChat(selectedChatId)}>
+                <Pin className="mr-2 h-4 w-4" /> Pin chat
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Speech Mic Button (Identical to ChatTab) */}
+          <button
+            type="button"
+            onClick={toggleRecording}
+            className={cn(
+              "p-2.5 rounded-xl border transition shadow-sm shrink-0",
+              isRecording
+                ? "bg-red-500/15 border-red-500 text-red-500 animate-pulse shadow-md"
+                : "bg-sidebar-accent/60 border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+            )}
+            title="Speech-to-Text Voice Typing (Hindi / English)"
+          >
+            {isRecording ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
+          </button>
+
+          {/* Input Field (Identical to ChatTab) */}
+          <Input
+            value={input}
+            onChange={handleInputChange}
+            placeholder={
+              selectedPlugin
+                ? `Plugin @${selectedPlugin} active... enter prompt`
+                : "Ask AI or type / or @ for plugins..."
+            }
+            className="flex-1 rounded-xl border border-border bg-background/50 text-xs sm:text-sm h-10 px-3 outline-none focus:border-primary/50 transition min-w-0"
+          />
+
+          {/* Send Button (Identical to ChatTab) */}
+          <Button
+            type="submit"
+            disabled={!input.trim() && !selectedPlugin}
+            className="bg-gradient-brand text-white shadow-glow hover:opacity-90 rounded-xl px-3.5 h-10 gap-1.5 text-xs font-semibold shrink-0"
+          >
+            <span className="hidden sm:inline">Send</span>
+            <Send className="h-3.5 w-3.5" />
+          </Button>
+        </form>
+      </div>
+    </div>
   );
 }
 

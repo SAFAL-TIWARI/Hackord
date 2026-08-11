@@ -68,7 +68,7 @@ function RemotePresenterPlayer({
   return (
     <div className="w-full h-full relative flex items-center justify-center bg-black">
       <div ref={containerRef} className="w-full h-full object-contain" />
-      <div className="absolute top-3 left-3 rounded-xl bg-card/80 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-foreground border border-border/60 shadow-sm">
+      <div className="absolute top-3 left-3 rounded-md bg-background/90 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur border border-border">
         🖥️ {displayName} is presenting their screen
       </div>
     </div>
@@ -131,15 +131,15 @@ function RemoteUserTile({
   return (
     <div
       className={cn(
-        "relative w-full h-full min-h-[260px] rounded-2xl overflow-hidden bg-card/45 backdrop-blur-md border border-border/80 flex items-center justify-center shadow-card text-foreground transition-all duration-300",
+        "relative w-full h-full min-h-[260px] rounded-xl overflow-hidden bg-card border border-border/80 flex items-center justify-center shadow-md",
         isPinned && "border-2 border-primary shadow-glow"
       )}
     >
-      <div ref={containerRef} className="w-full h-full object-cover rounded-2xl" />
+      <div ref={containerRef} className="w-full h-full object-cover rounded-xl" />
 
       {(!user.hasVideo || isVideoMuted) && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card/20 backdrop-blur-sm">
-          <Avatar className="h-20 w-20 border border-border shadow-card">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card">
+          <Avatar className="h-20 w-20 border-2 border-border shadow-card">
             {displayAvatar && <AvatarImage src={displayAvatar} />}
             <AvatarFallback className="text-xl font-bold bg-gradient-brand text-white">
               {displayName[0]?.toUpperCase() || "U"}
@@ -152,40 +152,40 @@ function RemoteUserTile({
         </div>
       )}
 
-      <div className="absolute bottom-3 left-3 rounded-xl bg-card/80 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-foreground border border-border/60 shadow-sm flex items-center gap-1.5">
+      <div className="absolute bottom-3 left-3 rounded-lg bg-background/80 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-foreground border border-border/80 shadow-md flex items-center gap-1.5">
         <span>{displayName}</span>
         {isHost && <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-[10px] py-0 px-1 font-semibold">Host</Badge>}
         {isHandRaised && <span className="text-base animate-pulse">✋</span>}
-        {isAudioMuted && <span className="text-red-400 font-bold text-[10px]">(Muted)</span>}
+        {isAudioMuted && <span className="text-destructive font-bold text-[10px]">(Muted)</span>}
       </div>
 
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
         <button
           onClick={onTogglePin}
-          className="p-1.5 rounded-full bg-card/80 backdrop-blur-md border border-border/60 text-foreground hover:text-primary transition"
+          className="p-1.5 rounded-full bg-background/80 backdrop-blur-md border border-border text-foreground hover:text-primary transition"
         >
           {isPinned ? <PinOff className="h-3.5 w-3.5 text-primary" /> : <Pin className="h-3.5 w-3.5" />}
         </button>
 
         {isOwnerOrAdmin && (
-          <div className="flex items-center gap-1 bg-card/90 backdrop-blur border border-border/80 rounded-full p-1 shadow-sm">
+          <div className="flex items-center gap-1 bg-background/90 backdrop-blur border border-border rounded-full p-1 shadow-md">
             <button
               onClick={onMuteMic}
-              className="p-1 text-foreground/80 hover:text-destructive transition"
+              className="p-1 text-muted-foreground hover:text-destructive transition"
               title="Mute Mic"
             >
               <VolumeX className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={onTurnOffCamera}
-              className="p-1 text-foreground/80 hover:text-destructive transition"
+              className="p-1 text-muted-foreground hover:text-destructive transition"
               title="Turn Off Camera"
             >
               <CameraOff className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={onKick}
-              className="p-1 text-red-400 hover:scale-110 transition"
+              className="p-1 text-destructive hover:scale-110 transition"
               title="Remove User"
             >
               <UserX className="h-3.5 w-3.5" />
@@ -233,27 +233,10 @@ export function AgoraMeeting({
   });
 
   // Call State
-  const [micOn, setMicOn] = useState(true);
-  const [cameraOn, setCameraOn] = useState(true);
-  
-  // Refs for WebRTC state closure fixes
-  const remotePresenterUidRef = useRef<string | number | null>(null);
-  const screenSharingRef = useRef<boolean>(false);
-  const handRaisedRef = useRef<boolean>(false);
-  const userInfoMapRef = useRef<Record<string | number, { userId?: string; name: string; avatar: string; isHost?: boolean }>>({});
-
-  const [screenSharing, setScreenSharingState] = useState(false);
-  const setScreenSharing = (val: boolean) => {
-    screenSharingRef.current = val;
-    setScreenSharingState(val);
-  };
-
-  const [handRaised, setHandRaisedState] = useState(false);
-  const setHandRaised = (val: boolean) => {
-    handRaisedRef.current = val;
-    setHandRaisedState(val);
-  };
-
+  const [micOn, setMicOn] = useState(false);
+  const [cameraOn, setCameraOn] = useState(false);
+  const [screenSharing, setScreenSharing] = useState(false);
+  const [handRaised, setHandRaised] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [layoutMode, setLayoutMode] = useState<"tiled" | "spotlight" | "sidebar">("tiled");
   const [pinnedUid, setPinnedUid] = useState<string | number | null>(null);
@@ -274,21 +257,8 @@ export function AgoraMeeting({
     );
   }, [remoteUsersState]);
 
-  const [userInfoMap, setUserInfoMapState] = useState<Record<string | number, { userId?: string; name: string; avatar: string; isHost?: boolean }>>({});
-  const [remotePresenterUid, setRemotePresenterUidState] = useState<string | number | null>(null);
-
-  const setRemotePresenterUid = (uid: string | number | null) => {
-    remotePresenterUidRef.current = uid;
-    setRemotePresenterUidState(uid);
-  };
-
-  const setUserInfoMap = (updater: any) => {
-    setUserInfoMapState((prev) => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      userInfoMapRef.current = next;
-      return next;
-    });
-  };
+  const [userInfoMap, setUserInfoMap] = useState<Record<string | number, { userId?: string; name: string; avatar: string; isHost?: boolean }>>({});
+  const [remotePresenterUid, setRemotePresenterUid] = useState<string | number | null>(null);
 
   // Hand Raised UIDs state for multi-user sync
   const [raisedHandsUids, setRaisedHandsUids] = useState<Set<string | number>>(new Set());
@@ -326,7 +296,7 @@ export function AgoraMeeting({
   const meetingContainerRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const lobbyVideoRef = useRef<HTMLVideoElement>(null);
-  const screenVideoRef = useRef<HTMLDivElement>(null);
+  const screenVideoRef = useRef<HTMLVideoElement>(null);
 
   // WebRTC & Audio Meter Refs
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -354,11 +324,44 @@ export function AgoraMeeting({
     return `${p1}-${p2}-${p3}`;
   });
 
+  // Meeting Sync Waiting State Timer (5 seconds)
+  const [syncTimer, setSyncTimer] = useState<number>(0);
+
+  // 5-second Countdown Interval Handler
   useEffect(() => {
-    if (existingMeetingCode && existingMeetingCode.trim()) {
-      setMeetingCode(existingMeetingCode.trim());
+    if (syncTimer <= 0) return;
+    const timer = setInterval(() => {
+      setSyncTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [syncTimer]);
+
+  // Helper to trigger meeting code sync across state, leave old call, & set 5s timer
+  const triggerMeetingCodeSync = (newCode: string) => {
+    if (joined) {
+      handleLeaveCall();
+      setMessages([
+        {
+          id: "msg_welcome",
+          sender: "System Bot",
+          avatar: "https://api.dicebear.com/9.x/bottts/svg?seed=meeting",
+          text: `Welcome to ${roomName} live meeting workspace!`,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+      setHandRaised(false);
+      setJoined(false);
+      toast.info("A new instant meeting was created! Moved to meeting lobby.");
     }
-  }, [existingMeetingCode]);
+    setMeetingCode(newCode);
+    setSyncTimer(5);
+  };
 
   // Sync session storage
   useEffect(() => {
@@ -377,34 +380,19 @@ export function AgoraMeeting({
     }
   }, [roomId, meetingCode, existingMeetingCode]);
 
-  // Poll to sync meeting code changes (detecting new meetings created by others)
+  // Poll to sync meeting code changes (detecting new meetings created by others within 2 seconds)
   useEffect(() => {
     if (!roomId) return;
     const interval = setInterval(async () => {
       try {
         const fresh = await getRoom({ data: { roomId } });
         if (fresh && fresh.meeting_code && fresh.meeting_code !== meetingCode) {
-          if (joined) {
-            handleLeaveCall();
-            setMessages([
-              {
-                id: "msg_welcome",
-                sender: "System Bot",
-                avatar: "https://api.dicebear.com/9.x/bottts/svg?seed=meeting",
-                text: `Welcome to ${roomName} live meeting workspace!`,
-                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              },
-            ]);
-            setHandRaised(false);
-            setJoined(false);
-            toast.info("A new meeting has been created. You have been moved to the new meeting lobby.");
-          }
-          setMeetingCode(fresh.meeting_code);
+          triggerMeetingCodeSync(fresh.meeting_code);
         }
       } catch (err) {
         console.warn("Error polling room meeting code:", err);
       }
-    }, 4000);
+    }, 2000);
     return () => clearInterval(interval);
   }, [roomId, meetingCode, joined, roomName]);
 
@@ -417,41 +405,44 @@ export function AgoraMeeting({
     const newCode = `${p1}-${p2}-${p3}`;
 
     try {
-      if (joined) {
-        handleLeaveCall();
-      }
-      setMeetingCode(newCode);
-      setMessages([
-        {
-          id: "msg_welcome",
-          sender: "System Bot",
-          avatar: "https://api.dicebear.com/9.x/bottts/svg?seed=meeting",
-          text: `Welcome to ${roomName} live meeting workspace!`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
-      setHandRaised(false);
+      // Move to lobby if in call, update code, start 5s countdown state
+      triggerMeetingCodeSync(newCode);
 
+      // Persist to MongoDB
       await updateRoom({
         roomId,
         data: { meeting_code: newCode },
       });
-      setJoined(true);
-      toast.success(`Created instant meeting! Code: ${newCode}`);
+
+      // Multi-Tab real-time broadcast
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({
+          type: "NEW_MEETING_CODE",
+          payload: { code: newCode },
+        });
+      }
+
+      toast.success(`Created instant meeting! Code: ${newCode}. Syncing database...`);
     } catch {
       toast.error("Failed to create instant meeting");
     }
   };
 
-  // Real-time BroadcastChannel Sync for Messages, Emojis & Hand Raising
+  // Real-time BroadcastChannel Sync for Messages, Emojis, Hand Raising & New Meeting Codes
   useEffect(() => {
-    if (typeof window === "undefined" || !roomId) return;
+    if (typeof window !== "undefined" || !roomId) return;
 
     const channel = new BroadcastChannel(`hackord_meet_${roomId}`);
     broadcastChannelRef.current = channel;
 
     channel.onmessage = (event) => {
       const data = event.data;
+      if (data.type === "NEW_MEETING_CODE") {
+        const incomingCode = data.payload?.code;
+        if (incomingCode && incomingCode !== meetingCode) {
+          triggerMeetingCodeSync(incomingCode);
+        }
+      }
       if (data.type === "CHAT_MSG") {
         setMessages((prev) => [...prev, data.payload]);
       }
@@ -476,12 +467,27 @@ export function AgoraMeeting({
           return next;
         });
       }
+      if (data.type === "USER_INFO") {
+        const incomingUid = data.payload.uid;
+        const incomingUserId = data.payload.userId;
+        if (incomingUid && String(incomingUid) !== String(localUid)) {
+          setUserInfoMap((prev) => ({
+            ...prev,
+            [incomingUid]: {
+              userId: incomingUserId,
+              name: data.payload.name,
+              avatar: data.payload.avatar,
+              isHost: data.payload.isHost,
+            },
+          }));
+        }
+      }
     };
 
     return () => {
       channel.close();
     };
-  }, [roomId]);
+  }, [roomId, meetingCode]);
 
   // Update Clock
   useEffect(() => {
@@ -533,44 +539,69 @@ export function AgoraMeeting({
         try {
           videoTrack.play(screenVideoRef.current);
         } catch (err) {
-          console.warn("Error playing local screen share:", err);
+          console.warn("[AgoraRTC] Error playing local screen share track:", err);
         }
       }
     }
   }, [screenSharing]);
 
-  // Real-time Mic Volume Level Indicator (using Agora's built-in volume analyzer)
+  // Real-time Mic Frequency Audio Analyzer
   useEffect(() => {
-    if (!micOn || !joined) {
+    if (!micOn) {
       setAudioLevel(0);
       return;
     }
 
     let isMounted = true;
-    let frameId: number;
 
-    const checkVolume = () => {
-      if (!isMounted) return;
-      if (localAudioTrackRef.current) {
-        try {
-          const level = localAudioTrackRef.current.getVolumeLevel();
-          // Normalize level (usually getVolumeLevel returns 0 to 1)
-          const normalized = Math.min(100, Math.round(level * 100));
-          setAudioLevel(normalized);
-        } catch {
-          setAudioLevel(0);
+    async function startAudioMeter() {
+      try {
+        if (!mediaStreamRef.current && navigator.mediaDevices) {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          if (!isMounted) return;
+          mediaStreamRef.current = stream;
         }
-      } else {
-        setAudioLevel(0);
-      }
-      frameId = requestAnimationFrame(checkVolume);
-    };
 
-    checkVolume();
+        if (mediaStreamRef.current && mediaStreamRef.current.getAudioTracks().length > 0) {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          audioContextRef.current = audioCtx;
+          const source = audioCtx.createMediaStreamSource(mediaStreamRef.current);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 64;
+          source.connect(analyser);
+          analyserRef.current = analyser;
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+          const analyze = () => {
+            if (!isMounted) return;
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+              sum += dataArray[i];
+            }
+            const avg = sum / dataArray.length;
+            const normalized = Math.min(100, Math.round((avg / 128) * 100));
+            setAudioLevel(normalized);
+            animFrameRef.current = requestAnimationFrame(analyze);
+          };
+
+          analyze();
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    startAudioMeter();
 
     return () => {
       isMounted = false;
-      if (frameId) cancelAnimationFrame(frameId);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
     };
   }, [micOn, joined]);
 
@@ -622,75 +653,59 @@ export function AgoraMeeting({
           client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
           agoraClientRef.current = client;
 
-          // Standardized ASCII Channel Name for Agora Cloud - identical for all members in room
-          const channelName = (meetingCode || roomId || "hackord_meeting").toLowerCase().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
-
-          let appIdToUse = agoraAppId.trim();
-          let tokenToUse: string | null = null;
-
-          try {
-            const tokenData = await getAgoraToken(roomId);
-            if (!active) return;
-            if (tokenData && tokenData.appId) {
-              appIdToUse = tokenData.appId.trim();
+          // Helper to subscribe to remote user audio and video tracks
+          const subscribeToUser = async (remoteUser: IAgoraRTCRemoteUser, mediaType?: "audio" | "video" | "datachannel") => {
+            if (!client) return;
+            try {
+              if (mediaType === "audio" || mediaType === "video") {
+                await client.subscribe(remoteUser, mediaType);
+                if (mediaType === "audio") remoteUser.audioTrack?.play();
+              } else if (!mediaType) {
+                if (remoteUser.hasAudio) {
+                  await client.subscribe(remoteUser, "audio");
+                  remoteUser.audioTrack?.play();
+                }
+                if (remoteUser.hasVideo) {
+                  await client.subscribe(remoteUser, "video");
+                }
+              }
+              setRemoteUsers([...client.remoteUsers]);
+            } catch (subErr) {
+              console.error("[AgoraRTC] Subscription error for user", remoteUser.uid, subErr);
             }
-            if (tokenData && tokenData.token) {
-              tokenToUse = tokenData.token;
-              console.log("[AgoraRTC] Successfully fetched dynamic token from server.");
-            }
-            if (tokenData && tokenData.warning) {
-              console.warn("[AgoraRTC] Backend token warning:", tokenData.warning);
-            }
-          } catch (tokenErr) {
-            console.warn("[AgoraRTC] Error fetching meeting token from backend, trying static app ID:", tokenErr);
-          }
+          };
 
-          if (!active) return;
-          const uid = await client.join(appIdToUse, channelName, tokenToUse, null);
-          console.log("[AgoraRTC] Successfully joined channel:", channelName, "UID:", uid);
-
-          if (!active) {
-            client.leave().catch(() => {});
-            return;
-          }
-
-          // Enforce capacity limit: (roomMembersCount + 1)
-          const capacityLimit = (roomMembersCount ?? 6) + 1;
-          if (client.remoteUsers.length + 1 > capacityLimit) {
-            toast.error(`Meeting is full! Maximum capacity is ${capacityLimit} participants.`);
-            await client.leave().catch(() => {});
-            setJoined(false);
-            return;
-          }
-
-          toast.success("Connected to live Video Network!");
-
-          // Function to announce local user details over Agora Data Stream
+          // Function to announce local user details over Agora Data Stream & BroadcastChannel
           const broadcastLocalUserInfo = (isReply = false) => {
             if (client && client.uid) {
               try {
                 const user = getLoggedInUser();
                 const userId = user?.id || userName || "";
+                const infoPayload = {
+                  uid: client.uid,
+                  userId,
+                  name: userName,
+                  avatar: userAvatar,
+                  isReply,
+                  isScreenSharing: screenSharing,
+                  isHandRaised: handRaised,
+                  isHost: isOwnerOrAdmin,
+                };
                 const payload = JSON.stringify({
                   type: "USER_INFO",
-                  payload: {
-                    uid: client.uid,
-                    userId,
-                    name: userName,
-                    avatar: userAvatar,
-                    isReply,
-                    isScreenSharing: screenSharingRef.current,
-                    isHandRaised: handRaisedRef.current,
-                    isHost: isOwnerOrAdmin,
-                  },
+                  payload: infoPayload,
                 });
                 const uint8Array = new TextEncoder().encode(payload);
                 (client as any).sendStreamMessage(uint8Array).catch(() => {});
+                broadcastChannelRef.current?.postMessage({
+                  type: "USER_INFO",
+                  payload: infoPayload,
+                });
               } catch {}
             }
           };
 
-          // Handle incoming Data Stream messages (Chat, Reactions, User Info, Host Actions)
+          // Register ALL event listeners BEFORE joining channel (Agora SDK requirement)
           client.on("stream-message", (senderUid, data) => {
             try {
               const text = new TextDecoder().decode(data);
@@ -733,18 +748,15 @@ export function AgoraMeeting({
                   });
                 }
 
-                // 1. Clean up any existing zombie sessions for the same database userId
                 if (incomingUserId) {
-                  setUserInfoMap((prev: any) => {
+                  setUserInfoMap((prev) => {
                     const updated = { ...prev };
                     Object.keys(updated).forEach((uidKey) => {
                       if (String(uidKey) !== String(incomingUid) && updated[uidKey]?.userId === incomingUserId) {
-                        // This uidKey is a zombie session!
                         delete updated[uidKey];
                         zombieUidsRef.current.add(uidKey);
-                        // Trigger a state filter update to remove the zombie from view
                         setRemoteUsers((prevUsers) => prevUsers.filter((u) => String(u.uid) !== String(uidKey)));
-                        if (remotePresenterUidRef.current === uidKey) {
+                        if (remotePresenterUid === uidKey) {
                           setRemotePresenterUid(null);
                         }
                       }
@@ -753,8 +765,7 @@ export function AgoraMeeting({
                   });
                 }
 
-                // 2. Add the new session to userInfoMap
-                setUserInfoMap((prev: any) => ({
+                setUserInfoMap((prev) => ({
                   ...prev,
                   [incomingUid]: {
                     userId: incomingUserId,
@@ -764,12 +775,10 @@ export function AgoraMeeting({
                   },
                 }));
 
-                // Sync screen sharing state if the remote user is presenting
                 if (parsed.payload.isScreenSharing) {
                   setRemotePresenterUid(incomingUid);
                   setLayoutMode("sidebar");
                 }
-                // Handshake: If this is an initial broadcast, reply with our own info
                 if (!parsed.payload.isReply) {
                   broadcastLocalUserInfo(true);
                 }
@@ -777,23 +786,21 @@ export function AgoraMeeting({
                 if (parsed.payload.active) {
                   setRemotePresenterUid(parsed.payload.uid);
                   setLayoutMode("sidebar");
-                  const displayName = userInfoMapRef.current[parsed.payload.uid]?.name || `Member (${parsed.payload.uid})`;
+                  const displayName = userInfoMap[parsed.payload.uid]?.name || `Member (${parsed.payload.uid})`;
                   toast.info(`${displayName} is presenting their screen`);
                 } else {
-                  if (String(remotePresenterUidRef.current) === String(parsed.payload.uid)) {
-                    setRemotePresenterUid(null);
-                    setLayoutMode("tiled");
-                  }
+                  setRemotePresenterUid((prev) => (String(prev) === String(parsed.payload.uid) ? null : prev));
+                  setLayoutMode("tiled");
                 }
               } else if (parsed.type === "HOST_ACTION") {
                 if (String(parsed.payload.targetUid) === String(client?.uid)) {
                   if (parsed.payload.action === "MUTE_MIC") {
                     setMicOn(false);
-                    localAudioTrackRef.current?.setMuted(true).catch(() => {});
+                    localAudioTrackRef.current?.setEnabled(false).catch(() => {});
                     toast.warning("Host muted your microphone");
                   } else if (parsed.payload.action === "TURN_OFF_CAM") {
                     setCameraOn(false);
-                    localVideoTrackRef.current?.setMuted(true).catch(() => {});
+                    localVideoTrackRef.current?.setEnabled(false).catch(() => {});
                     toast.warning("Host turned off your camera");
                   } else if (parsed.payload.action === "KICK") {
                     toast.error("You were removed from the meeting by the host");
@@ -806,29 +813,117 @@ export function AgoraMeeting({
             }
           });
 
-          // Helper to subscribe to remote user audio and video tracks
-          const subscribeToUser = async (remoteUser: IAgoraRTCRemoteUser, mediaType?: "audio" | "video" | "datachannel") => {
-            if (!client) return;
-            try {
-              if (mediaType === "audio" || mediaType === "video") {
-                await client.subscribe(remoteUser, mediaType);
-                if (mediaType === "audio") remoteUser.audioTrack?.play();
-              } else if (!mediaType) {
-                if (remoteUser.hasAudio) {
-                  await client.subscribe(remoteUser, "audio");
-                  remoteUser.audioTrack?.play();
-                }
-                if (remoteUser.hasVideo) {
-                  await client.subscribe(remoteUser, "video");
-                }
-              }
-              setRemoteUsers([...client.remoteUsers]);
-            } catch (subErr) {
-              console.error("[AgoraRTC] Subscription error for user", remoteUser.uid, subErr);
-            }
-          };
+          client.on("user-published", async (user, mediaType) => {
+            console.log("[AgoraRTC] Remote user published track:", user.uid, mediaType);
+            await subscribeToUser(user, mediaType);
+            broadcastLocalUserInfo(false);
+          });
 
-          // 1. Subscribe to all remote users already present in the channel
+          client.on("user-unpublished", (user, mediaType) => {
+            console.log("[AgoraRTC] Remote user unpublished track:", user.uid, mediaType);
+            if (mediaType === "video") {
+              user.videoTrack?.stop();
+              setRemotePresenterUid((prev) => (String(prev) === String(user.uid) ? null : prev));
+              setLayoutMode("tiled");
+            }
+            if (mediaType === "audio") user.audioTrack?.stop();
+            setRemoteUsers([...client!.remoteUsers]);
+          });
+
+          client.on("user-joined", (user) => {
+            console.log("[AgoraRTC] Remote user joined channel:", user.uid);
+            setRemoteUsers([...client!.remoteUsers]);
+            broadcastLocalUserInfo(false);
+          });
+
+          client.on("user-left", (user, reason) => {
+            console.log("[AgoraRTC] Remote user left channel:", user.uid, reason);
+            setRemoteUsers([...client!.remoteUsers]);
+            setUserInfoMap((prev) => {
+              const next = { ...prev };
+              delete next[user.uid];
+              return next;
+            });
+            setRemotePresenterUid((prev) => (String(prev) === String(user.uid) ? null : prev));
+            setLayoutMode("tiled");
+          });
+
+          client.on("user-mute-audio", (user: IAgoraRTCRemoteUser) => {
+            setMutedRemoteAudioUids((prev) => new Set(prev).add(user.uid).add(String(user.uid)));
+          });
+
+          client.on("user-unmute-audio", (user: IAgoraRTCRemoteUser) => {
+            setMutedRemoteAudioUids((prev) => {
+              const next = new Set(prev);
+              next.delete(user.uid);
+              next.delete(String(user.uid));
+              return next;
+            });
+          });
+
+          client.on("user-mute-video", (user: IAgoraRTCRemoteUser) => {
+            setMutedRemoteVideoUids((prev) => new Set(prev).add(user.uid).add(String(user.uid)));
+          });
+
+          client.on("user-unmute-video", (user: IAgoraRTCRemoteUser) => {
+            setMutedRemoteVideoUids((prev) => {
+              const next = new Set(prev);
+              next.delete(user.uid);
+              next.delete(String(user.uid));
+              return next;
+            });
+          });
+
+          // Standardized ASCII Channel Name for Agora Cloud - identical for all members in room
+          let channelNameToUse = (meetingCode || roomId || "hackord_meeting").toLowerCase().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
+          let appIdToUse = agoraAppId.trim();
+          let tokenToUse: string | null = null;
+
+          try {
+            const tokenData = await getAgoraToken(roomId);
+            if (!active) return;
+            if (tokenData && tokenData.appId) {
+              appIdToUse = tokenData.appId.trim();
+            }
+            if (tokenData && tokenData.channelName) {
+              channelNameToUse = tokenData.channelName;
+            }
+            if (tokenData && tokenData.token) {
+              tokenToUse = tokenData.token;
+            }
+          } catch (tokenErr) {
+            console.warn("[AgoraRTC] Error fetching meeting token from backend:", tokenErr);
+          }
+
+          if (!active) return;
+
+          let uid: string | number;
+          try {
+            uid = await client.join(appIdToUse, channelNameToUse, tokenToUse, null);
+            console.log("[AgoraRTC] Successfully joined channel:", channelNameToUse, "UID:", uid);
+          } catch (joinErr) {
+            console.warn("[AgoraRTC] Dynamic token join error, falling back to static App ID join:", joinErr);
+            uid = await client.join(appIdToUse, channelNameToUse, null, null);
+            console.log("[AgoraRTC] Successfully joined channel with static App ID:", channelNameToUse, "UID:", uid);
+          }
+
+          if (!active) {
+            client.leave().catch(() => {});
+            return;
+          }
+
+          // Enforce capacity limit: (roomMembersCount + 1)
+          const capacityLimit = (roomMembersCount ?? 6) + 1;
+          if (client.remoteUsers.length + 1 > capacityLimit) {
+            toast.error(`Meeting is full! Maximum capacity is ${capacityLimit} participants.`);
+            await client.leave().catch(() => {});
+            setJoined(false);
+            return;
+          }
+
+          toast.success("Connected to live Video Network!");
+
+          // Subscribe to all remote users already present in the channel
           if (client.remoteUsers.length > 0) {
             for (const u of client.remoteUsers) {
               await subscribeToUser(u);
@@ -836,132 +931,42 @@ export function AgoraMeeting({
             setRemoteUsers([...client.remoteUsers]);
           }
 
-          // Broadcast user info to existing users
+          // Broadcast local user info to room members
           broadcastLocalUserInfo(false);
-
-          // 2. Event listener: Remote user publishes audio or video
-          client.on("user-published", async (user, mediaType) => {
-            console.log("[AgoraRTC] Remote user published track:", user.uid, mediaType);
-            await subscribeToUser(user, mediaType);
-            broadcastLocalUserInfo(false);
-          });
-
-          // 3. Event listener: Remote user unpublishes track
-          client.on("user-unpublished", (user, mediaType) => {
-            console.log("[AgoraRTC] Remote user unpublished track:", user.uid, mediaType);
-            if (mediaType === "video") {
-              user.videoTrack?.stop();
-              if (String(remotePresenterUidRef.current) === String(user.uid)) {
-                setRemotePresenterUid(null);
-                setLayoutMode("tiled");
-              }
-            }
-            if (mediaType === "audio") user.audioTrack?.stop();
-            setRemoteUsers([...client!.remoteUsers]);
-          });
-
-          // 4. Event listener: Remote user joins channel
-          client.on("user-joined", (user) => {
-            console.log("[AgoraRTC] Remote user joined channel:", user.uid);
-            setRemoteUsers([...client!.remoteUsers]);
-            broadcastLocalUserInfo(false);
-          });
-
-          // 5. Event listener: Remote user leaves channel
-          client.on("user-left", (user, reason) => {
-            console.log("[AgoraRTC] Remote user left channel:", user.uid, reason);
-            setRemoteUsers([...client!.remoteUsers]);
-            setUserInfoMap((prev: any) => {
-              const next = { ...prev };
-              delete next[user.uid];
-              return next;
-            });
-            if (String(remotePresenterUidRef.current) === String(user.uid)) {
-              setRemotePresenterUid(null);
-              setLayoutMode("tiled");
-            }
-          });
-
-          // 6. Event listener: Remote user mutes/unmutes audio
-          client.on("user-mute-audio", (user: IAgoraRTCRemoteUser) => {
-            console.log("[AgoraRTC] Remote user muted audio:", user.uid);
-            setMutedRemoteAudioUids((prev) => {
-              const next = new Set(prev);
-              next.add(user.uid);
-              next.add(String(user.uid));
-              return next;
-            });
-          });
-
-          client.on("user-unmute-audio", (user: IAgoraRTCRemoteUser) => {
-            console.log("[AgoraRTC] Remote user unmuted audio:", user.uid);
-            setMutedRemoteAudioUids((prev) => {
-              const next = new Set(prev);
-              next.delete(user.uid);
-              next.delete(String(user.uid));
-              return next;
-            });
-          });
-
-          // 7. Event listener: Remote user mutes/unmutes video
-          client.on("user-mute-video", (user: IAgoraRTCRemoteUser) => {
-            console.log("[AgoraRTC] Remote user muted video:", user.uid);
-            setMutedRemoteVideoUids((prev) => {
-              const next = new Set(prev);
-              next.add(user.uid);
-              next.add(String(user.uid));
-              return next;
-            });
-          });
-
-          client.on("user-unmute-video", (user: IAgoraRTCRemoteUser) => {
-            console.log("[AgoraRTC] Remote user unmuted video:", user.uid);
-            setMutedRemoteVideoUids((prev) => {
-              const next = new Set(prev);
-              next.delete(user.uid);
-              next.delete(String(user.uid));
-              return next;
-            });
-          });
 
           // Create & publish local microphone and camera tracks
           const tracksToPublish = [];
 
           try {
-            console.log("[AgoraRTC] Creating local audio track...");
-            const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-            localAudioTrackRef.current = audioTrack;
-            tracksToPublish.push(audioTrack);
+            if (micOn) {
+              const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+              localAudioTrackRef.current = audioTrack;
+              tracksToPublish.push(audioTrack);
+            }
           } catch (e) {
-            console.warn("[AgoraRTC] Microphone track creation error:", e);
+            console.warn("[AgoraRTC] Microphone track error:", e);
           }
 
           try {
-            console.log("[AgoraRTC] Creating local video track...");
-            const videoTrack = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "720p_1" });
-            localVideoTrackRef.current = videoTrack;
-            if (cameraOn && localVideoRef.current) {
-              videoTrack.play(localVideoRef.current);
+            if (cameraOn) {
+              const videoTrack = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "720p_1" });
+              localVideoTrackRef.current = videoTrack;
+              tracksToPublish.push(videoTrack);
+              if (localVideoRef.current) {
+                videoTrack.play(localVideoRef.current);
+              }
             }
-            tracksToPublish.push(videoTrack);
           } catch (e) {
-            console.warn("[AgoraRTC] Camera track creation error:", e);
+            console.warn("[AgoraRTC] Camera track error:", e);
           }
 
-          if (tracksToPublish.length > 0) {
-            await client.publish(tracksToPublish);
-            console.log("[AgoraRTC] Successfully published initial tracks to Agora cloud!");
+          const presenceInterval = setInterval(() => {
+            if (active && client && client.uid) {
+              broadcastLocalUserInfo(true);
+            }
+          }, 3500);
 
-            // Set initial mute/unmute status AFTER publishing to prevent browser WebRTC stream suspension issues
-            if (localAudioTrackRef.current && !micOn) {
-              await localAudioTrackRef.current.setMuted(true);
-              console.log("[AgoraRTC] Local microphone track muted after publishing.");
-            }
-            if (localVideoTrackRef.current && !cameraOn) {
-              await localVideoTrackRef.current.setMuted(true);
-              console.log("[AgoraRTC] Local camera track muted after publishing.");
-            }
-          }
+          (client as any)._presenceInterval = presenceInterval;
         } catch (err: any) {
           console.warn("[AgoraRTC] Fallback to WebRTC local media stream:", err);
           initLocalWebRTCFallback();
@@ -993,6 +998,9 @@ export function AgoraMeeting({
     return () => {
       active = false;
       dataStreamIdRef.current = null;
+      if (agoraClientRef.current && (agoraClientRef.current as any)._presenceInterval) {
+        clearInterval((agoraClientRef.current as any)._presenceInterval);
+      }
       if (localAudioTrackRef.current) {
         localAudioTrackRef.current.close();
         localAudioTrackRef.current = null;
@@ -1032,28 +1040,31 @@ export function AgoraMeeting({
     setMicOn(next);
 
     try {
-      if (localAudioTrackRef.current) {
-        await localAudioTrackRef.current.setMuted(!next);
-        console.log("[AgoraRTC] Set microphone mute status to:", !next);
-      } else {
-        // If track wasn't created initially (e.g. permission error earlier), try to create it now
-        if (agoraRtcRef.current && agoraClientRef.current && next) {
-          console.log("[AgoraRTC] Creating new microphone track on unmute...");
+      if (next) {
+        if (!localAudioTrackRef.current && agoraRtcRef.current) {
           const audioTrack = await agoraRtcRef.current.createMicrophoneAudioTrack();
           localAudioTrackRef.current = audioTrack;
-          await audioTrack.setMuted(false);
-          await agoraClientRef.current.publish(audioTrack);
-          console.log("[AgoraRTC] Successfully published microphone track on unmute.");
+          if (agoraClientRef.current) {
+            await agoraClientRef.current.publish([audioTrack]);
+          }
+        } else if (localAudioTrackRef.current) {
+          await localAudioTrackRef.current.setEnabled(true);
+        } else if (mediaStreamRef.current) {
+          mediaStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = true));
         }
+        toast.info("Microphone Unmuted");
+      } else {
+        if (localAudioTrackRef.current) {
+          await localAudioTrackRef.current.setEnabled(false);
+        } else if (mediaStreamRef.current) {
+          mediaStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = false));
+        }
+        toast.info("Microphone Muted");
       }
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = next));
-      }
-      toast.info(next ? "Microphone Unmuted" : "Microphone Muted");
     } catch (err) {
-      console.error("[AgoraRTC] Error toggling mic:", err);
-      toast.error("Failed to toggle microphone track.");
-      setMicOn(!next); // Rollback
+      console.warn("[AgoraRTC] Error toggling mic:", err);
+      toast.error("Could not access microphone");
+      setMicOn(false);
     }
   };
 
@@ -1063,36 +1074,37 @@ export function AgoraMeeting({
     setCameraOn(next);
 
     try {
-      if (localVideoTrackRef.current) {
-        await localVideoTrackRef.current.setMuted(!next);
-        if (next && localVideoRef.current) {
-          localVideoTrackRef.current.play(localVideoRef.current);
-        } else {
-          localVideoTrackRef.current.stop();
-        }
-        console.log("[AgoraRTC] Set camera mute status to:", !next);
-      } else {
-        // If track wasn't created initially, try to create it now
-        if (agoraRtcRef.current && agoraClientRef.current && next) {
-          console.log("[AgoraRTC] Creating new camera track on toggle...");
+      if (next) {
+        if (!localVideoTrackRef.current && agoraRtcRef.current) {
           const videoTrack = await agoraRtcRef.current.createCameraVideoTrack({ encoderConfig: "720p_1" });
           localVideoTrackRef.current = videoTrack;
           if (localVideoRef.current) {
             videoTrack.play(localVideoRef.current);
           }
-          await videoTrack.setMuted(false);
-          await agoraClientRef.current.publish(videoTrack);
-          console.log("[AgoraRTC] Successfully published camera track.");
+          if (agoraClientRef.current) {
+            await agoraClientRef.current.publish([videoTrack]);
+          }
+        } else if (localVideoTrackRef.current) {
+          await localVideoTrackRef.current.setEnabled(true);
+          if (localVideoRef.current) {
+            localVideoTrackRef.current.play(localVideoRef.current);
+          }
+        } else if (mediaStreamRef.current) {
+          mediaStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = true));
         }
+        toast.info("Camera Turned ON");
+      } else {
+        if (localVideoTrackRef.current) {
+          await localVideoTrackRef.current.setEnabled(false);
+        } else if (mediaStreamRef.current) {
+          mediaStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = false));
+        }
+        toast.info("Camera Turned OFF");
       }
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = next));
-      }
-      toast.info(next ? "Camera Turned ON" : "Camera Turned OFF");
     } catch (err) {
-      console.error("[AgoraRTC] Error toggling camera:", err);
-      toast.error("Failed to toggle camera track.");
-      setCameraOn(!next); // Rollback
+      console.warn("[AgoraRTC] Error toggling camera:", err);
+      toast.error("Could not access camera");
+      setCameraOn(false);
     }
   };
 
@@ -1212,14 +1224,20 @@ export function AgoraMeeting({
           await agoraClientRef.current.publish(tracksToPublish);
         }
 
-        if (screenVideoRef.current) {
-          videoTrack.play(screenVideoRef.current);
-        }
-
         setScreenSharing(true);
         setRemotePresenterUid("me");
         setLayoutMode("sidebar");
         toast.success("You are presenting your screen");
+
+        setTimeout(() => {
+          if (screenVideoRef.current && videoTrack) {
+            try {
+              videoTrack.play(screenVideoRef.current);
+            } catch (e) {
+              console.warn("[AgoraRTC] Error playing local screen track:", e);
+            }
+          }
+        }, 50);
 
         const mediaStreamTrack = videoTrack.getMediaStreamTrack();
         if (mediaStreamTrack) {
@@ -1462,7 +1480,7 @@ export function AgoraMeeting({
   // Pre-join Lobby State
   if (!joined) {
     return (
-      <div className="glass rounded-2xl p-6 sm:p-10 shadow-card max-w-2xl mx-auto space-y-6 text-card-foreground">
+      <div className="glass rounded-2xl p-6 sm:p-10 shadow-card max-w-2xl mx-auto space-y-6 border border-border/80 bg-card text-card-foreground">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-gradient-brand-soft border border-primary/20 shadow-glow mb-1">
             <VideoIcon className="h-8 w-8 text-primary" />
@@ -1471,16 +1489,25 @@ export function AgoraMeeting({
           <p className="text-xs sm:text-sm text-muted-foreground">
             Check your audio and video settings before joining your team.
           </p>
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-3.5 py-1.5 text-xs font-mono text-foreground mt-2 border border-border">
-            <span>Code: {meetingCode}</span>
-            <button onClick={handleCopyCode} className="hover:text-primary transition">
-              <Copy className="h-3.5 w-3.5" />
-            </button>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-3.5 py-1.5 text-xs font-mono text-foreground border border-border shadow-sm">
+              <span>Code: {meetingCode}</span>
+              <button onClick={handleCopyCode} className="hover:text-primary transition" title="Copy Meeting Code">
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {syncTimer > 0 && (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-500 border border-amber-500/30 animate-pulse shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+                <span>Syncing with Database... ({syncTimer}s)</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Lobby Camera Preview Box */}
-        <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-slate-950 border border-slate-900 flex items-center justify-center shadow-inner">
+        <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-muted/40 border border-border flex items-center justify-center shadow-inner">
           {cameraOn ? (
             <video
               ref={lobbyVideoRef}
@@ -1501,12 +1528,12 @@ export function AgoraMeeting({
             </div>
           )}
 
-          <div className="absolute bottom-3 left-3 rounded-lg bg-slate-950/80 backdrop-blur px-3 py-1.5 text-xs font-medium border border-slate-800 text-white shadow-md">
+          <div className="absolute bottom-3 left-3 rounded-lg bg-background/80 backdrop-blur px-3 py-1.5 text-xs font-medium border border-border text-foreground">
             {userName} (You)
           </div>
 
           {micOn && (
-            <div className="absolute top-3 right-3 flex items-center gap-1 bg-slate-950/80 backdrop-blur border border-slate-800 px-2.5 py-1.5 rounded-full">
+            <div className="absolute top-3 right-3 flex items-center gap-1 bg-background/80 backdrop-blur border border-border px-2.5 py-1.5 rounded-full">
               <div className="flex items-end gap-0.5 h-4">
                 <span className="w-1 rounded bg-primary transition-all duration-75" style={{ height: `${Math.max(20, audioLevel * 0.8)}%` }} />
                 <span className="w-1 rounded bg-primary transition-all duration-75" style={{ height: `${Math.max(30, audioLevel * 1.0)}%` }} />
@@ -1521,7 +1548,7 @@ export function AgoraMeeting({
           <div className="flex items-center gap-2 bg-muted/50 p-1.5 rounded-full border border-border">
             <Button
               type="button"
-              variant={micOn ? "outline" : "destructive"}
+              variant={micOn ? "secondary" : "destructive"}
               onClick={() => setMicOn(!micOn)}
               className="rounded-full h-11 w-11 p-0"
               title={micOn ? "Mute Microphone" : "Unmute Microphone"}
@@ -1549,20 +1576,33 @@ export function AgoraMeeting({
 
           <Button
             onClick={() => {
+              if (syncTimer > 0) return;
               setJoined(true);
               toast.success("Joined meeting video call!");
             }}
-            className="bg-gradient-brand text-white shadow-glow px-6 h-11 rounded-full font-medium"
+            disabled={syncTimer > 0}
+            className={cn(
+              "bg-gradient-brand text-white shadow-glow px-6 h-11 rounded-full font-medium transition-all",
+              syncTimer > 0 && "opacity-60 cursor-not-allowed bg-muted text-muted-foreground shadow-none border border-border"
+            )}
           >
-            Join Meeting Now
+            {syncTimer > 0 ? (
+              <span className="flex items-center gap-2">
+                <span className="h-3.5 w-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                Syncing Code ({syncTimer}s)...
+              </span>
+            ) : (
+              "Join Meeting Now"
+            )}
           </Button>
 
           {isOwnerOrAdmin && (
             <Button
               type="button"
               onClick={handleCreateInstantMeeting}
+              disabled={syncTimer > 0}
               variant="outline"
-              className="border-primary text-primary hover:bg-primary/10 px-6 h-11 rounded-full font-medium gap-1.5"
+              className="border-primary text-primary hover:bg-primary/10 px-6 h-11 rounded-full font-medium gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Sparkles className="h-4 w-4" /> Create Instant Meeting
             </Button>
@@ -1580,7 +1620,7 @@ export function AgoraMeeting({
       className={cn(
         "relative flex flex-col justify-between overflow-hidden transition-all duration-300",
         "rounded-2xl border border-border/80 shadow-2xl bg-card text-card-foreground",
-        isFullscreen ? "fixed inset-0 z-50 rounded-none border-none p-4 sm:p-6 bg-background" : "min-h-[580px] w-full p-4 sm:p-6",
+        isFullscreen ? "fixed inset-0 z-50 rounded-none border-none p-4 sm:p-6 bg-card" : "min-h-[580px] w-full p-4 sm:p-6",
       )}
     >
       {/* ─── Top Bar Header (Google Meet Style) ─── */}
@@ -1629,7 +1669,7 @@ export function AgoraMeeting({
       {/* ─── Main Meeting Workspace Body (Video Grid + View Modes) ─── */}
       <div className="relative my-4 flex-1 flex gap-4 min-h-[380px] overflow-hidden">
         {/* Video Canvas Container */}
-        <div className="relative flex-1 rounded-2xl bg-slate-950 border border-slate-900 overflow-hidden flex items-center justify-center p-3">
+        <div className="relative flex-1 rounded-2xl bg-muted/20 border border-border/80 overflow-hidden flex items-center justify-center p-3">
           {/* Floating Emoji Reaction Overlay */}
           <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
             {reactions.map((r) => (
@@ -1661,8 +1701,8 @@ export function AgoraMeeting({
                     {isScreenSharingActive ? (
                       screenSharing ? (
                         <div className="w-full h-full relative flex items-center justify-center bg-black">
-                          <div ref={screenVideoRef} className="w-full h-full object-contain" />
-                          <div className="absolute top-3 left-3 rounded-md bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-white backdrop-blur border border-slate-800 shadow-md">
+                          <video ref={screenVideoRef} autoPlay playsInline className="w-full h-full object-contain" />
+                          <div className="absolute top-3 left-3 rounded-md bg-background/90 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur border border-border">
                             🖥️ You are presenting your screen
                           </div>
                         </div>
@@ -1674,23 +1714,18 @@ export function AgoraMeeting({
                         />
                       )
                     ) : leftSideUid === "me" ? (
-                      <div
-                        className={cn(
-                          "relative w-full h-full min-h-[260px] rounded-2xl overflow-hidden bg-card/45 backdrop-blur-md border border-border/80 flex items-center justify-center shadow-card text-foreground transition-all duration-300",
-                          pinnedUid === "me" && "border-2 border-primary shadow-glow"
-                        )}
-                      >
+                      <div className="relative w-full h-full min-h-[260px] rounded-xl overflow-hidden bg-card border border-border/80 flex items-center justify-center shadow-md">
                         {cameraOn ? (
                           <video
                             ref={localVideoRef}
                             autoPlay
                             playsInline
                             muted
-                            className="w-full h-full object-cover rounded-2xl transform -scale-x-100"
+                            className="w-full h-full object-cover rounded-xl transform -scale-x-100"
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center gap-3">
-                            <Avatar className="h-20 w-20 border border-border shadow-card">
+                            <Avatar className="h-20 w-20 border-2 border-primary/30 shadow-card">
                               <AvatarImage src={userAvatar} />
                               <AvatarFallback className="text-xl font-bold bg-gradient-brand text-white">
                                 {userName[0]}
@@ -1702,7 +1737,7 @@ export function AgoraMeeting({
                             </div>
                           </div>
                         )}
-                        <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-xl bg-card/80 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-foreground border border-border/60 shadow-sm">
+                        <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-background/80 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-foreground border border-border/80 shadow-md">
                           <span>{userName} (You)</span>
                           {isOwnerOrAdmin && <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-[10px] py-0 px-1 font-semibold">Host</Badge>}
                           {handRaised && <span className="text-base animate-pulse">✋</span>}
@@ -1710,11 +1745,11 @@ export function AgoraMeeting({
                         <div className="absolute top-3 right-3 flex items-center gap-1.5">
                           <button
                             onClick={() => setPinnedUid(pinnedUid === "me" ? null : "me")}
-                            className="p-1.5 rounded-full bg-card/80 backdrop-blur-md border border-border/60 text-foreground hover:text-primary transition"
+                            className="p-1.5 rounded-full bg-background/80 backdrop-blur-md border border-border text-foreground hover:text-primary transition"
                           >
                             {pinnedUid === "me" ? <PinOff className="h-3.5 w-3.5 text-primary" /> : <Pin className="h-3.5 w-3.5" />}
                           </button>
-                          <div className={cn("p-1.5 rounded-full backdrop-blur-md border", micOn ? "bg-card/80 border-border/60 text-foreground" : "bg-destructive/80 border-destructive text-white")}>
+                          <div className={cn("p-1.5 rounded-full backdrop-blur-md border", micOn ? "bg-background/80 border-border text-foreground" : "bg-destructive/80 border-destructive text-white")}>
                             {micOn ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
                           </div>
                         </div>
@@ -1749,18 +1784,18 @@ export function AgoraMeeting({
                   <div className="w-full lg:w-80 shrink-0 flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:max-h-full max-h-48 pr-1 pb-1 lg:pb-0 custom-scrollbar">
                     {/* Local user tile if not in focus */}
                     {!isLocalUserInFocus && (
-                      <div className="w-56 lg:w-full min-h-[160px] aspect-video shrink-0 rounded-2xl overflow-hidden bg-card/40 backdrop-blur-md border border-border/80 flex items-center justify-center relative group shadow-card text-foreground transition-all duration-300">
+                      <div className="w-56 lg:w-full min-h-[160px] aspect-video shrink-0 rounded-xl overflow-hidden bg-card border border-border/80 flex items-center justify-center relative group shadow-md">
                         {cameraOn ? (
                           <video
                             ref={localVideoRef}
                             autoPlay
                             playsInline
                             muted
-                            className="w-full h-full object-cover transform -scale-x-100 rounded-2xl"
+                            className="w-full h-full object-cover transform -scale-x-100"
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center gap-1.5 p-2">
-                            <Avatar className="h-10 w-10 border border-border/60 shadow-card">
+                            <Avatar className="h-10 w-10 border border-primary/30 shadow-card">
                               <AvatarImage src={userAvatar} />
                               <AvatarFallback className="text-sm font-bold bg-gradient-brand text-white">
                                 {userName[0]}
@@ -1772,7 +1807,7 @@ export function AgoraMeeting({
                             </div>
                           </div>
                         )}
-                        <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-lg bg-card/80 backdrop-blur px-2 py-1 text-[11px] font-medium text-foreground border border-border/60 shadow">
+                        <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-md bg-background/85 backdrop-blur px-2 py-1 text-[11px] font-medium text-foreground border border-border/60 shadow">
                           <span className="truncate max-w-[80px]">{userName}</span>
                           {isOwnerOrAdmin && <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-[9px] py-0 px-1 font-semibold">Host</Badge>}
                           {handRaised && <span className="text-[12px] animate-pulse">✋</span>}
@@ -1780,7 +1815,7 @@ export function AgoraMeeting({
                         <div className="absolute top-2 right-2 flex items-center gap-1">
                           <button
                             onClick={() => setPinnedUid("me")}
-                            className="p-1 rounded-full bg-card/80 backdrop-blur border border-border/60 text-foreground hover:text-primary transition"
+                            className="p-1 rounded-full bg-background/80 backdrop-blur border border-border text-foreground hover:text-primary transition"
                           >
                             <Pin className="h-3 w-3" />
                           </button>
@@ -1833,7 +1868,7 @@ export function AgoraMeeting({
                 {/* Local User Video Tile */}
                 <div
                   className={cn(
-                    "relative w-full h-full min-h-[260px] rounded-2xl overflow-hidden bg-card/45 backdrop-blur-md border border-border/80 flex items-center justify-center group shadow-card text-foreground transition-all duration-300",
+                    "relative w-full h-full min-h-[260px] rounded-xl overflow-hidden bg-card border border-border/80 flex items-center justify-center group shadow-md",
                     pinnedUid === "me" && "border-2 border-primary shadow-glow"
                   )}
                 >
@@ -1843,12 +1878,12 @@ export function AgoraMeeting({
                       autoPlay
                       playsInline
                       muted
-                      className="w-full h-full object-cover rounded-2xl transform -scale-x-100"
+                      className="w-full h-full object-cover rounded-xl transform -scale-x-100"
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className={cn("relative rounded-full transition-all duration-300", audioLevel > 15 && "ring-4 ring-primary ring-offset-4 ring-offset-card animate-pulse")}>
-                        <Avatar className="h-20 w-20 border border-border shadow-card">
+                        <Avatar className="h-20 w-20 border-2 border-primary/30 shadow-card">
                           <AvatarImage src={userAvatar} />
                           <AvatarFallback className="text-xl font-bold bg-gradient-brand text-white">
                             {userName[0]}
@@ -1862,7 +1897,7 @@ export function AgoraMeeting({
                     </div>
                   )}
 
-                  <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-xl bg-card/80 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-foreground border border-border/60 shadow-sm">
+                  <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-background/80 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-foreground border border-border/80 shadow-md">
                     <span>{userName} (You)</span>
                     {isOwnerOrAdmin && <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-[10px] py-0 px-1 font-semibold">Host</Badge>}
                     {handRaised && <span className="text-base animate-pulse">✋</span>}
@@ -1871,11 +1906,11 @@ export function AgoraMeeting({
                   <div className="absolute top-3 right-3 flex items-center gap-1.5">
                     <button
                       onClick={() => setPinnedUid(pinnedUid === "me" ? null : "me")}
-                      className="p-1.5 rounded-full bg-card/80 backdrop-blur-md border border-border/60 text-foreground hover:text-primary transition"
+                      className="p-1.5 rounded-full bg-background/80 backdrop-blur-md border border-border text-foreground hover:text-primary transition"
                     >
                       {pinnedUid === "me" ? <PinOff className="h-3.5 w-3.5 text-primary" /> : <Pin className="h-3.5 w-3.5" />}
                     </button>
-                    <div className={cn("p-1.5 rounded-full backdrop-blur-md border", micOn ? "bg-card/80 border-border/60 text-foreground" : "bg-destructive/80 border-destructive text-white")}>
+                    <div className={cn("p-1.5 rounded-full backdrop-blur-md border", micOn ? "bg-background/80 border-border text-foreground" : "bg-destructive/80 border-destructive text-white")}>
                       {micOn ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
                     </div>
                   </div>
@@ -2097,14 +2132,14 @@ export function AgoraMeeting({
         )}
 
         {/* Center Control Buttons */}
-        <div className="flex items-center gap-2.5 mx-auto sm:mx-0 max-w-full overflow-x-auto scrollbar-none sm:overflow-visible pb-1 shrink-0">
+        <div className="flex items-center gap-2.5 mx-auto sm:mx-0">
           {/* Mic Button & Beat Meter */}
-          <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-full border border-border shrink-0">
+          <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-full border border-border">
             <Button
               type="button"
-              variant={micOn ? "outline" : "destructive"}
+              variant={micOn ? "secondary" : "destructive"}
               onClick={toggleMic}
-              className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md shrink-0"
+              className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md"
               title={micOn ? "Mute Microphone" : "Unmute Microphone"}
             >
               {micOn ? <Mic className="h-4 w-4 sm:h-5 sm:w-5" /> : <MicOff className="h-4 w-4 sm:h-5 sm:w-5" />}
@@ -2121,9 +2156,9 @@ export function AgoraMeeting({
           {/* Camera */}
           <Button
             type="button"
-            variant={cameraOn ? "outline" : "destructive"}
+            variant={cameraOn ? "secondary" : "destructive"}
             onClick={toggleCamera}
-            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md shrink-0"
+            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md"
             title={cameraOn ? "Turn off camera" : "Turn on camera"}
           >
             {cameraOn ? <VideoIcon className="h-4 w-4 sm:h-5 sm:w-5" /> : <VideoOff className="h-4 w-4 sm:h-5 sm:w-5" />}
@@ -2132,9 +2167,9 @@ export function AgoraMeeting({
           {/* Screen Share */}
           <Button
             type="button"
-            variant={screenSharing ? "default" : "outline"}
+            variant={screenSharing ? "default" : "secondary"}
             onClick={toggleScreenShare}
-            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md shrink-0"
+            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md"
             title="Present screen"
           >
             <MonitorUp className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2143,37 +2178,23 @@ export function AgoraMeeting({
           {/* Reaction Emoji Picker Button */}
           <Button
             type="button"
-            variant={showReactionsMenu ? "default" : "outline"}
+            variant={showReactionsMenu ? "default" : "secondary"}
             onClick={() => {
               setShowReactionsMenu(!showReactionsMenu);
               if (showThreeDotsMenu) setShowThreeDotsMenu(false);
             }}
-            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md shrink-0"
+            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md"
             title="Send reaction"
           >
             <Smile className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
 
-          {/* Mobile Chat Button (Visible only on mobile) */}
-          <Button
-            type="button"
-            variant={showChat ? "default" : "outline"}
-            onClick={() => {
-              setShowChat(!showChat);
-              if (showParticipants) setShowParticipants(false);
-            }}
-            className="rounded-full h-10 w-10 p-0 shadow-md shrink-0 sm:hidden"
-            title="Toggle chat"
-          >
-            <MessageSquare className="h-4.5 w-4.5" />
-          </Button>
-
           {/* Raise Hand */}
           <Button
             type="button"
-            variant={handRaised ? "default" : "outline"}
+            variant={handRaised ? "default" : "secondary"}
             onClick={toggleHandRaise}
-            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md shrink-0"
+            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md"
             title="Raise hand"
           >
             <Hand className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2182,12 +2203,12 @@ export function AgoraMeeting({
           {/* Three Dots Button (...) */}
           <Button
             type="button"
-            variant={showThreeDotsMenu ? "default" : "outline"}
+            variant={showThreeDotsMenu ? "default" : "secondary"}
             onClick={() => {
               setShowThreeDotsMenu(!showThreeDotsMenu);
               if (showReactionsMenu) setShowReactionsMenu(false);
             }}
-            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md shrink-0"
+            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md"
             title="More options"
           >
             <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2198,7 +2219,7 @@ export function AgoraMeeting({
             type="button"
             variant="destructive"
             onClick={handleLeaveCall}
-            className="rounded-full h-10 w-14 sm:h-11 sm:w-16 p-0 bg-red-600 hover:bg-red-700 shadow-lg text-white font-medium shrink-0"
+            className="rounded-full h-10 w-14 sm:h-11 sm:w-16 p-0 bg-red-600 hover:bg-red-700 shadow-lg text-white font-medium"
             title="Leave call"
           >
             <PhoneOff className="h-5 w-5" />
@@ -2206,10 +2227,10 @@ export function AgoraMeeting({
         </div>
 
         {/* Bottom Right: Chat Drawer Toggle */}
-        <div className="hidden sm:flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
-            variant={showChat ? "default" : "outline"}
+            variant={showChat ? "secondary" : "outline"}
             onClick={() => {
               setShowChat(!showChat);
               if (showParticipants) setShowParticipants(false);
@@ -2217,10 +2238,11 @@ export function AgoraMeeting({
             className="gap-1.5 h-9 rounded-full text-xs"
           >
             <MessageSquare className="h-4 w-4" />
-            <span>Chat</span>
+            <span className="hidden sm:inline">Chat</span>
           </Button>
         </div>
       </div>
     </div>
   );
 }
+  

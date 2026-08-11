@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createPortal } from "react-dom";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -304,28 +305,37 @@ function SettingsPage() {
       </div>
 
       {/* Delete Account Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-destructive/40 bg-card p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-destructive">
-              <AlertTriangle className="h-6 w-6" />
-              <h2 className="text-lg font-bold">Delete Account Permanently?</h2>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Are you sure you want to delete your account <strong>({user?.email || "your account"})</strong>?
-              This action cannot be undone. All user data will be removed from MongoDB.
-            </p>
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" size="sm" onClick={() => setShowDeleteModal(false)} disabled={deleting}>
-                Cancel
-              </Button>
-              <Button variant="destructive" size="sm" onClick={handleDeleteAccount} disabled={deleting}>
-                {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                Yes, Delete My Account
-              </Button>
+      {showDeleteModal && typeof document !== "undefined" && createPortal(
+        <>
+          {/* Dark translucent backdrop overlay */}
+          <div
+            className="fixed inset-0 z-50 bg-black/70 animate-fade-in"
+            onClick={() => !deleting && setShowDeleteModal(false)}
+          />
+          {/* Centered Liquid Glass Modal Card */}
+          <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 p-4">
+            <div className="w-full rounded-2xl border border-destructive/40 bg-card/90 backdrop-blur-2xl p-6 shadow-spatial space-y-4 animate-fade-in text-card-foreground">
+              <div className="flex items-center gap-3 text-destructive">
+                <AlertTriangle className="h-6 w-6 shrink-0" />
+                <h2 className="text-lg font-bold">Delete Account Permanently?</h2>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Are you sure you want to delete your account <strong>({user?.email || "your account"})</strong>?
+                This action cannot be undone. All user data will be removed from MongoDB.
+              </p>
+              <div className="flex justify-end gap-3 pt-3 border-t border-border/50">
+                <Button variant="outline" size="sm" onClick={() => setShowDeleteModal(false)} disabled={deleting}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" size="sm" onClick={handleDeleteAccount} disabled={deleting}>
+                  {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                  Yes, Delete My Account
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        </>,
+        document.body
       )}
     </AppShell>
   );

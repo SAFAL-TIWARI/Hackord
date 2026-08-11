@@ -312,7 +312,7 @@ function DashboardPage() {
     { label: "Active Rooms", value: rooms.length, icon: Layers3, bg: "bg-emerald-400/10", color: "text-emerald-400", pulse: true },
     { label: "Pending Invites", value: invitations.length, icon: Inbox, bg: "bg-indigo-400/10", color: "text-indigo-400" },
     { label: "Upcoming Deadlines", value: realDeadlines.length, icon: CalendarClock, bg: "bg-warning/15", color: "text-warning" },
-    { label: "Teammates", value: rooms.reduce((acc, r) => acc + (r.members?.length || 1), 0), icon: Users2, bg: "bg-brand/10", color: "text-brand" },
+    { label: "Connections", value: rooms.reduce((acc, r) => acc + (r.members?.length || 1), 0), icon: Users2, bg: "bg-brand/10", color: "text-brand" },
   ];
 
   return (

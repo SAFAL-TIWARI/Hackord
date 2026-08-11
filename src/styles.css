@@ -328,3 +328,55 @@ video {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(139, 92, 246, 0.65);
 }
+
+/* ─── Cyber Glitch Text Animation ─── */
+@keyframes cyber-glitch {
+  0% {
+    text-shadow: 2px 0 0 #38bdf8, -2px 0 0 #ec4899;
+    transform: translate(0);
+  }
+  15% {
+    text-shadow: -2px -2px 0 #38bdf8, 2px 2px 0 #ec4899;
+    transform: translate(-1px, 1px);
+  }
+  30% {
+    text-shadow: 2px -1px 0 #ec4899, -2px 1px 0 #8b5cf6;
+    transform: translate(1px, -1px);
+  }
+  45% {
+    text-shadow: -1px 2px 0 #38bdf8, 1px -2px 0 #ec4899;
+    transform: translate(0);
+  }
+  60% {
+    text-shadow: 2px 1px 0 #8b5cf6, -2px -1px 0 #38bdf8;
+    transform: translate(-1px, 0);
+  }
+  75% {
+    text-shadow: -2px 0 0 #ec4899, 2px 0 0 #38bdf8;
+    transform: translate(1px, 1px);
+  }
+  100% {
+    text-shadow: 2px 0 0 #38bdf8, -2px 0 0 #ec4899;
+    transform: translate(0);
+  }
+}
+
+.glitch-text {
+  animation: cyber-glitch 2.5s infinite ease-in-out;
+  position: relative;
+  display: inline-block;
+}
+
+.scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.03),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.03)
+  );
+  background-size: 100% 4px, 6px 100%;
+}
+

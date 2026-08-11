@@ -17,10 +17,12 @@ export const Route = createFileRoute("/signup")({
 
 function SignupPage() {
   const navigate = useNavigate();
-  const { signup, isAuthenticated } = useAuth();
+  const { signupRequestOtp, signupVerifyOtp, isAuthenticated } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [step, setStep] = useState<"details" | "otp">("details");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -29,7 +31,7 @@ function SignupPage() {
     navigate({ to: "/dashboard" });
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (password.length < 6) {
@@ -39,80 +41,160 @@ function SignupPage() {
 
     setLoading(true);
     try {
-      await signup(name, email, password);
-      toast.success("Account created! Let's set up your profile.");
+      const res = await signupRequestOtp(name, email, password);
+      setStep("otp");
+      toast.success(res.message || "Verification code sent to your email!");
+    } catch (err: any) {
+      toast.error(err.message || "Signup request failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!otpCode || otpCode.trim().length < 4) {
+      toast.error("Please enter the 6-digit verification code.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await signupVerifyOtp(name, email, password, otpCode);
+      toast.success("Account created and verified! Let's set up your profile.");
       navigate({ to: "/profile-setup" });
     } catch (err: any) {
-      toast.error(err.message || "Signup failed. Please try again.");
+      toast.error(err.message || "Invalid or expired verification code.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AuthShell title="Create your workspace" subtitle="Join Hackord and start collaborating">
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div className="space-y-2">
-          <Label htmlFor="name">Full Name</Label>
-          <Input
-            id="name"
-            type="text"
-            placeholder="Enter your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            disabled={loading}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            disabled={loading}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <div className="relative">
+    <AuthShell
+      title={step === "otp" ? "Verify your email" : "Create your workspace"}
+      subtitle={step === "otp" ? `We sent a code to ${email}` : "Join Hackord and start collaborating"}
+    >
+      {step === "details" ? (
+        <form className="space-y-4" onSubmit={handleRequestOtp}>
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
             <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              placeholder="Create a password (min 6 chars)"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              id="name"
+              type="text"
+              placeholder="Enter your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               required
-              minLength={6}
               disabled={loading}
-              className="pr-10"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Create a password (min 6 chars)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                disabled={loading}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none cursor-pointer"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <Button
+            type="submit"
+            className="w-full bg-gradient-brand text-white shadow-glow hover:opacity-90 cursor-pointer"
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <UserPlus className="h-4 w-4" />
+            )}
+            {loading ? "Sending verification code…" : "Continue with Email OTP"}
+          </Button>
+        </form>
+      ) : (
+        <form className="space-y-5 animate-fade-in" onSubmit={handleVerifyOtp}>
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Here is your verification step:</p>
+            <p className="text-sm font-semibold text-foreground">Enter 6-digit code</p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="signup-otp">Verification Code</Label>
+              <button
+                type="button"
+                onClick={() => setStep("details")}
+                className="text-xs text-primary hover:underline cursor-pointer"
+              >
+                Edit details
+              </button>
+            </div>
+            <Input
+              id="signup-otp"
+              type="text"
+              placeholder="123456"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value)}
+              maxLength={6}
+              required
+              disabled={loading}
+              className="text-center font-mono tracking-widest text-xl h-12 border-primary/40 focus:border-primary shadow-sm"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full bg-gradient-brand text-white shadow-glow hover:opacity-90 cursor-pointer"
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <UserPlus className="h-4 w-4" />
+            )}
+            {loading ? "Verifying & Creating…" : "Verify Code & Create Account"}
+          </Button>
+
+          <div className="text-center pt-2">
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
-              tabIndex={-1}
+              onClick={handleRequestOtp}
+              disabled={loading}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors underline cursor-pointer"
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              Didn't receive code? Resend OTP
             </button>
           </div>
-        </div>
-        <Button
-          type="submit"
-          className="w-full bg-gradient-brand text-white shadow-glow hover:opacity-90"
-          disabled={loading}
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <UserPlus className="h-4 w-4" />
-          )}
-          {loading ? "Creating account…" : "Create account"}
-        </Button>
-      </form>
+        </form>
+      )}
 
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">

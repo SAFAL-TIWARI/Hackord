@@ -29,6 +29,8 @@ export function NotificationsDrawer() {
 
   useEffect(() => {
     loadNotifications();
+    const interval = setInterval(loadNotifications, 8000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {

@@ -1,14 +1,13 @@
-import React, { Suspense, useState, useEffect } from "react";
+import React, { Suspense } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Sparkles, Video, Code2, Users, Rocket, ShieldCheck } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { AnimatedRole } from "@/components/AnimatedRole";
-import { BrandLogo } from "@/components/BrandLogo";
 import { FeaturedRooms } from "@/components/FeaturedRooms";
 import { FeaturesBento } from "@/components/FeaturesBento";
 import { HeroShowcase } from "@/components/HeroShowcase";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { AboutHackordSection } from "@/components/AboutHackordSection";
-import { cn } from "@/lib/utils";
+import { HomeNavbar } from "@/components/HomeNavbar";
+import { HomeFooter } from "@/components/HomeFooter";
 
 const HeroBackground = React.lazy(() =>
   import("@/components/HeroBackground").then((m) => ({ default: m.HeroBackground }))
@@ -29,67 +28,10 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
-  const [theme, setTheme] = useState<"dark" | "light">(() => {
-    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-      const saved = localStorage.getItem("hackord_theme") as "dark" | "light";
-      if (saved) return saved;
-    }
-    return "dark";
-  });
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 40);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      if (theme === "light") document.documentElement.classList.add("light");
-      else document.documentElement.classList.remove("light");
-    }
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem("hackord_theme", theme);
-    }
-  }, [theme]);
-
-  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
-
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between">
       {/* Header */}
-      <div className="sticky top-0 z-50 w-full lg:w-6xl mx-auto lg:flex flex justify-center pointer-events-none">
-        <header
-          className={cn(
-            "w-full ease-in-out pointer-events-auto",
-            scrolled
-              ? "mt-3 w-[88%] max-w-2xl rounded-full border border-border bg-card/85 backdrop-blur-2xl shadow-spatial py-3 px-5"
-              : "mt-0 border-none bg-transparent py-5 px-8 sm:px-12"
-          )}
-          style={{ transition: "all 600ms cubic-bezier(0.16, 1, 0.3, 1)" }}
-        >
-          <div className="w-full flex items-center justify-between">
-            <BrandLogo size={scrolled ? "sm" : "md"} iconOnly={scrolled} className="transition-all duration-500" />
-
-            <nav className="flex items-center gap-3 sm:gap-4 text-sm font-medium">
-              <ThemeToggle theme={theme} onToggle={toggleTheme} />
-              <Link
-                to="/signup"
-                className={cn(
-                  "rounded-lg bg-gradient-brand text-xs sm:text-sm font-medium text-white shadow-glow hover:opacity-90 whitespace-nowrap",
-                  scrolled ? "px-3 py-1.5 animate-duration-300" : "px-4 py-2"
-                )}
-                style={{ transition: "all 600ms cubic-bezier(0.16, 1, 0.3, 1)" }}
-              >
-                Get started
-              </Link>
-            </nav>
-          </div>
-        </header>
-      </div>
+      <HomeNavbar />
 
       {/* Hero Section */}
       <section className="relative mx-auto max-w-8xl px-6 pt-24 sm:pt-32 pb-20 sm:pb-24 overflow-hidden lg:overflow-visible">
@@ -150,24 +92,7 @@ function Landing() {
       <AboutHackordSection />
 
       {/* Premium Footer with Direct Privacy & Terms Links */}
-      <footer className="py-16 bg-transparent text-foreground">
-        <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6 ">
-          <div className="flex flex-col items-center md:items-start gap-2 ">
-            <BrandLogo size="md" />
-            <p className="text-xs text-muted-foreground">
-              © 2026 Hackord. The real-time workspace for hackathon teams and developers.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
-            <Link to="/explore" className="hover:text-foreground transition-colors">Explore</Link>
-            <Link to="/contact" className="hover:text-foreground font-medium text-foreground transition-colors">Contact Us</Link>
-            <Link to="/privacy" className="hover:text-foreground font-medium text-foreground transition-colors">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-foreground font-medium text-foreground transition-colors">Terms of Service</Link>
-            <Link to="/cookie-policy" className="hover:text-foreground transition-colors">Cookie Policy</Link>
-            <a href="#" className="termly-display-preferences hover:text-foreground transition-colors">Consent Preferences</a>
-          </div>
-        </div>
-      </footer>
+      <HomeFooter />
     </div>
   );
 }

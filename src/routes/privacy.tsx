@@ -218,7 +218,7 @@ function PrivacyPolicyPage() {
         <Section id="cookies" title="4. Do We Use Cookies and Other Tracking Technologies?" short="We may use cookies and other tracking technologies to collect and store your information.">
           <p>
             We may use cookies and similar tracking technologies (like web beacons and pixels) to gather information when you interact with our Services. You can instruct your browser to refuse all cookies or indicate when a cookie is being sent. For full details, see our{" "}
-            <Link to="/cookie-policy" className="text-primary underline underline-offset-2 hover:opacity-80 transition-opacity">Cookie Policy</Link>.
+            {/* <Link to="/cookie-policy" className="text-primary underline underline-offset-2 hover:opacity-80 transition-opacity">Cookie Policy</Link>. */}
           </p>
         </Section>
 
@@ -300,8 +300,8 @@ function PrivacyPolicyPage() {
             <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
             <Link to="/privacy" className="font-semibold text-foreground">Privacy Policy</Link>
-            <Link to="/cookie-policy" className="hover:text-foreground transition-colors">Cookie Policy</Link>
-            <a href="#" className="termly-display-preferences hover:text-foreground transition-colors">Consent Preferences</a>
+            {/* <Link to="/cookie-policy" className="hover:text-foreground transition-colors">Cookie Policy</Link>
+            <a href="#" className="termly-display-preferences hover:text-foreground transition-colors">Consent Preferences</a> */}
           </div>
         </div>
       </footer>

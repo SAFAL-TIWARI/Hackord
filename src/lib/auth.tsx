@@ -40,6 +40,12 @@ type AuthContextType = {
   signup: (name: string, email: string, password: string) => Promise<void>;
   googleLogin: (credential: string) => Promise<{ isNewUser?: boolean }>;
   githubLogin: (code: string) => Promise<{ isNewUser?: boolean }>;
+  requestOtp: (email: string) => Promise<{ success: boolean; message: string }>;
+  verifyOtp: (email: string, otp: string) => Promise<{ isNewUser?: boolean }>;
+  signupRequestOtp: (name: string, email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  signupVerifyOtp: (name: string, email: string, password: string, otp: string) => Promise<{ isNewUser?: boolean }>;
+  forgotPasswordRequest: (email: string) => Promise<{ success: boolean; message: string }>;
+  resetPasswordVerify: (email: string, otp: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   updateProfile: (data: Partial<AuthUser>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -154,6 +160,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { isNewUser: data.isNewUser };
   };
 
+  const requestOtp = async (email: string) => {
+    return await apiFetch<{ success: boolean; message: string }>("/auth/request-otp", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  };
+
+  const verifyOtp = async (email: string, otp: string): Promise<{ isNewUser?: boolean }> => {
+    const data = await apiFetch<{ token: string; user: AuthUser; isNewUser?: boolean }>("/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp }),
+    });
+    setToken(data.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hackord_user", JSON.stringify(data.user));
+    }
+    setUser(data.user);
+    return { isNewUser: data.isNewUser };
+  };
+
+  const signupRequestOtp = async (name: string, email: string, password: string) => {
+    return await apiFetch<{ success: boolean; message: string }>("/auth/signup-request-otp", {
+      method: "POST",
+      body: JSON.stringify({ name, email, password }),
+    });
+  };
+
+  const signupVerifyOtp = async (name: string, email: string, password: string, otp: string): Promise<{ isNewUser?: boolean }> => {
+    const data = await apiFetch<{ token: string; user: AuthUser; isNewUser?: boolean }>("/auth/signup-verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ name, email, password, otp }),
+    });
+    setToken(data.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hackord_user", JSON.stringify(data.user));
+    }
+    setUser(data.user);
+    return { isNewUser: data.isNewUser };
+  };
+
+  const forgotPasswordRequest = async (email: string) => {
+    return await apiFetch<{ success: boolean; message: string }>("/auth/forgot-password-request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  };
+
+  const resetPasswordVerify = async (email: string, otp: string, newPassword: string) => {
+    const data = await apiFetch<{ token: string; user: AuthUser; success: boolean; message: string }>("/auth/reset-password-verify", {
+      method: "POST",
+      body: JSON.stringify({ email, otp, newPassword }),
+    });
+    setToken(data.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hackord_user", JSON.stringify(data.user));
+    }
+    setUser(data.user);
+    return { success: data.success, message: data.message };
+  };
+
   const logout = () => {
     removeToken();
     if (typeof window !== "undefined") {
@@ -181,6 +247,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         googleLogin,
         githubLogin,
+        requestOtp,
+        verifyOtp,
+        signupRequestOtp,
+        signupVerifyOtp,
+        forgotPasswordRequest,
+        resetPasswordVerify,
         logout,
         updateProfile,
         refreshUser,

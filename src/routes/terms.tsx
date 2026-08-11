@@ -212,8 +212,8 @@ function TermsOfServicePage() {
             <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link to="/terms" className="font-semibold text-foreground">Terms of Service</Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-            <Link to="/cookie-policy" className="hover:text-foreground transition-colors">Cookie Policy</Link>
-            <a href="#" className="termly-display-preferences hover:text-foreground transition-colors">Consent Preferences</a>
+            {/* <Link to="/cookie-policy" className="hover:text-foreground transition-colors">Cookie Policy</Link>
+            <a href="#" className="termly-display-preferences hover:text-foreground transition-colors">Consent Preferences</a> */}
           </div>
         </div>
       </footer>

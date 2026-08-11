@@ -294,8 +294,8 @@ function CookiePolicyPage() {
             <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
-            <Link to="/cookie-policy" className="font-semibold text-foreground">Cookie Policy</Link>
-            <a href="#" className="termly-display-preferences hover:text-foreground transition-colors">Consent Preferences</a>
+            {/* <Link to="/cookie-policy" className="font-semibold text-foreground">Cookie Policy</Link>
+            <a href="#" className="termly-display-preferences hover:text-foreground transition-colors">Consent Preferences</a> */}
           </div>
         </div>
       </footer>

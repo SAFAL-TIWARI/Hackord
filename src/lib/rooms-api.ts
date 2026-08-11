@@ -779,6 +779,11 @@ export async function deleteMessage(params: {
   }
 }
 
-export async function getAgoraToken(roomId: string): Promise<{ token: string; appId: string; warning?: string }> {
-  return apiFetch<{ token: string; appId: string; warning?: string }>(`/rooms/${roomId}/token`);
+export async function getAgoraToken(roomId: string): Promise<{
+  token: string;
+  appId: string;
+  channelName?: string;
+  warning?: string;
+}> {
+  return apiFetch<{ token: string; appId: string; channelName?: string; warning?: string }>(`/rooms/${roomId}/token`);
 }

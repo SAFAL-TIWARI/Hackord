@@ -15,26 +15,10 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 
+import { NotFoundPage } from "@/components/NotFoundPage";
+
 function NotFoundComponent() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 bg-mesh">
-      <div className="max-w-md text-center glass-strong rounded-2xl p-10">
-        <h1 className="text-7xl font-bold text-gradient-brand">404</h1>
-        <h2 className="mt-4 text-xl font-semibold">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-6">
-          <Link
-            to="/dashboard"
-            className="inline-flex items-center justify-center rounded-lg bg-gradient-brand px-4 py-2 text-sm font-medium text-white shadow-glow transition hover:opacity-90"
-          >
-            Go to dashboard
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+  return <NotFoundPage />;
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
@@ -44,30 +28,42 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
+  const is404 =
+    (error as any)?.status === 404 ||
+    (error as any)?.statusCode === 404 ||
+    (error?.message && error.message.toLowerCase().includes("not found"));
+
+  if (is404) {
+    return <NotFoundPage />;
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background bg-mesh px-4">
+      <div className="max-w-md w-full text-center glass-strong rounded-3xl p-8 border border-border shadow-spatial animate-fade-in">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive border border-destructive/20">
+          <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h1 className="text-xl font-bold tracking-tight">Something went wrong</h1>
+        <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+          An unexpected error occurred while loading this page view. You can attempt to retry or return home.
         </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button
             onClick={() => {
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-lg bg-gradient-brand px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+            className="inline-flex items-center justify-center rounded-xl bg-gradient-brand px-5 py-2.5 text-xs font-semibold text-white shadow-glow transition hover:opacity-90 active:scale-95 cursor-pointer"
           >
-            Try again
+            Retry Loading
           </button>
           <a
             href="/"
-            className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition hover:bg-accent"
+            className="inline-flex items-center justify-center rounded-xl border border-border glass px-5 py-2.5 text-xs font-semibold transition hover:bg-accent active:scale-95"
           >
-            Go home
+            Return Home
           </a>
         </div>
       </div>
@@ -79,7 +75,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" },
       { title: "Hackord — Real-Time Hackathon Workspaces & Dev Rooms" },
       {
         name: "description",
@@ -168,16 +164,16 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
-        {/* Termly Consent Banner — MUST be first script on page */}
-       <script src="https://app.termly.io/resource-blocker/9f2d5f69-0057-49d8-894b-302e07544ca1?autoBlock=on"></script>
+      {/* Termly Consent Banner — autoBlock disabled so WebRTC & Agora RTC are not blocked */}
+        {/* <script src="https://app.termly.io/resource-blocker/9f2d5f69-0057-49d8-894b-302e07544ca1?autoBlock=off" data-categories="essential" /> */}
         {/* Google Tag Manager */}
-        <script
+        {/* <script
           dangerouslySetInnerHTML={{
             __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-WDZB7GPF');`,
           }}
-        />
+        /> */}
         {/* Google Analytics (GA4) */}
-        <script
+        {/* <script
           async
           src="https://www.googletagmanager.com/gtag/js?id=G-FHJN9TL6LM"
         />
@@ -190,7 +186,7 @@ function RootShell({ children }: { children: ReactNode }) {
               gtag('config', 'G-FHJN9TL6LM');
             `,
           }}
-        />
+        /> */}
         <script
           id="theme-initializer"
           dangerouslySetInnerHTML={{
@@ -218,14 +214,14 @@ function RootShell({ children }: { children: ReactNode }) {
       </head>
       <body>
         {/* Google Tag Manager (noscript) */}
-        <noscript>
+        {/* <noscript>
           <iframe
             src="https://www.googletagmanager.com/ns.html?id=GTM-WDZB7GPF"
             height="0"
             width="0"
             style={{ display: "none", visibility: "hidden" }}
           />
-        </noscript>
+        </noscript> */}
         {children}
         <Scripts />
       </body>
