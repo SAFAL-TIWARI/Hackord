@@ -26,7 +26,9 @@ import {
   Trophy,
   Copy,
   Hash,
+  MessageSquare,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { type DbUser, sendRoomInvitation } from "@/lib/users-api";
 import { getRooms, type DbRoom } from "@/lib/rooms-api";
 import { useAuth } from "@/lib/auth";
@@ -44,6 +46,7 @@ export function UserProfileModal({
   onOpenChange,
 }: UserProfileModalProps) {
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [rooms, setRooms] = useState<DbRoom[]>([]);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
@@ -147,6 +150,23 @@ export function UserProfileModal({
               </Avatar>
 
               <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (userProp.privacySettings?.allowDirectMessages === false) {
+                      toast.error(`You can't message ${userProp.name}.`);
+                      return;
+                    }
+                    onOpenChange(false);
+                    navigate({ to: "/chat", search: { userId: userProp._id } });
+                  }}
+                  variant="outline"
+                  className="h-9 px-4 gap-2 text-sm bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Direct Chat
+                </Button>
+
                 {inviteSent ? (
                   <Badge variant="outline" className="h-9 px-4 gap-1 text-sm bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
                     <Check className="h-4 w-4" /> Invited

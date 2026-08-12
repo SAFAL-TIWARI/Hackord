@@ -17,6 +17,7 @@ import { AgoraMeeting } from "@/components/AgoraMeeting";
 import { AppShell } from "@/components/AppShell";
 import { RoomSkeleton } from "@/components/RoomSkeleton";
 import { UserProfileModal } from "@/components/UserProfileModal";
+import { RenderSmartText } from "@/lib/chat-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -1232,6 +1233,7 @@ function ChatTab({
                 if (m.recipient_name) {
                   if (m.recipient_name === userName) {
                     toast.info(`New direct message from ${m.author_name}: "${m.text.slice(0, 30)}..."`, {
+                      id: `dm_${m.id}`,
                       action: {
                         label: "Chat",
                         onClick: () => {
@@ -1243,6 +1245,7 @@ function ChatTab({
                   }
                 } else {
                   toast.info(`New message in #general from ${m.author_name}: "${m.text.slice(0, 30)}..."`, {
+                    id: `gen_${m.id}`,
                     action: {
                       label: "View",
                       onClick: () => {
@@ -1656,7 +1659,7 @@ function ChatTab({
                       </div>
 
                       {/* Text */}
-                      <p className="break-words [overflow-wrap:anywhere] [word-break:break-word] whitespace-pre-wrap font-medium">{m.text}</p>
+                      <RenderSmartText text={m.text} className="break-words [overflow-wrap:anywhere] [word-break:break-word] whitespace-pre-wrap font-medium block" />
 
                       {/* Bottom status badges */}
                       <div className="flex items-center gap-1.5 mt-1 justify-end">

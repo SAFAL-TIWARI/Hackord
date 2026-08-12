@@ -114,6 +114,30 @@ export async function fetchRealNotifications(user?: { _id: string; email: string
         }
       });
     }
+
+    // 3. Unread Direct Messages / Chat Notifications
+    if (prefs.chatMessages !== false && currentUser.id) {
+      try {
+        const { getConversations } = await import("./chat-api");
+        const convs = await getConversations(currentUser.id);
+        if (convs && Array.isArray(convs.direct)) {
+          convs.direct.forEach((c) => {
+            if (c.unreadCount > 0) {
+              notifs.push({
+                id: `chat_${c.id}_${c.unreadCount}`,
+                title: `New message from ${c.name}`,
+                detail: c.lastMessageText || `${c.unreadCount} unread message(s)`,
+                time: c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recent",
+                unread: true,
+                type: "message",
+                link: `/chat?userId=${c.otherUserId}`,
+                createdAt: c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : Date.now(),
+              });
+            }
+          });
+        }
+      } catch (e) {}
+    }
   } catch (err) {
     console.warn("[notifications-api] Error fetching real notifications:", err);
   }

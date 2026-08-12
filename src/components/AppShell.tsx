@@ -18,11 +18,13 @@ import {
   Music,
   User,
   LifeBuoy,
+  MessageSquare,
 } from "lucide-react";
+import { getConversations } from "@/lib/chat-api";
 import { ThemeToggle } from "./ThemeToggle";
 import { BrandLogo } from "./BrandLogo";
 import { haptic } from "@/lib/haptic";
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -44,9 +46,12 @@ import { CreateRoomModal } from "./CreateRoomModal";
 import { useAuth } from "@/lib/auth";
 import { GlobalSearch } from "./GlobalSearch";
 import { fetchRealNotifications, type RealNotification } from "@/lib/notifications-api";
+import { sendHeartbeat } from "@/lib/users-api";
+import { sendNativeSystemNotification } from "@/lib/system-notifications";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/chat", label: "General Chat", icon: MessageSquare },
   { to: "/explore", label: "Explore", icon: Compass },
   { to: "/rooms", label: "My Rooms", icon: Users2 },
   { to: "/profile", label: "Profile", icon: UserCircle2 },
@@ -60,9 +65,43 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
   const [realNotifications, setRealNotifications] = useState<RealNotification[]>([]);
+  const prevNotifIdsRef = useRef<Set<string>>(new Set());
 
+  // 1. Real-time Heartbeat Ping (updates lastActive status every 15s)
   useEffect(() => {
-    fetchRealNotifications(user).then((res) => setRealNotifications(res || []));
+    if (!user?._id) return;
+    sendHeartbeat(user._id);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        sendHeartbeat(user._id);
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [user?._id]);
+
+  // 2. Fetch Notifications & Trigger Native OS System Push Notifications
+  useEffect(() => {
+    if (!user) return;
+    const loadNotifs = () => {
+      fetchRealNotifications(user).then((res) => {
+        const notifList = res || [];
+        setRealNotifications(notifList);
+
+        // Check for new unread notifications and trigger Native OS Notification Center alert
+        notifList.forEach((n) => {
+          if (n.unread && !prevNotifIdsRef.current.has(n.id)) {
+            prevNotifIdsRef.current.add(n.id);
+            if (typeof document !== "undefined" && document.hidden) {
+              sendNativeSystemNotification(`Hackord: ${n.title}`, n.detail);
+            }
+          }
+        });
+      });
+    };
+
+    loadNotifs();
+    const interval = setInterval(loadNotifs, 8000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const unreadCount = realNotifications.filter((n) => n.unread).length;

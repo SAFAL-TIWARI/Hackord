@@ -21,8 +21,13 @@ export type DbUser = {
   }[];
   privacySettings?: {
     discoverable?: boolean;
+    allowInvites?: boolean;
+    allowDirectMessages?: boolean;
     showEmail?: boolean;
+    showOnlineStatus?: boolean;
+    activityStatus?: boolean;
   };
+  isOnline?: boolean;
   role?: string;
   createdAt?: string;
 };
@@ -144,12 +149,15 @@ export type UserSettings = {
     roomInvites: boolean;
     deadlines: boolean;
     chatMessages: boolean;
+    desktopNotifications: boolean;
     reminders: boolean;
   };
   privacySettings: {
     discoverable: boolean;
     allowInvites: boolean;
+    allowDirectMessages: boolean;
     showEmail: boolean;
+    showOnlineStatus: boolean;
     activityStatus: boolean;
   };
 };
@@ -169,12 +177,15 @@ export async function getUserSettings(params?: { userId?: string; email?: string
         roomInvites: true,
         deadlines: true,
         chatMessages: true,
+        desktopNotifications: true,
         reminders: false,
       },
       privacySettings: {
         discoverable: true,
         allowInvites: true,
+        allowDirectMessages: true,
         showEmail: true,
+        showOnlineStatus: true,
         activityStatus: true,
       },
     };
@@ -185,6 +196,13 @@ export async function updateUserSettings(payload: Partial<UserSettings> & { user
   return await apiFetch<UserSettings>("/users/settings", {
     method: "PUT",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function sendHeartbeat(userId?: string): Promise<{ success: boolean }> {
+  return await apiFetch<{ success: boolean }>("/users/heartbeat", {
+    method: "POST",
+    body: JSON.stringify({ userId }),
   });
 }
 

@@ -15,13 +15,15 @@ import {
   Trophy,
   Sparkles,
   Copy,
+  MessageSquare,
 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { getRooms, type DbRoom } from "@/lib/rooms-api";
 import { searchUsers, type DbUser } from "@/lib/users-api";
 import { UserProfileModal } from "./UserProfileModal";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Badge } from "./ui/badge";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -103,6 +105,7 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
   }, []);
 
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -356,9 +359,35 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
                                 </div>
                               </div>
 
-                              <button className="shrink-0 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary group-hover:bg-gradient-brand group-hover:text-white transition shadow-sm">
-                                View Profile
-                              </button>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (user.privacySettings?.allowDirectMessages === false) {
+                                      toast.error(`You can't message ${user.name}.`);
+                                      return;
+                                    }
+                                    setOpen(false);
+                                    navigate({ to: "/chat", search: { userId: user._id } });
+                                  }}
+                                  className="rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500 hover:text-white transition shadow-sm flex items-center gap-1"
+                                  title="Start Direct Chat"
+                                >
+                                  <MessageSquare className="h-3.5 w-3.5" />
+                                  <span>Chat</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenUserProfile(user);
+                                  }}
+                                  className="rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary group-hover:bg-gradient-brand group-hover:text-white transition shadow-sm"
+                                >
+                                  View Profile
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );

@@ -32,12 +32,15 @@ function SettingsPage() {
     roomInvites: true,
     deadlines: true,
     chatMessages: true,
+    desktopNotifications: true,
     reminders: false,
   });
   const [privacyPrefs, setPrivacyPrefs] = useState({
     discoverable: true,
     allowInvites: true,
+    allowDirectMessages: true,
     showEmail: true,
+    showOnlineStatus: true,
     activityStatus: true,
   });
 
@@ -57,9 +60,25 @@ function SettingsPage() {
           userId: user?._id,
           email: user?.email,
         });
-        if (data) {
-          setNotifPrefs(data.notificationPreferences || notifPrefs);
-          setPrivacyPrefs(data.privacySettings || privacyPrefs);
+        if (data?.privacySettings) {
+          setPrivacyPrefs({
+            discoverable: data.privacySettings.discoverable !== false,
+            allowInvites: data.privacySettings.allowInvites !== false,
+            allowDirectMessages: data.privacySettings.allowDirectMessages !== false,
+            showEmail: data.privacySettings.showEmail !== false,
+            showOnlineStatus: data.privacySettings.showOnlineStatus !== false && data.privacySettings.activityStatus !== false,
+            activityStatus: data.privacySettings.activityStatus !== false && data.privacySettings.showOnlineStatus !== false,
+          });
+        }
+        if (data?.notificationPreferences) {
+          setNotifPrefs({
+            emailEnabled: data.notificationPreferences.emailEnabled !== false,
+            roomInvites: data.notificationPreferences.roomInvites !== false,
+            deadlines: data.notificationPreferences.deadlines !== false,
+            chatMessages: data.notificationPreferences.chatMessages !== false,
+            desktopNotifications: data.notificationPreferences.desktopNotifications !== false,
+            reminders: Boolean(data.notificationPreferences.reminders),
+          });
         }
       } catch (err) {
         console.error("Error loading settings:", err);
@@ -82,7 +101,18 @@ function SettingsPage() {
         notificationPreferences: newNotif || notifPrefs,
         privacySettings: newPrivacy || privacyPrefs,
       };
-      await updateUserSettings(payload);
+      const res = await updateUserSettings(payload);
+      if (res?.privacySettings) {
+        setPrivacyPrefs((prev) => ({
+          ...prev,
+          discoverable: res.privacySettings.discoverable !== false,
+          allowInvites: res.privacySettings.allowInvites !== false,
+          allowDirectMessages: res.privacySettings.allowDirectMessages !== false,
+          showEmail: res.privacySettings.showEmail !== false,
+          showOnlineStatus: res.privacySettings.showOnlineStatus !== false && res.privacySettings.activityStatus !== false,
+          activityStatus: res.privacySettings.activityStatus !== false && res.privacySettings.showOnlineStatus !== false,
+        }));
+      }
       toast.success("Settings updated successfully!");
     } catch (err: any) {
       toast.error(err.message || "Failed to update settings");
@@ -99,6 +129,9 @@ function SettingsPage() {
 
   const togglePrivacy = (key: keyof typeof privacyPrefs, value: boolean) => {
     const updated = { ...privacyPrefs, [key]: value };
+    if (key === "showOnlineStatus") {
+      updated.activityStatus = value;
+    }
     setPrivacyPrefs(updated);
     saveSettings(notifPrefs, updated);
   };
@@ -186,11 +219,31 @@ function SettingsPage() {
                   <div className="flex items-center justify-between py-2">
                     <div>
                       <p className="text-sm font-medium">New Chat Messages & Mentions</p>
-                      <p className="text-xs text-muted-foreground">Notify when team members send messages in room channels.</p>
+                      <p className="text-xs text-muted-foreground">Notify when team members send messages or tag you.</p>
                     </div>
                     <Switch
                       checked={notifPrefs.chatMessages}
                       onCheckedChange={(val) => toggleNotif("chatMessages", val)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <p className="text-sm font-medium">Browser System Push Notifications</p>
+                      <p className="text-xs text-muted-foreground">Deliver alerts directly to your Desktop Notification Center and Mobile Notification Panel.</p>
+                    </div>
+                    <Switch
+                      checked={notifPrefs.desktopNotifications}
+                      onCheckedChange={async (val) => {
+                        if (val) {
+                          const { requestNotificationPermission } = await import("@/lib/system-notifications");
+                          const granted = await requestNotificationPermission();
+                          if (!granted) {
+                            toast.error("Browser notification permission was denied in your browser settings.");
+                          }
+                        }
+                        toggleNotif("desktopNotifications", val);
+                      }}
                     />
                   </div>
 
@@ -224,6 +277,17 @@ function SettingsPage() {
 
                 <div className="flex items-center justify-between py-2">
                   <div>
+                    <p className="text-sm font-medium">Allow direct messages from anyone</p>
+                    <p className="text-xs text-muted-foreground">Allow other platform members to start 1-on-1 direct conversations with you.</p>
+                  </div>
+                  <Switch
+                    checked={privacyPrefs.allowDirectMessages}
+                    onCheckedChange={(val) => togglePrivacy("allowDirectMessages", val)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-2">
+                  <div>
                     <p className="text-sm font-medium">Allow team invites from anyone</p>
                     <p className="text-xs text-muted-foreground">Enable non-teammates to send you room collaboration requests.</p>
                   </div>
@@ -247,11 +311,14 @@ function SettingsPage() {
                 <div className="flex items-center justify-between py-2">
                   <div>
                     <p className="text-sm font-medium">Show active / online status</p>
-                    <p className="text-xs text-muted-foreground">Let team members see when you are currently online in workspace.</p>
+                    <p className="text-xs text-muted-foreground">Let other hackers see when you are active on the platform in real time.</p>
                   </div>
                   <Switch
-                    checked={privacyPrefs.activityStatus}
-                    onCheckedChange={(val) => togglePrivacy("activityStatus", val)}
+                    checked={privacyPrefs.showOnlineStatus}
+                    onCheckedChange={(val) => {
+                      togglePrivacy("showOnlineStatus", val);
+                      togglePrivacy("activityStatus", val);
+                    }}
                   />
                 </div>
               </div>
