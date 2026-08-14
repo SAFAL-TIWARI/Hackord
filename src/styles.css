@@ -85,7 +85,7 @@
   --shadow-card: 0 12px 40px -8px rgba(0, 0, 0, 0.45), inset 0 1.5px 0px 0px rgba(255, 255, 255, 0.22), inset 0 -1px 0px 0px rgba(0, 0, 0, 0.2);
   --shadow-spatial: 0 30px 70px -10px rgba(0, 0, 0, 0.6), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.35), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.3);
 
-  --sidebar: rgba(6, 8, 20, 0.22);
+   --sidebar: rgba(6, 8, 20, 0.22);
   --sidebar-foreground: #f8fafc;
   --sidebar-primary: #8b5cf6;
   --sidebar-primary-foreground: #ffffff;
@@ -94,6 +94,7 @@
   --sidebar-border: rgba(255, 255, 255, 0.1);
   --sidebar-ring: #8b5cf6;
 }
+
 
 /* ─── Light Mode Spatial UI (Alabaster Frost & Premium Glass) ─── */
 html.light {
@@ -141,10 +142,11 @@ html.light .glass {
   border-color: rgba(255, 255, 255, 0.55);
   box-shadow: 0 10px 30px -5px rgba(31, 38, 135, 0.05), inset 0 1.5px 0 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 0 rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(24px) saturate(220%);
+  
 }
 
 html.light .glass-strong {
-  background-color: transparent;
+ background-color: transparent;
   border-color: rgba(255, 255, 255, 0.65);
   box-shadow: 0 24px 64px -12px rgba(31, 38, 135, 0.08), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.9), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(32px) saturate(240%);
@@ -155,7 +157,7 @@ html.light .glass-strong {
     border-color: var(--color-border);
   }
   html, body {
-    background-color: var(--color-background);
+    background-color: var(--color-background);  
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -204,13 +206,7 @@ html.light .glass-strong {
 @utility glass-strong {
   background-color: rgba(10, 15, 30, 0.3);
   backdrop-filter: blur(32px) saturate(240%);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.65), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.35), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.25);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@utility spatial-card {
-  background-color: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px) saturate(210%);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-spatial);

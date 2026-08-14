@@ -34,7 +34,7 @@ function Landing() {
       <HomeNavbar />
 
       {/* Hero Section */}
-      <section className="relative mx-auto max-w-8xl px-6 pt-24 sm:pt-32 pb-20 sm:pb-24 overflow-hidden lg:overflow-visible">
+      <section className="relative  max-w-8xl px-6 pt-24 sm:pt-32 pb-20 sm:pb-24 overflow-hidden lg:overflow-visible">
         <Suspense fallback={<div className="absolute inset-0 bg-background" />}>
           <HeroBackground />
         </Suspense>

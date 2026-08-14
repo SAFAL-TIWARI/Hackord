@@ -106,22 +106,25 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const unreadCount = realNotifications.filter((n) => n.unread).length;
 
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-      return localStorage.getItem("hackord_sidebar_collapsed") === "true";
-    }
-    return false;
-  });
-
-  const [theme, setTheme] = useState<"dark" | "light">(() => {
-    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-      const saved = localStorage.getItem("hackord_theme") as "dark" | "light";
-      if (saved) return saved;
-    }
-    return "dark";
-  });
+  const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      const savedCollapsed = localStorage.getItem("hackord_sidebar_collapsed") === "true";
+      if (savedCollapsed) setCollapsed(true);
+
+      const savedTheme = localStorage.getItem("hackord_theme") as "dark" | "light";
+      if (savedTheme === "light" || savedTheme === "dark") {
+        setTheme(savedTheme);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     if (typeof document !== "undefined") {
       if (theme === "light") {
         document.documentElement.classList.add("light");
@@ -134,13 +137,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("hackord_theme", theme);
     }
-  }, [theme]);
+  }, [theme, mounted]);
 
   useEffect(() => {
+    if (!mounted) return;
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("hackord_sidebar_collapsed", String(collapsed));
     }
-  }, [collapsed]);
+  }, [collapsed, mounted]);
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const toggleSidebar = () => {
@@ -299,8 +303,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex min-w-0 flex-1 flex-col md:my-4 md:mr-4 md:ml-2 md:gap-4 h-full">
             {/* Topbar */}
             <header className={cn(
-              "z-30 flex h-16 shrink-0 items-center gap-3 bg-background/80 px-4 backdrop-blur-2xl shadow-sm md:px-6",
-              "md:rounded-2xl md:border md:border-border md:bg-card/20 md:shadow-md sticky top-0 md:relative"
+              "z-30 flex h-16 shrink-0 items-center gap-3 px-4 md:px-6 backdrop-blur-2xl shadow-spatial",
+              "rounded-2xl border border-border/80 bg-card/40 sticky top-2 mx-2 md:mx-0 md:relative transition-all duration-200"
             )}>
               <div className="flex items-center gap-2 md:hidden">
                 <BrandLogo iconOnly size="sm" />
@@ -438,8 +442,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
 
 
-        {/* Mobile Bottom Navigation Bar (Dynamic elevated active link) */}
-        <nav className="fixed bottom-4 left-4 right-4 z-40 md:hidden bg-card/40 backdrop-blur-xl border border-border rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
+        {/* Mobile Bottom Navigation Bar (Dynamic elevated active link with liquid glass styling) */}
+        <nav className="fixed bottom-4 left-4 right-4 z-40 md:hidden bg-card/60 backdrop-blur-2xl border border-border/80 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
           <div className="relative flex items-center justify-around h-16 px-2 max-w-md mx-auto">
             {NAV.map((item) => {
               const active =
@@ -456,7 +460,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     className={cn(
                       "flex items-center justify-center transition-all duration-300 ease-out",
                       active
-                        ? "-translate-y-3 h-13 w-13 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-[0_8px_22px_rgba(37,99,235,0.45)] border-4 border-background scale-105"
+                        ? "-translate-y-3 h-13 w-13 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-[0_8px_24px_rgba(139,92,246,0.55)] border-4 border-background scale-105"
                         : "h-10 w-10 text-muted-foreground hover:text-foreground active:scale-90"
                     )}
                   >
@@ -477,7 +481,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     className={cn(
                       "flex items-center justify-center transition-all duration-300 ease-out",
                       active
-                        ? "-translate-y-3 h-13 w-13 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-[0_8px_22px_rgba(37,99,235,0.45)] border-4 border-background scale-105"
+                        ? "-translate-y-3 h-13 w-13 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-[0_8px_24px_rgba(139,92,246,0.55)] border-4 border-background scale-105"
                         : "h-10 w-10 text-muted-foreground hover:text-foreground active:scale-90"
                     )}
                   >

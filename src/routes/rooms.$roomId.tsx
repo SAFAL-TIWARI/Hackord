@@ -5,7 +5,7 @@ import {
   Users, MessageSquare, Bot, Github, FileIcon, CalendarDays, Video,
   Crown, ExternalLink, Search, Send, Paperclip, Smile, Pin, Plus, Edit,
   FileText, Image as ImageIcon, Film, Archive, Sparkles, GitBranch,
-  GitPullRequest, CircleDot, Check, Clock, Play, Link as LinkIcon, Trash2, Lock, ShieldAlert,
+  GitPullRequest, CircleDot, Check, Clock, Play, Link as LinkIcon, Trash2, Lock, ShieldAlert, LogOut,
   Star, GitFork, RefreshCw, Unlink, AlertCircle, GitCommit,
   Linkedin, Globe, Trophy, GraduationCap,
   Mic, MicOff, Reply, MoreVertical, ChevronLeft, ChevronRight,
@@ -35,7 +35,7 @@ import { AI_TOOLS, GITHUB_DATA, MEETINGS } from "@/lib/dummy-data";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import {
-  getRoom, getMessages, getMessagesSince, sendMessage, updateRoom, deleteRoom,
+  getRoom, getMessages, getMessagesSince, sendMessage, updateRoom, deleteRoom, leaveRoom,
   addFileResource, addTask, updateTaskStatus, addProjectLink, addMemberToRoom, removeMemberFromRoom, getLoggedInUser,
   updateMessage, deleteMessage,
   type DbRoom, type DbMember, type DbMessage, type DbFileResource, type DbTask, type DbActivity,
@@ -181,7 +181,7 @@ function RoomPage() {
   }, [room?.id]);
 
   const isMemberOrAdmin = useMemo(() => {
-    if (!user) return false;
+    if (!user || !room) return false;
     if (user.role === "admin") return true;
 
     const userIds = [user._id, user.username, user.email?.toLowerCase()].filter(Boolean);
@@ -204,6 +204,7 @@ function RoomPage() {
   }, [user, room]);
 
   const isOwnerOrAdmin = useMemo(() => {
+    if (!room) return false;
     if (!user) return true; // Guest view default
     if (user.role === "admin") return true;
 
@@ -235,6 +236,7 @@ function RoomPage() {
   }, [user, room]);
 
   const handleDeleteRoom = async () => {
+    if (!room) return;
     if (!isOwnerOrAdmin) {
       toast.error("Only the Room Owner or Admin can delete this room.");
       return;
@@ -251,6 +253,32 @@ function RoomPage() {
       setOpenDeleteModal(false);
     }
   };
+
+  const [leavingRoom, setLeavingRoom] = useState(false);
+  const handleLeaveRoom = async () => {
+    if (!room) return;
+    if (!confirm(`Are you sure you want to leave room "${room.name}"?`)) return;
+    setLeavingRoom(true);
+    try {
+      await leaveRoom(room.id, { id: user?._id, email: user?.email, name: user?.name });
+      toast.success(`You have left room "${room.name}"`);
+      navigate({ to: "/rooms" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to leave room");
+    } finally {
+      setLeavingRoom(false);
+    }
+  };
+
+  if (!room) {
+    return (
+      <AppShell>
+        <div className="mx-auto max-w-7xl space-y-6">
+          <RoomSkeleton />
+        </div>
+      </AppShell>
+    );
+  }
 
   if (user && !isMemberOrAdmin) {
     return (
@@ -302,7 +330,7 @@ function RoomPage() {
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{room.problem || room.description}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {isOwnerOrAdmin && (
+              {isOwnerOrAdmin ? (
                 <>
                   <Button size="sm" variant="outline" onClick={() => setOpenEditModal(true)} className="gap-1.5 h-8">
                     <Edit className="h-3.5 w-3.5" /> Edit Room
@@ -311,6 +339,16 @@ function RoomPage() {
                     <Trash2 className="h-3.5 w-3.5" /> Delete Room
                   </Button>
                 </>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={leavingRoom}
+                  onClick={handleLeaveRoom}
+                  className="gap-1.5 h-8 border-destructive/30 text-destructive hover:bg-destructive/10"
+                >
+                  <LogOut className="h-3.5 w-3.5" /> {leavingRoom ? "Leaving..." : "Leave Room"}
+                </Button>
               )}
               <Badge variant="secondary" className="gap-1"><Users className="h-3 w-3" /> {(room.members ?? []).length}/{room.max_size}</Badge>
               <Badge className="bg-gradient-brand text-white border-transparent">{room.status}</Badge>
@@ -1058,6 +1096,8 @@ function ChatTab({
 }) {
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<DbMessage[]>(initialMessages);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
   const [sending, setSending] = useState(false);
   const [activeChat, setActiveChat] = useState<"general" | string>("general"); // "general" or member username
   const [searchQuery, setSearchQuery] = useState("");
@@ -1224,39 +1264,40 @@ function ChatTab({
       try {
         const freshMsgs = await getMessages({ data: { roomId } });
         if (Array.isArray(freshMsgs)) {
-          setMessages((prev) => {
-            // Reconcile new incoming messages for toast notifications
-            const prevIds = new Set(prev.map((m) => m.id));
-            const brandNew = freshMsgs.filter((m) => !prevIds.has(m.id) && m.author_name !== userName);
-            if (brandNew.length > 0) {
-              brandNew.forEach((m) => {
-                if (m.recipient_name) {
-                  if (m.recipient_name === userName) {
-                    toast.info(`New direct message from ${m.author_name}: "${m.text.slice(0, 30)}..."`, {
-                      id: `dm_${m.id}`,
-                      action: {
-                        label: "Chat",
-                        onClick: () => {
-                          setActiveChat(m.author_name);
-                          setMobileViewChatActive(true);
-                        },
-                      },
-                    });
-                  }
-                } else {
-                  toast.info(`New message in #general from ${m.author_name}: "${m.text.slice(0, 30)}..."`, {
-                    id: `gen_${m.id}`,
+          // Reconcile new incoming messages for toast notifications outside state updater
+          const prevIds = new Set(messagesRef.current.map((m: DbMessage) => m.id));
+          const brandNew = freshMsgs.filter((m: DbMessage) => !prevIds.has(m.id) && m.author_name !== userName);
+          if (brandNew.length > 0) {
+            brandNew.forEach((m: DbMessage) => {
+              if (m.recipient_name) {
+                if (m.recipient_name === userName) {
+                  toast.info(`New direct message from ${m.author_name}: "${m.text.slice(0, 30)}..."`, {
+                    id: `dm_${m.id}`,
                     action: {
-                      label: "View",
+                      label: "Chat",
                       onClick: () => {
-                        setActiveChat("general");
+                        setActiveChat(m.author_name);
                         setMobileViewChatActive(true);
                       },
                     },
                   });
                 }
-              });
-            }
+              } else {
+                toast.info(`New message in #general from ${m.author_name}: "${m.text.slice(0, 30)}..."`, {
+                  id: `gen_${m.id}`,
+                  action: {
+                    label: "View",
+                    onClick: () => {
+                      setActiveChat("general");
+                      setMobileViewChatActive(true);
+                    },
+                  },
+                });
+              }
+            });
+          }
+
+          setMessages((prev) => {
 
             // Check if any message properties changed (text edits, edited status, pins, count)
             const isDifferent =

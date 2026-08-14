@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Users2,
   UserPlus,
@@ -25,6 +25,7 @@ import {
   Tag,
   Trophy,
   MessageSquare,
+  ArrowRight,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ViewToggle } from "@/components/ViewToggle";
 import { useAuth, type AuthUser } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { getRooms, deleteRoom, type DbRoom } from "@/lib/rooms-api";
@@ -81,6 +83,11 @@ function AdminPage() {
   const [scraping, setScraping] = useState(false);
   const [feedingDb, setFeedingDb] = useState(false);
 
+  // Search & View Mode States
+  const [hostSearch, setHostSearch] = useState("");
+  const [messageSearch, setMessageSearch] = useState("");
+  const [adminRoomViewMode, setAdminRoomViewMode] = useState<"grid" | "list">("list");
+
   // Host Requests State
   const [hostRequests, setHostRequests] = useState<HostRequestSubmission[]>([]);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -88,6 +95,33 @@ function AdminPage() {
   // User Contact Messages State
   const [contactMessages, setContactMessages] = useState<ContactMessageItem[]>([]);
   const [deletingMsgId, setDeletingMsgId] = useState<string | null>(null);
+
+  const filteredHostRequests = useMemo(() => {
+    if (!hostSearch.trim()) return hostRequests;
+    const q = hostSearch.toLowerCase();
+    return hostRequests.filter(
+      (r: HostRequestSubmission) =>
+        r.name?.toLowerCase().includes(q) ||
+        r.organizer?.toLowerCase().includes(q) ||
+        r.contactEmail?.toLowerCase().includes(q) ||
+        r.prizePool?.toLowerCase().includes(q) ||
+        r.mode?.toLowerCase().includes(q) ||
+        r.description?.toLowerCase().includes(q)
+    );
+  }, [hostRequests, hostSearch]);
+
+  const filteredContactMessages = useMemo(() => {
+    if (!messageSearch.trim()) return contactMessages;
+    const q = messageSearch.toLowerCase();
+    return contactMessages.filter(
+      (m: ContactMessageItem) =>
+        m.name?.toLowerCase().includes(q) ||
+        m.email?.toLowerCase().includes(q) ||
+        m.subject?.toLowerCase().includes(q) ||
+        m.message?.toLowerCase().includes(q) ||
+        m.category?.toLowerCase().includes(q)
+    );
+  }, [contactMessages, messageSearch]);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -277,7 +311,7 @@ function AdminPage() {
         { label: "Platform Rooms", value: rooms.length, icon: Layers3, color: "text-blue-400" },
         { label: "User Messages", value: contactMessages.length, icon: MessageSquare, color: "text-purple-400" },
         { label: "Scraped JSON Items", value: scrapedStatus?.totalCount || 0, icon: Database, color: "text-amber-400" },
-        { label: "Host Requests", value: hostRequests.filter((r) => r.status === "pending").length, icon: FileText, color: "text-emerald-400" },
+        { label: "Host Requests", value: hostRequests.filter((r: HostRequestSubmission) => r.status === "pending").length, icon: FileText, color: "text-emerald-400" },
       ]
     : [];
 
@@ -319,30 +353,66 @@ function AdminPage() {
 
         {/* Stats */}
         {loading ? (
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="glass rounded-2xl p-5 shadow-card space-y-3">
-                <div className="flex items-center justify-between">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-9 w-9 rounded-lg" />
+          <section>
+            {/* Desktop Skeleton Grid */}
+            <div className="hidden sm:grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="glass rounded-2xl p-5 shadow-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-9 w-9 rounded-lg" />
+                  </div>
+                  <Skeleton className="h-8 w-16" />
                 </div>
-                <Skeleton className="h-8 w-16" />
-              </div>
-            ))}
+              ))}
+            </div>
+            {/* Mobile Horizontal Scrollable Skeletons */}
+            <div className="flex sm:hidden gap-3 overflow-x-auto pb-2 custom-scrollbar">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="snap-start shrink-0 w-[220px] glass rounded-2xl p-4 shadow-card space-y-3 border border-border/70">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-9 w-9 rounded-xl" />
+                  </div>
+                  <Skeleton className="h-7 w-14" />
+                </div>
+              ))}
+            </div>
           </section>
         ) : stats ? (
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {statCards.map((s) => (
-              <div key={s.label} className="glass rounded-2xl p-5 shadow-card">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{s.label}</span>
-                  <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-brand-soft">
-                    <s.icon className={`h-4 w-4 ${s.color}`} />
+          <section>
+            {/* Desktop Grid View */}
+            <div className="hidden sm:grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {statCards.map((s) => (
+                <div key={s.label} className="glass rounded-2xl p-5 shadow-card">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">{s.label}</span>
+                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-brand-soft">
+                      <s.icon className={`h-4 w-4 ${s.color}`} />
+                    </div>
                   </div>
+                  <div className="mt-3 text-3xl font-semibold">{s.value}</div>
                 </div>
-                <div className="mt-3 text-3xl font-semibold">{s.value}</div>
-              </div>
-            ))}
+              ))}
+            </div>
+
+            {/* Mobile Horizontal Scrollable View */}
+            <div className="flex sm:hidden overflow-x-auto gap-3 pb-3 pt-1 px-1 -mx-1 snap-x snap-mandatory custom-scrollbar">
+              {statCards.map((s) => (
+                <div
+                  key={s.label}
+                  className="snap-start shrink-0 w-[220px] glass rounded-2xl p-4 shadow-card flex flex-col justify-between border border-border/70"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground truncate mr-2">{s.label}</span>
+                    <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-brand-soft shrink-0">
+                      <s.icon className={`h-4 w-4 ${s.color}`} />
+                    </div>
+                  </div>
+                  <div className="mt-3 text-2xl font-bold">{s.value}</div>
+                </div>
+              ))}
+            </div>
           </section>
         ) : null}
 
@@ -417,16 +487,28 @@ function AdminPage() {
                 {scrapedStatus.hackathons.map((h, idx) => {
                   const itemId = (h as any).id || h.platformUrl || `scraped-${idx}`;
                   return (
-                    <div key={itemId} className="rounded-xl border border-border/60 bg-card/60 p-3.5 space-y-2 text-xs flex flex-col justify-between">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="outline" className="text-[9px] font-bold text-primary bg-primary/10 border-primary/20">
-                            {h.platform || "Platform"}
-                          </Badge>
-                          <span className="text-[10px] text-emerald-400 font-medium">✓ 200 OK</span>
+                    <div key={itemId} className="rounded-xl border border-border/60 bg-card/60 p-3.5 space-y-2 text-xs flex flex-col justify-between overflow-hidden">
+                      <div>
+                        {/* Banner Image Header */}
+                        <div className="relative h-24 w-full overflow-hidden rounded-t-lg bg-black/40 -mx-3.5 -mt-3.5 mb-2.5">
+                          <img
+                            src={h.banner || "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&q=80"}
+                            alt={h.name}
+                            className="h-full w-full object-cover opacity-85"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-card via-black/20 to-transparent" />
+                          <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
+                            <Badge variant="outline" className="text-[9px] font-bold text-white bg-black/60 border-white/20 backdrop-blur-md">
+                              {h.platform || "Platform"}
+                            </Badge>
+                            <span className="text-[9px] text-emerald-400 font-bold bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-md">✓ 200 OK</span>
+                          </div>
                         </div>
-                        <p className="font-semibold text-sm truncate">{h.name}</p>
-                        <p className="text-muted-foreground text-[11px] truncate">{h.organizer}</p>
+
+                        <div className="space-y-1">
+                          <p className="font-semibold text-sm truncate">{h.name}</p>
+                          <p className="text-muted-foreground text-[11px] truncate">{h.organizer}</p>
+                        </div>
                       </div>
 
                       <div className="pt-2 border-t border-border/40 space-y-2">
@@ -478,44 +560,64 @@ function AdminPage() {
                 <FileText className="h-5 w-5 text-emerald-400" />
                 <h2 className="text-lg font-semibold">Hosted Hackathon Submissions</h2>
                 <Badge variant="secondary" className="text-[10px]">
-                  {hostRequests.filter((r) => r.status === "pending").length} Pending
+                  {filteredHostRequests.filter((r: HostRequestSubmission) => r.status === "pending").length} Pending
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
                 Submissions sent via the "Host Your Hackathon" form on Contact page. One-click approve to publish to Explore registry.
               </p>
             </div>
+
+            {/* Search Bar for Hosted Submissions */}
+            <div className="relative max-w-xs w-full">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search hosted submissions..."
+                className="pl-9 h-9 text-xs bg-sidebar-accent/50 border-border/80 rounded-xl"
+                value={hostSearch}
+                onChange={(e) => setHostSearch(e.target.value)}
+              />
+            </div>
           </div>
 
-          {hostRequests.length === 0 ? (
+          {filteredHostRequests.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
-              No host requests submitted yet.
+              {hostSearch ? `No hosted submissions matching "${hostSearch}"` : "No host requests submitted yet."}
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-h-[450px] overflow-y-auto custom-scrollbar pr-1">
-              {hostRequests.map((req) => (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-h-[480px] overflow-y-auto custom-scrollbar pr-1">
+              {filteredHostRequests.map((req: HostRequestSubmission) => (
                 <div
                   key={req._id}
-                  className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3 flex flex-col justify-between"
+                  className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3 flex flex-col justify-between overflow-hidden"
                 >
                   <div>
-                    <div className="flex items-center justify-between">
-                      <Badge
-                        variant="outline"
-                        className={
-                          req.status === "approved"
-                            ? "bg-green-500/10 text-green-400 border-green-500/30 text-[10px]"
-                            : "bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]"
-                        }
-                      >
-                        {req.status === "approved" ? "✓ Published on Explore" : "Pending Admin Review"}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(req.createdAt).toLocaleDateString()}
-                      </span>
+                    {/* Hackathon Banner Image Header */}
+                    <div className="relative h-28 w-full overflow-hidden rounded-t-xl bg-black/40 -mx-4 -mt-4 mb-3">
+                      <img
+                        src={req.banner || (req as any).bannerUrl || "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&q=80"}
+                        alt={req.name}
+                        className="h-full w-full object-cover opacity-85"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-card via-black/20 to-transparent" />
+                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+                        <Badge
+                          variant="outline"
+                          className={
+                            req.status === "approved"
+                              ? "bg-green-500/90 text-white border-none text-[9px] font-bold backdrop-blur-md shadow-sm"
+                              : "bg-amber-500/90 text-white border-none text-[9px] font-bold backdrop-blur-md shadow-sm"
+                          }
+                        >
+                          {req.status === "approved" ? "✓ Published" : "Pending Review"}
+                        </Badge>
+                        <span className="text-[10px] text-white/90 bg-black/60 px-2 py-0.5 rounded backdrop-blur-md font-mono">
+                          {new Date(req.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
 
-                    <h3 className="mt-2 text-base font-semibold truncate">{req.name}</h3>
+                    <h3 className="text-base font-semibold truncate">{req.name}</h3>
                     <p className="text-xs text-muted-foreground font-medium">By: {req.organizer}</p>
                     <p className="text-[11px] text-primary flex items-center gap-1 mt-0.5">
                       <Mail className="h-3 w-3 shrink-0" /> {req.contactEmail}
@@ -594,22 +696,33 @@ function AdminPage() {
                 <MessageSquare className="h-5 w-5 text-purple-400" />
                 <h2 className="text-lg font-semibold">User Messages & Queries</h2>
                 <Badge variant="secondary" className="text-[10px] bg-purple-500/10 text-purple-300 border-purple-500/20">
-                  {contactMessages.length} Messages Received
+                  {filteredContactMessages.length} Messages Received
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
                 Inquiries, bug reports, and general feedbacks.
               </p>
             </div>
+
+            {/* Search Bar for User Messages */}
+            <div className="relative max-w-xs w-full">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search user messages..."
+                className="pl-9 h-9 text-xs bg-sidebar-accent/50 border-border/80 rounded-xl"
+                value={messageSearch}
+                onChange={(e) => setMessageSearch(e.target.value)}
+              />
+            </div>
           </div>
 
-          {contactMessages.length === 0 ? (
+          {filteredContactMessages.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
-              No user messages submitted yet.
+              {messageSearch ? `No user messages matching "${messageSearch}"` : "No user messages submitted yet."}
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-h-[450px] overflow-y-auto custom-scrollbar pr-1">
-              {contactMessages.map((msg) => (
+              {filteredContactMessages.map((msg: ContactMessageItem) => (
                 <div
                   key={msg._id}
                   className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3 flex flex-col justify-between"
@@ -660,7 +773,7 @@ function AdminPage() {
           )}
         </section>
 
-        {/* ─── 3. Platform Rooms Stored by User Profile (Admin View) ─── */}
+        {/* ─── 4. Platform Rooms Stored by User Profile (Admin View) ─── */}
         <section className="glass rounded-2xl p-6 shadow-card">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -672,14 +785,17 @@ function AdminPage() {
               </p>
             </div>
 
-            <div className="relative max-w-xs w-full">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Filter by user, email or room..."
-                className="pl-9"
-                value={roomSearch}
-                onChange={(e) => setRoomSearch(e.target.value)}
-              />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <ViewToggle view={adminRoomViewMode} onViewChange={setAdminRoomViewMode} />
+              <div className="relative max-w-xs w-full">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Filter by user, email or room..."
+                  className="pl-9 h-9 text-xs"
+                  value={roomSearch}
+                  onChange={(e) => setRoomSearch(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
@@ -710,74 +826,143 @@ function AdminPage() {
               No rooms found matching "{roomSearch}"
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
-              {filteredRooms.map((r) => {
-                const owner = r.members?.[0];
-                const creatorName = r.creator_name || owner?.user_name || "Platform User";
-                const creatorAvatar =
-                  owner?.user_avatar ||
-                  `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(creatorName)}`;
+            <div className="max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
+              {adminRoomViewMode === "grid" ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredRooms.map((r) => {
+                    const owner = r.members?.[0];
+                    const creatorName = r.creator_name || owner?.user_name || "Platform User";
+                    const creatorAvatar =
+                      owner?.user_avatar ||
+                      `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(creatorName)}`;
 
-                return (
-                  <div
-                    key={r.id}
-                    className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
-                          {r.status}
-                        </Badge>
-                        <span className="text-[10px] text-muted-foreground">
-                          {r.members?.length || 0}/{r.max_size} members
-                        </span>
-                      </div>
+                    return (
+                      <div
+                        key={r.id}
+                        className="rounded-xl border border-border/60 bg-card/50 p-4 space-y-3 flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                              {r.status}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {r.members?.length || 0}/{r.max_size} members
+                            </span>
+                          </div>
 
-                      <h3 className="mt-2 text-base font-semibold truncate">{r.name}</h3>
-                      <p className="text-xs text-muted-foreground truncate">{r.hackathon}</p>
-                    </div>
+                          <h3 className="mt-2 text-base font-semibold truncate">{r.name}</h3>
+                          <p className="text-xs text-muted-foreground truncate">{r.hackathon}</p>
+                        </div>
 
-                    {/* Creator / Owner Info */}
-                    <div className="border-t border-border/50 pt-3 mt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Avatar className="h-8 w-8 border border-border shrink-0">
-                          <AvatarImage src={creatorAvatar} />
-                          <AvatarFallback>{creatorName[0]}</AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium truncate flex items-center gap-1">
-                            {creatorName}
-                            <Crown className="h-3 w-3 text-warning shrink-0" />
-                          </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {r.creator_email || "Creator Account"}
-                          </p>
+                        {/* Creator / Owner Info */}
+                        <div className="border-t border-border/50 pt-3 mt-2 flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar className="h-8 w-8 border border-border shrink-0">
+                              <AvatarImage src={creatorAvatar} />
+                              <AvatarFallback>{creatorName[0]}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium truncate flex items-center gap-1">
+                                {creatorName}
+                                <Crown className="h-3 w-3 text-warning shrink-0" />
+                              </p>
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                {r.creator_email || "Creator Account"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteAdminRoom(r.id, r.name)}
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              title="Delete Room (Admin)"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+
+                            <Link to="/rooms/$roomId" params={{ roomId: r.id }}>
+                              <Button size="sm" variant="outline" className="h-8 text-xs px-2.5">
+                                Inspect
+                              </Button>
+                            </Link>
+                          </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* List View */
+                <div className="space-y-2.5">
+                  {filteredRooms.map((r) => {
+                    const owner = r.members?.[0];
+                    const creatorName = r.creator_name || owner?.user_name || "Platform User";
+                    const creatorAvatar =
+                      owner?.user_avatar ||
+                      `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(creatorName)}`;
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteAdminRoom(r.id, r.name)}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          title="Delete Room (Admin)"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Link
-                          to="/rooms/$roomId"
-                          params={{ roomId: r.id }}
-                          className="rounded-lg bg-sidebar-accent p-2 text-xs hover:bg-primary hover:text-white transition"
-                          title="View Room Details"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </Link>
+                    return (
+                      <div
+                        key={r.id}
+                        className="rounded-xl border border-border/60 bg-card/50 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20">
+                              {r.status}
+                            </Badge>
+                            <span className="text-[11px] text-muted-foreground truncate">{r.hackathon}</span>
+                          </div>
+                          <h4 className="font-semibold text-sm truncate text-foreground">{r.name}</h4>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 border-t sm:border-t-0 border-border/40 pt-2 sm:pt-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar className="h-7 w-7 border border-border shrink-0">
+                              <AvatarImage src={creatorAvatar} />
+                              <AvatarFallback>{creatorName[0]}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 text-left">
+                              <p className="font-medium text-[11px] truncate flex items-center gap-1">
+                                {creatorName}
+                                <Crown className="h-2.5 w-2.5 text-warning shrink-0" />
+                              </p>
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                {r.creator_email || "Creator"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {r.members?.length || 0}/{r.max_size}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteAdminRoom(r.id, r.name)}
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              title="Delete Room (Admin)"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+
+                            <Link to="/rooms/$roomId" params={{ roomId: r.id }}>
+                              <Button size="sm" variant="outline" className="h-7 text-[11px] px-2">
+                                Inspect
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </section>

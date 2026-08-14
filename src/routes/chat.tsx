@@ -23,6 +23,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { Skeleton } from "@/components/ui/skeleton";
+import { WhatsAppVoicePlayer } from "@/components/WhatsAppVoicePlayer";
 import { useAuth } from "@/lib/auth";
 import { searchUsers, type DbUser } from "@/lib/users-api";
 import {
@@ -112,6 +114,7 @@ function ChatPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<any>(null);
+  const recordingStartTimeRef = useRef<number>(0);
 
   // User Profile Modal inspection
   const [inspectedUser, setInspectedUser] = useState<DbUser | null>(null);
@@ -146,6 +149,8 @@ function ChatPage() {
     }
   }, [searchParams, currentUser]);
 
+  const [loadingConvs, setLoadingConvs] = useState(true);
+
   // 2. Fetch Conversations list & sync interval
   const loadConversations = async () => {
     if (!currentUser?._id) return;
@@ -164,7 +169,9 @@ function ChatPage() {
         }
         return prev;
       });
-    } catch {}
+    } catch {} finally {
+      setLoadingConvs(false);
+    }
   };
 
   useEffect(() => {
@@ -298,13 +305,15 @@ function ChatPage() {
         reader.readAsDataURL(audioBlob);
         reader.onloadend = async () => {
           const base64Audio = reader.result as string;
+          const elapsedSeconds = Math.max(1, Math.round((Date.now() - (recordingStartTimeRef.current || Date.now())) / 1000));
           if (currentUser) {
-            await handleSendMessage(base64Audio, recordingSeconds);
+            await handleSendMessage(base64Audio, elapsedSeconds);
           }
         };
         stream.getTracks().forEach((track) => track.stop());
       };
 
+      recordingStartTimeRef.current = Date.now();
       mediaRecorder.start(100);
       setIsRecording(true);
       setRecordingSeconds(0);
@@ -602,7 +611,21 @@ function ChatPage() {
                 </h3>
               </div>
 
-              {filteredDirectConvs.length === 0 ? (
+              {loadingConvs ? (
+                <div className="space-y-2 pr-1">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-card/30 p-3">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-3.5 w-32" />
+                          <Skeleton className="h-3 w-48" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredDirectConvs.length === 0 ? (
                 <div className="rounded-2xl border border-border/80 bg-card/30 p-8 text-center space-y-2">
                   <User className="h-8 w-8 text-muted-foreground/40 mx-auto" />
                   <h4 className="font-semibold text-sm">No direct conversations yet</h4>
@@ -835,9 +858,30 @@ function ChatPage() {
             {/* Messages Feed */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 custom-scrollbar">
               {loadingMsgs ? (
-                <div className="py-16 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin inline-block" />
-                  Loading conversation messages...
+                <div className="space-y-4 py-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex items-start gap-3 max-w-[80%]",
+                        i % 2 === 0 ? "ml-auto flex-row-reverse" : ""
+                      )}
+                    >
+                      <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                      <div className="space-y-1.5 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-3.5 w-24" />
+                          <Skeleton className="h-3 w-12" />
+                        </div>
+                        <Skeleton
+                          className={cn(
+                            "h-12 rounded-2xl",
+                            i % 2 === 0 ? "w-48 bg-primary/20" : "w-64 bg-card/60"
+                          )}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : filteredActiveMessages.length === 0 ? (
                 <div className="py-16 text-center space-y-2 max-w-sm mx-auto">
@@ -946,27 +990,13 @@ function ChatPage() {
 
                         {/* Audio Voice Player or Text */}
                         {msg.audio_url ? (
-                          <div className="flex items-center gap-3 py-1">
-                            <button
-                              type="button"
-                              onClick={() => toggleAudioPlay(msg.id, msg.audio_url!)}
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary hover:scale-105 transition shrink-0"
-                            >
-                              {playingAudioId === msg.id ? (
-                                <Pause className="h-3.5 w-3.5 fill-primary" />
-                              ) : (
-                                <Play className="h-3.5 w-3.5 fill-primary" />
-                              )}
-                            </button>
-                            <div className="space-y-0.5">
-                              <p className="text-xs font-semibold flex items-center gap-1">
-                                <Volume2 className="h-3.5 w-3.5" /> Voice Message
-                              </p>
-                              {msg.audio_duration ? (
-                                <span className="text-[10px] opacity-75">{msg.audio_duration}s</span>
-                              ) : null}
-                            </div>
-                          </div>
+                          <WhatsAppVoicePlayer
+                            audioUrl={msg.audio_url}
+                            duration={msg.audio_duration}
+                            avatarUrl={msg.author_avatar}
+                            senderName={msg.author_name}
+                            isOwn={isMine}
+                          />
                         ) : (
                           <div className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">
                             <RenderSmartText

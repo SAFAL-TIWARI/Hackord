@@ -336,28 +336,31 @@ function ProfilePage() {
             <div>
               <h2 className="mb-3 text-lg font-semibold">Active Rooms</h2>
               {roomsLoading ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Skeleton className="h-20 rounded-xl" />
-                  <Skeleton className="h-20 rounded-xl" />
+                <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-2">
+                  <Skeleton className="h-16 w-48 shrink-0 rounded-xl" />
+                  <Skeleton className="h-16 w-48 shrink-0 rounded-xl" />
                 </div>
               ) : userRooms.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2">
+                /* Horizontal Scrollbar Container for Active Rooms */
+                <div className="flex items-center gap-3 overflow-x-auto custom-scrollbar pb-3 pt-1">
                   {userRooms.map((r) => (
                     <Link
                       key={r.id}
                       to="/rooms/$roomId"
                       params={{ roomId: r.id }}
-                      className="group block rounded-xl border border-border/60 bg-card/50 p-4 transition hover:bg-card hover:border-primary/50"
+                      className="group flex-none min-w-[200px] max-w-[260px] rounded-xl border border-border/70 bg-card/60 p-3.5 transition hover:bg-card hover:border-primary/60 shadow-sm flex items-center justify-between gap-3"
                     >
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground truncate">{r.hackathon}</p>
-                        {r.status && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0 ml-2">
-                            {r.status}
-                          </Badge>
-                        )}
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="font-semibold text-sm group-hover:text-primary transition truncate">
+                          {r.name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">{r.hackathon}</p>
                       </div>
-                      <p className="mt-1 font-medium text-sm group-hover:text-primary transition-colors">{r.name}</p>
+                      {r.status && (
+                        <Badge variant="secondary" className="text-[10px] px-2 py-0.5 shrink-0 bg-primary/10 text-primary border-primary/20">
+                          {r.status}
+                        </Badge>
+                      )}
                     </Link>
                   ))}
                 </div>

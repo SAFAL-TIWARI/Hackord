@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -161,10 +162,42 @@ function SettingsPage() {
           </p>
         </div>
 
-        {loading ? (
-          <div className="space-y-4">
-            <div className="h-48 rounded-2xl bg-card/40 animate-pulse" />
-            <div className="h-48 rounded-2xl bg-card/40 animate-pulse" />
+        {loading || authLoading ? (
+          <div className="space-y-6">
+            <div className="glass rounded-2xl p-6 shadow-card space-y-4">
+              <div className="flex items-center gap-3 border-b border-border/50 pb-3">
+                <Skeleton className="h-5 w-5 rounded-md" />
+                <Skeleton className="h-5 w-48" />
+              </div>
+              <div className="space-y-3 pt-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center justify-between py-2">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-36" />
+                      <Skeleton className="h-3 w-56" />
+                    </div>
+                    <Skeleton className="h-6 w-11 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="glass rounded-2xl p-6 shadow-card space-y-4">
+              <div className="flex items-center gap-3 border-b border-border/50 pb-3">
+                <Skeleton className="h-5 w-5 rounded-md" />
+                <Skeleton className="h-5 w-40" />
+              </div>
+              <div className="space-y-3 pt-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between py-2">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                    <Skeleton className="h-6 w-11 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         ) : (
           <>

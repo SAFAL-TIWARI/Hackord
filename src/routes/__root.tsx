@@ -12,7 +12,6 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider } from "@/lib/auth";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 
 import { NotFoundPage } from "@/components/NotFoundPage";
@@ -24,11 +23,9 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
 
   const is404 =
+    (error as any)?.isNotFound ||
     (error as any)?.status === 404 ||
     (error as any)?.statusCode === 404 ||
     (error?.message && error.message.toLowerCase().includes("not found"));

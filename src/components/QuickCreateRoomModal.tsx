@@ -89,9 +89,9 @@ export function QuickCreateRoomModal({
       setTeamName("");
       toast.success(`Room "${name}" created!`);
       navigate({ to: "/rooms/$roomId", params: { roomId: id } });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to create room. Is the database connected?");
+      toast.error(err.message || "Failed to create room. Is the database connected?");
     } finally {
       setLoading(false);
     }

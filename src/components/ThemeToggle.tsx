@@ -40,12 +40,14 @@ export function ThemeToggle({ theme, onToggle, className }: Props) {
     >
       {/* Dynamic environmental glowing light inside the track */}
       <span
+        suppressHydrationWarning
         className={cn(
           "absolute inset-0 bg-gradient-to-r from-amber-500/15 via-orange-500/5 to-transparent transition-opacity duration-500 pointer-events-none",
           isDark ? "opacity-0" : "opacity-100"
         )}
       />
       <span
+        suppressHydrationWarning
         className={cn(
           "absolute inset-0 bg-gradient-to-l from-indigo-500/20 via-blue-500/5 to-transparent transition-opacity duration-500 pointer-events-none",
           isDark ? "opacity-100" : "opacity-0"
@@ -54,6 +56,7 @@ export function ThemeToggle({ theme, onToggle, className }: Props) {
 
       {/* Track text labels */}
       <span
+        suppressHydrationWarning
         className={cn(
           "absolute left-4.5 text-xs font-semibold uppercase tracking-wider text-slate-100 transition-all duration-300 pointer-events-none",
           isDark
@@ -65,6 +68,7 @@ export function ThemeToggle({ theme, onToggle, className }: Props) {
       </span>
 
       <span
+        suppressHydrationWarning
         className={cn(
           "absolute right-4.5 text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-200 transition-all duration-300 pointer-events-none",
           isDark
@@ -77,6 +81,7 @@ export function ThemeToggle({ theme, onToggle, className }: Props) {
 
       {/* Sliding thumb containing gradient & active icon */}
       <span
+        suppressHydrationWarning
         className={cn(
           "absolute flex h-6 w-6 items-center justify-center rounded-full transition-all duration-500 cubic-bezier(0.25, 1, 0.5, 1)",
           isDark

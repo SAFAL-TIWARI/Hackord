@@ -94,9 +94,9 @@ export function CreateRoomModal({
       onOpenChange(false);
       toast.success(`Room "${name}" created!`);
       navigate({ to: "/rooms/$roomId", params: { roomId: id } });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to create room. Please try again.");
+      toast.error(err.message || "Failed to create room. Please try again.");
     }
   }
 

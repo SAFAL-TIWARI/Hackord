@@ -57,34 +57,31 @@ function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
+  const [loading, setLoading] = useState(true);
+  const [roomsViewMode, setRoomsViewMode] = useState<"list" | "grid">("list");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const v = (p.get("view") || localStorage.getItem("dashboard_rooms_view")) as any;
+      if (v === "list" || v === "grid") setRoomsViewMode(v);
+    }
+  }, []);
+
+  const [rooms, setRooms] = useState<DbRoom[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [realNotifications, setRealNotifications] = useState<RealNotification[]>([]);
+  const [dbNotes, setDbNotes] = useState<DbNote[]>([]);
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteContent, setNoteContent] = useState("");
+  const [creatingNote, setCreatingNote] = useState(false);
+
   useEffect(() => {
     if (!authLoading && !user) {
       toast.error("Please sign in to access your dashboard");
       navigate({ to: "/login" });
     }
   }, [authLoading, user, navigate]);
-
-  if (authLoading) {
-    return (
-      <AppShell>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-      </AppShell>
-    );
-  }
-
-  if (!user) return null;
-
-  const [loading, setLoading] = useState(true);
-  const [roomsViewMode, setRoomsViewMode] = useState<"list" | "grid">(() => {
-    if (typeof window !== "undefined") {
-      const p = new URLSearchParams(window.location.search);
-      const v = (p.get("view") || localStorage.getItem("dashboard_rooms_view")) as any;
-      if (v === "list" || v === "grid") return v;
-    }
-    return "list";
-  });
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -99,14 +96,6 @@ function DashboardPage() {
       }
     }
   }, [roomsViewMode]);
-
-  const [rooms, setRooms] = useState<DbRoom[]>([]);
-  const [invitations, setInvitations] = useState<any[]>([]);
-  const [realNotifications, setRealNotifications] = useState<RealNotification[]>([]);
-  const [dbNotes, setDbNotes] = useState<DbNote[]>([]);
-  const [noteTitle, setNoteTitle] = useState("");
-  const [noteContent, setNoteContent] = useState("");
-  const [creatingNote, setCreatingNote] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -148,6 +137,117 @@ function DashboardPage() {
       mounted = false;
     };
   }, [user, authLoading]);
+
+  const realDeadlines = useMemo(() => {
+    const list: { title: string; room: string; date: string; urgency: string; rawDate: Date }[] = [];
+    rooms.forEach((r) => {
+      const pairs = [
+        { title: "Registration closes", val: r.deadline_registration },
+        { title: "PPT Submission", val: r.deadline_ppt },
+        { title: "Prototype Submission", val: r.deadline_prototype },
+        { title: "Final Submission", val: r.deadline_final },
+        { title: "Result declaration", val: r.deadline_result },
+      ];
+      pairs.forEach((p) => {
+        if (p.val) {
+          const d = new Date(p.val);
+          if (!isNaN(d.getTime())) {
+            const diffDays = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+            const urgency = diffDays <= 2 ? "danger" : diffDays <= 7 ? "warning" : "muted";
+            list.push({
+              title: p.title,
+              room: r.name,
+              date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+              urgency,
+              rawDate: d,
+            });
+          }
+        }
+      });
+    });
+    list.sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime());
+    return list;
+  }, [rooms]);
+
+  const roomGroupedDeadlines = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        roomId: string;
+        roomName: string;
+        hackathon: string;
+        deadlines: { title: string; date: string; urgency: string; rawDate: Date }[];
+      }
+    >();
+
+    rooms.forEach((r) => {
+      const pairs = [
+        { title: "Registration closes", val: r.deadline_registration },
+        { title: "PPT Submission", val: r.deadline_ppt },
+        { title: "Prototype Submission", val: r.deadline_prototype },
+        { title: "Final Submission", val: r.deadline_final },
+        { title: "Result declaration", val: r.deadline_result },
+      ];
+      const roomDeadlines: { title: string; date: string; urgency: string; rawDate: Date }[] = [];
+      pairs.forEach((p) => {
+        if (p.val) {
+          const d = new Date(p.val);
+          if (!isNaN(d.getTime())) {
+            const diffDays = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+            const urgency = diffDays <= 2 ? "danger" : diffDays <= 7 ? "warning" : "muted";
+            roomDeadlines.push({
+              title: p.title,
+              date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+              urgency,
+              rawDate: d,
+            });
+          }
+        }
+      });
+
+      if (roomDeadlines.length > 0) {
+        roomDeadlines.sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime());
+        map.set(r.id, {
+          roomId: r.id,
+          roomName: r.name,
+          hackathon: r.hackathon,
+          deadlines: roomDeadlines,
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [rooms]);
+
+  const realActivities = useMemo(() => {
+    const list: { id: string; who: string; what: string; when: string; rawTime: number }[] = [];
+    rooms.forEach((r) => {
+      (r.activities || []).forEach((a) => {
+        const t = a.when ? new Date(a.when).getTime() : Date.now();
+        list.push({
+          id: a.id,
+          who: a.who,
+          what: `${a.what} (${r.name})`,
+          when: a.when ? formatTimeAgo(a.when) : "Recently",
+          rawTime: t,
+        });
+      });
+    });
+    list.sort((a, b) => b.rawTime - a.rawTime);
+    return list;
+  }, [rooms]);
+
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user) return null;
 
   const isRoomOwnerOrAdmin = (r: DbRoom) => {
     if (!user) return true;
@@ -259,54 +359,7 @@ function DashboardPage() {
   const firstRoomName = rooms[0]?.name ?? "Workspace";
   const firstRoomId = rooms[0]?.id ?? "smart-india-2026";
 
-  const realDeadlines = useMemo(() => {
-    const list: { title: string; room: string; date: string; urgency: string; rawDate: Date }[] = [];
-    rooms.forEach((r) => {
-      const pairs = [
-        { title: "Registration closes", val: r.deadline_registration },
-        { title: "PPT Submission", val: r.deadline_ppt },
-        { title: "Prototype Submission", val: r.deadline_prototype },
-        { title: "Final Submission", val: r.deadline_final },
-        { title: "Result declaration", val: r.deadline_result },
-      ];
-      pairs.forEach((p) => {
-        if (p.val) {
-          const d = new Date(p.val);
-          if (!isNaN(d.getTime())) {
-            const diffDays = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-            const urgency = diffDays <= 2 ? "danger" : diffDays <= 7 ? "warning" : "muted";
-            list.push({
-              title: p.title,
-              room: r.name,
-              date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-              urgency,
-              rawDate: d,
-            });
-          }
-        }
-      });
-    });
-    list.sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime());
-    return list;
-  }, [rooms]);
 
-  const realActivities = useMemo(() => {
-    const list: { id: string; who: string; what: string; when: string; rawTime: number }[] = [];
-    rooms.forEach((r) => {
-      (r.activities || []).forEach((a) => {
-        const t = a.when ? new Date(a.when).getTime() : Date.now();
-        list.push({
-          id: a.id,
-          who: a.who,
-          what: `${a.what} (${r.name})`,
-          when: a.when ? formatTimeAgo(a.when) : "Recently",
-          rawTime: t,
-        });
-      });
-    });
-    list.sort((a, b) => b.rawTime - a.rawTime);
-    return list;
-  }, [rooms]);
 
   const stats = [
     { label: "Active Rooms", value: rooms.length, icon: Layers3, bg: "bg-emerald-400/10", color: "text-emerald-400", pulse: true },
@@ -322,9 +375,16 @@ function DashboardPage() {
           /* Skeleton Loader UI for smooth fast loading without dummy data flicker */
           <div className="space-y-8">
             <Skeleton className="h-40 w-full rounded-3xl" />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {/* Desktop Skeleton Grid */}
+            <div className="hidden sm:grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+              ))}
+            </div>
+            {/* Mobile Horizontal Scrollable Skeletons */}
+            <div className="flex sm:hidden gap-3 overflow-x-auto pb-2 custom-scrollbar">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-24 w-52 shrink-0 rounded-2xl" />
               ))}
             </div>
             <div className="grid gap-6 lg:grid-cols-3">
@@ -336,14 +396,16 @@ function DashboardPage() {
         ) : (
           <>
             {/* Banner */}
-            <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-900/60 via-indigo-900/40 to-slate-900/80 p-6 sm:p-8 border border-white/10 shadow-2xl">
+            <section className="glass-strong rounded-3xl p-8 sm:p-12 shadow-card relative overflow-hidden">
+              <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+              <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
               <div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm  light:text-black">Welcome back</p>
-                  <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Welcome back</p>
+                  <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl text-foreground">
                     Hey {firstName} 👋
                   </h1>
-                  <p className="mt-2 max-w-lg text-sm  light:text-black">
+                  <p className="mt-2 max-w-lg text-sm text-muted-foreground leading-relaxed">
                     You have {invitations.length} pending room invitation{invitations.length === 1 ? "" : "s"} and {realDeadlines.length} upcoming hackathon deadline{realDeadlines.length === 1 ? "" : "s"}.
                   </p>
                 </div>
@@ -351,7 +413,7 @@ function DashboardPage() {
                   <Link
                     to="/rooms/$roomId"
                     params={{ roomId: firstRoomId }}
-                    className="rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-accent flex items-center gap-1.5"
+                    className="rounded-xl border dark:border-white/15 border-foreground/15 bg-white/10 dark:bg-foreground/10 px-5 py-2.5 text-xs font-semibold text-black dark:text-foreground shadow-glow hover:bg-white/20 dark:hover:bg-foreground/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
                   >
                     Open {firstRoomName} <ArrowUpRight className="h-4 w-4" />
                   </Link>
@@ -360,68 +422,128 @@ function DashboardPage() {
             </section>
 
             {/* Stats */}
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 animate-fade-in animate-delay-100">
-              {stats.map((s) => (
-                <SpotlightCard
-                  key={s.label}
-                  className="p-5 cursor-default"
-                  spotlightColor={s.pulse ? "rgba(52, 211, 153, 0.15)" : "rgba(139, 92, 246, 0.15)"}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{s.label}</span>
-                    <div className={`relative grid h-9 w-9 place-items-center rounded-lg ${s.bg}`}>
-                      {s.pulse && (
-                        <span className="absolute inset-0 rounded-lg animate-ping bg-emerald-400/20" />
+            <section className="animate-fade-in animate-delay-100">
+              {/* Desktop Grid View */}
+              <div className="hidden sm:grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {stats.map((s) => (
+                  <SpotlightCard
+                    key={s.label}
+                    className="p-5 cursor-default"
+                    spotlightColor={s.pulse ? "rgba(52, 211, 153, 0.15)" : "rgba(139, 92, 246, 0.15)"}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">{s.label}</span>
+                      <div className={`relative grid h-9 w-9 place-items-center rounded-lg ${s.bg}`}>
+                        {s.pulse && (
+                          <span className="absolute inset-0 rounded-lg animate-ping bg-emerald-400/20" />
+                        )}
+                        <s.icon className={`relative h-4 w-4 ${s.color} ${s.pulse ? "drop-shadow-[0_0_6px_rgb(52,211,153)]" : ""}`} />
+                      </div>
+                    </div>
+                    <div className={`mt-3 text-3xl font-semibold ${s.pulse && s.value > 0 ? "text-emerald-400" : ""}`}>
+                      {s.value}
+                    </div>
+                    {s.pulse && s.value > 0 && (
+                      <p className="mt-1 text-xs text-emerald-400/70 flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                        Live
+                      </p>
+                    )}
+                  </SpotlightCard>
+                ))}
+              </div>
+
+              {/* Mobile Horizontal Scrollable View (Smooth responsive horizontal carousel) */}
+              <div className="flex sm:hidden overflow-x-auto gap-3 pb-3 pt-1 px-1 -mx-1 snap-x snap-mandatory custom-scrollbar">
+                {stats.map((s) => (
+                  <div
+                    key={s.label}
+                    className="snap-start shrink-0 w-[220px] glass rounded-2xl p-4 shadow-card flex flex-col justify-between border border-border/70"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground truncate mr-2">{s.label}</span>
+                      <div className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-xl ${s.bg}`}>
+                        {s.pulse && (
+                          <span className="absolute inset-0 rounded-xl animate-ping bg-emerald-400/20" />
+                        )}
+                        <s.icon className={`h-4 w-4 ${s.color}`} />
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-baseline justify-between">
+                      <div className={`text-2xl font-bold ${s.pulse && s.value > 0 ? "text-emerald-400" : ""}`}>
+                        {s.value}
+                      </div>
+                      {s.pulse && s.value > 0 && (
+                        <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                          Live
+                        </span>
                       )}
-                      <s.icon className={`relative h-4 w-4 ${s.color} ${s.pulse ? "drop-shadow-[0_0_6px_rgb(52,211,153)]" : ""}`} />
                     </div>
                   </div>
-                  <div className={`mt-3 text-3xl font-semibold ${s.pulse && s.value > 0 ? "text-emerald-400" : ""}`}>
-                    {s.value}
-                  </div>
-                  {s.pulse && s.value > 0 && (
-                    <p className="mt-1 text-xs text-emerald-400/70 flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-                      Live
-                    </p>
-                  )}
-                </SpotlightCard>
-              ))}
+                ))}
+              </div>
             </section>
 
             <div className="grid gap-6 lg:grid-cols-3 animate-fade-in animate-delay-200">
-              {/* Deadlines */}
+              {/* Deadlines Grouped by Room */}
               <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-lg font-semibold">Upcoming deadlines</h2>
                   <Badge variant="secondary">{realDeadlines.length} Total</Badge>
                 </div>
-                {realDeadlines.length === 0 ? (
+                {roomGroupedDeadlines.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
                     No upcoming room deadlines 🎉
                   </div>
                 ) : (
-                  <ul className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
-                    {realDeadlines.map((d, idx) => (
-                      <li key={d.title + d.room + idx} className="flex items-center justify-between rounded-xl border border-border/60 bg-card/50 p-4">
-                        <div className="flex items-center gap-3">
-                          <div className={
-                            "grid h-10 w-10 place-items-center rounded-lg " +
-                            (d.urgency === "danger" ? "bg-destructive/15 text-destructive"
-                              : d.urgency === "warning" ? "bg-warning/15 text-warning"
-                                : "bg-gradient-brand-soft text-primary")
-                          }>
-                            <CalendarClock className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{d.title}</p>
-                            <p className="text-xs text-muted-foreground">{d.room}</p>
-                          </div>
+                  <div className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
+                    {roomGroupedDeadlines.map((group) => (
+                      <div key={group.roomId} className="rounded-xl border border-border/70 bg-card/40 p-3.5 space-y-2.5">
+                        <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                          <Link
+                            to="/rooms/$roomId"
+                            params={{ roomId: group.roomId }}
+                            className="font-bold text-sm text-primary hover:underline flex items-center gap-1.5"
+                          >
+                            <span>{group.roomName}</span>
+                            <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
+                              {group.hackathon}
+                            </Badge>
+                          </Link>
+                          <span className="text-[11px] font-semibold text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-full">
+                            {group.deadlines.length} deadline{group.deadlines.length === 1 ? "" : "s"}
+                          </span>
                         </div>
-                        <span className="text-sm text-muted-foreground">{d.date}</span>
-                      </li>
+
+                        <ul className="space-y-2">
+                          {group.deadlines.map((d, idx) => (
+                            <li
+                              key={d.title + idx}
+                              className="flex items-center justify-between rounded-lg border border-border/50 bg-background/50 p-2.5 text-xs"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <div
+                                  className={
+                                    "grid h-7 w-7 place-items-center rounded-md " +
+                                    (d.urgency === "danger"
+                                      ? "bg-destructive/15 text-destructive"
+                                      : d.urgency === "warning"
+                                      ? "bg-warning/15 text-warning"
+                                      : "bg-gradient-brand-soft text-primary")
+                                  }
+                                >
+                                  <CalendarClock className="h-3.5 w-3.5" />
+                                </div>
+                                <span className="font-medium text-foreground">{d.title}</span>
+                              </div>
+                              <span className="text-muted-foreground font-mono">{d.date}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </section>
 

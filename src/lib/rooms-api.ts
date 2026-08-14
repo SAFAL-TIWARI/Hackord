@@ -787,3 +787,35 @@ export async function getAgoraToken(roomId: string): Promise<{
 }> {
   return apiFetch<{ token: string; appId: string; channelName?: string; warning?: string }>(`/rooms/${roomId}/token`);
 }
+
+export async function leaveRoom(roomId: string, user: { id?: string; email?: string; name?: string }): Promise<boolean> {
+  try {
+    await apiFetch(`/rooms/${roomId}/leave`, {
+      method: "POST",
+      body: JSON.stringify({
+        userId: user.id,
+        userEmail: user.email,
+        userName: user.name,
+      }),
+    });
+  } catch (err) {
+    console.warn("[rooms-api] Backend leaveRoom failed, updating locally:", err);
+  }
+
+  // Remove member from local storage
+  const rooms = loadRoomsFromStorage();
+  const room = rooms.find((r) => r.id === roomId);
+  if (room && room.members) {
+    const idx = room.members.findIndex(
+      (m) =>
+        (user.id && m.user_id === user.id) ||
+        (user.email && m.user_id === user.email) ||
+        (user.name && m.user_name === user.name)
+    );
+    if (idx !== -1) {
+      room.members.splice(idx, 1);
+      saveRoomsToStorage(rooms);
+    }
+  }
+  return true;
+}
