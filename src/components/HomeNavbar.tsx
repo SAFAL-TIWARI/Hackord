@@ -59,29 +59,32 @@ export function HomeNavbar() {
   };
 
   return (
-    <div className="sticky top-0 z-50 w-full px-4 sm:px-6 py-3 transition-all duration-500 ease-out flex justify-center">
+    <div className="sticky top-0 z-50 w-full px-2.5 sm:px-6 py-2 sm:py-3 transition-all duration-500 ease-out flex justify-center">
       <header
         className={cn(
-          "w-full transition-all duration-500 ease-out flex items-center justify-between",
+          "w-full transition-all duration-500 ease-out flex items-center justify-between gap-1.5 sm:gap-4",
           scrolled
-            ? "max-w-3xl rounded-full border border-border/80 bg-card/85 backdrop-blur-2xl shadow-spatial px-5 py-2.5"
-            : "max-w-7xl rounded-2xl border border-transparent bg-transparent px-4 sm:px-6 py-3"
+            ? "max-w-3xl rounded-full border border-border/80 bg-card/85 backdrop-blur-2xl shadow-spatial px-3 sm:px-5 py-1.5 sm:py-2.5"
+            : "max-w-7xl rounded-2xl border border-transparent bg-transparent px-2 sm:px-6 py-2 sm:py-3"
         )}
       >
-        <BrandLogo size="md" className="transition-transform duration-300 hover:scale-105" />
+        <div className="shrink-0">
+          <BrandLogo size="sm" className="sm:hidden transition-transform duration-300 hover:scale-105" />
+          <BrandLogo size="md" className="hidden sm:flex transition-transform duration-300 hover:scale-105" />
+        </div>
 
-        <nav className="flex items-center gap-2.5 sm:gap-4 text-sm font-medium">
+        <nav className="flex items-center gap-1.5 sm:gap-3 text-sm font-medium shrink-0">
           <button
             onClick={handleEnableNotifications}
             className={cn(
-              "relative p-2 rounded-xl border transition-all duration-300",
+              "relative p-1.5 sm:p-2 rounded-xl border transition-all duration-300 shrink-0",
               notifGranted
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
                 : "border-border/60 bg-card/40 text-muted-foreground hover:text-foreground hover:bg-card/70"
             )}
             title={notifGranted ? "Browser website notifications enabled" : "Enable browser push notifications"}
           >
-            <Bell className="h-4 w-4" />
+            <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             {notifGranted && (
               <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             )}
@@ -91,7 +94,7 @@ export function HomeNavbar() {
 
           <Link
             to="/signup"
-            className="rounded-xl bg-gradient-brand text-xs sm:text-sm font-semibold text-white px-4 py-2 shadow-glow hover:opacity-90 transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
+            className="rounded-xl bg-gradient-brand text-xs sm:text-sm font-semibold text-white px-3 sm:px-4 py-1.5 sm:py-2 shadow-glow hover:opacity-90 transition-all hover:scale-105 active:scale-95 whitespace-nowrap shrink-0"
           >
             Get started
           </Link>

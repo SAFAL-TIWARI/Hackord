@@ -157,8 +157,8 @@ html.light .glass-strong {
     border-color: var(--color-border);
   }
   html, body {
-    background-color: var(--color-background);  
-    color: var(--color-foreground);
+    background-color: transparent;  
+    color: transparent;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     overflow-x: clip; /* clip prevents scrollbar jumps while keeping position: sticky operational */

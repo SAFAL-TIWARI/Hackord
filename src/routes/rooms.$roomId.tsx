@@ -10,9 +10,25 @@ import {
   Linkedin, Globe, Trophy, GraduationCap,
   Mic, MicOff, Reply, MoreVertical, ChevronLeft, ChevronRight,
   Brain, ChevronDown, Share2, MoreHorizontal, ArrowUp, Copy, CornerDownRight,
-  Presentation, Workflow, ShieldCheck, Layers, ListChecks, Network, Briefcase, Clapperboard, Rocket
+  Presentation, Workflow, ShieldCheck, Layers, ListChecks, Network, Briefcase, Clapperboard, Rocket,
+  X, Loader2, FileCheck, HelpCircle, FileStack, UploadCloud, FolderOpen
 } from "lucide-react";
 import { fetchGithubWorkspaceData, parseGithubUrl, type GithubWorkspaceData } from "@/lib/github-api";
+import {
+  fetchAiConversations,
+  createAiConversation,
+  updateAiConversation,
+  deleteAiConversation,
+  sendAiChatMessage,
+  uploadAiFile,
+  openFileInNewTab,
+  type AiConversation,
+  type AiChatMessage,
+  type AiFileAttachment,
+} from "@/lib/ai-api";
+import { AiMessageRenderer } from "@/components/ai/AiMessageRenderer";
+import { AiFilesSidebar } from "@/components/ai/AiFilesSidebar";
+import { AiWorkspaceSkeleton } from "@/components/ai/AiWorkspaceSkeleton";
 import { AgoraMeeting } from "@/components/AgoraMeeting";
 import { AppShell } from "@/components/AppShell";
 import { RoomSkeleton } from "@/components/RoomSkeleton";
@@ -175,7 +191,7 @@ function RoomPage() {
             return prev;
           });
         }
-      } catch {}
+      } catch { }
     }, 3500);
     return () => clearInterval(interval);
   }, [room?.id]);
@@ -398,7 +414,7 @@ function RoomPage() {
               members={room.members || []}
             />
           )}
-          {tab === "ai" && <AITab />}
+          {tab === "ai" && <AITab room={room} user={user} />}
           {tab === "github" && <GithubTab room={room} onRoomUpdate={refreshRoom} isOwnerOrAdmin={isOwnerOrAdmin} />}
           {tab === "files" && <FilesTab room={room} onRoomUpdate={refreshRoom} userName={currentUserName} />}
           {tab === "timeline" && <TimelineTab room={room} />}
@@ -945,7 +961,7 @@ function AddMemberDialog({
             dbUsers.map((u) => {
               const isRequested = requested.includes(u._id);
               const qLower = q.trim().toLowerCase().replace(/^@/, "");
-              
+
               // Calculate match badges for room invite modal
               const matchBadges: { label: string; color: string }[] = [];
               if (qLower) {
@@ -1186,7 +1202,7 @@ function ChatTab({
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
-        } catch {}
+        } catch { }
       }
     };
   }, []);
@@ -1217,7 +1233,7 @@ function ChatTab({
     if (isRecording && recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch {}
+      } catch { }
       setIsRecording(false);
     }
   };
@@ -1316,7 +1332,7 @@ function ChatTab({
             return isDifferent ? freshMsgs : prev;
           });
         }
-      } catch {}
+      } catch { }
     };
     const timer = setInterval(poll, 2500);
     return () => clearInterval(timer);
@@ -1444,7 +1460,7 @@ function ChatTab({
       if (isRecording && recognitionRef.current) {
         try {
           recognitionRef.current.stop();
-        } catch {}
+        } catch { }
         setIsRecording(false);
       }
       setText("");
@@ -1489,7 +1505,7 @@ function ChatTab({
         isSidebarCollapsed ? "md:grid-cols-[70px_1fr]" : "md:grid-cols-[260px_1fr]"
       )}
     >
-      
+
       {/* 1. Left Sidebar: Channels & Private DMs */}
       <div
         className={cn(
@@ -1571,7 +1587,7 @@ function ChatTab({
           mobileViewChatActive ? "flex" : "hidden md:flex"
         )}
       >
-        
+
         {/* Header Bar */}
         <div className="flex items-center justify-between border-b border-border p-4 gap-3 bg-card/30 backdrop-blur-md">
           <div className="flex items-center gap-2 min-w-0">
@@ -1659,7 +1675,7 @@ function ChatTab({
                   )}
 
                   <div className={cn("flex items-start gap-2 max-w-[88%] sm:max-w-[75%] group relative min-w-0", isSelf ? "ml-auto flex-row-reverse" : "mr-auto")}>
-                    
+
                     {/* Avatar (Left side only for others) */}
                     {!isSelf && (
                       <Avatar className="h-8.5 w-8.5 shrink-0 border border-border shadow-sm">
@@ -2195,167 +2211,25 @@ function TasksTab({ room, onRoomUpdate, userName }: { room: DbRoom; onRoomUpdate
   );
 }
 
-/* ------------------------ AI Workspace (ChatGPT / Gemini Style) ------------------------ */
-interface AIChatMessage {
-  id: string;
-  sender: "user" | "ai";
-  text: string;
-  timestamp: string;
-  plugin?: string;
-  structuredOutput?: string;
-}
+/* ------------------------ Real-Time AI Workspace (Gemini & MongoDB Powered) ------------------------ */
+function AITab({ room, user }: { room: DbRoom; user?: any }) {
+  const currentUserId = user?._id || user?.id || "guest";
+  const currentUserName = user?.name || user?.username || "You";
+  const currentUserAvatar = user?.avatar || "";
 
-interface AIChat {
-  id: string;
-  title: string;
-  pinned: boolean;
-  activePlugin?: string;
-  updatedAt: string;
-  messages: AIChatMessage[];
-}
+  const [chats, setChats] = useState<AiConversation[]>([]);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [isLoadingChats, setIsLoadingChats] = useState<boolean>(true);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-const INITIAL_AI_CHATS: AIChat[] = [
-  {
-    id: "chat-1",
-    title: "Link Monetization Process",
-    pinned: true,
-    updatedAt: "2 hours ago",
-    messages: [
-      { id: "m1", sender: "user", text: "How can we monetize external project links effectively?", timestamp: "10:30 AM" },
-      { id: "m2", sender: "ai", text: "Here is a breakdown of link monetization strategies:\n\n1. **Affiliate Link Tracking**: Automatically append affiliate codes to vendor tools.\n2. **Sponsorship Banners**: Show sponsored tech stack logos alongside repository links.\n3. **Paywalled Micro-courses**: Gated deep-dives for project templates.", timestamp: "10:31 AM" },
-    ],
-  },
-  {
-    id: "chat-2",
-    title: "Resume summary rewrite",
-    pinned: true,
-    updatedAt: "Yesterday",
-    messages: [
-      { id: "m3", sender: "user", text: "Rewrite my project summary for full-stack engineer role.", timestamp: "Yesterday" },
-      { id: "m4", sender: "ai", text: "Here is a polished executive summary ready for top tech roles:\n\n> *Full-Stack Engineer with expertise in React, TypeScript, Node.js, and real-time collaboration apps. Proven track record building high-concurrency Agora audio/video integrations and AI-assisted developer tools.*", timestamp: "Yesterday" },
-    ],
-  },
-  {
-    id: "chat-3",
-    title: "Web Dev Project Ideas",
-    pinned: true,
-    updatedAt: "2 days ago",
-    messages: [
-      { id: "m5", sender: "user", text: "Give me 3 innovative hackathon ideas combining AI + WebRTC.", timestamp: "2 days ago" },
-      { id: "m6", sender: "ai", text: "1. **Real-time AI Interview Coach**: Analyzes speech tone, eye contact, and technical accuracy live during WebRTC calls.\n2. **Smart Meeting Summarizer**: Extracts action items, flowcharts, and task tickets live during hackathon syncs.\n3. **Peer-to-Peer Code Pair AI**: Live pair-programming bot that watches canvas state.", timestamp: "2 days ago" },
-    ],
-  },
-  {
-    id: "chat-4",
-    title: "PromptWars Hack2Skill",
-    pinned: true,
-    updatedAt: "3 days ago",
-    messages: [
-      { id: "m7", sender: "user", text: "Help me structure prompt strategy for PromptWars competition.", timestamp: "3 days ago" },
-      { id: "m8", sender: "ai", text: "Use system role-pinning, zero-shot chain of thought, and structured JSON output formats to ensure 99%+ consistency.", timestamp: "3 days ago" },
-    ],
-  },
-  {
-    id: "chat-5",
-    title: "IIT Bombay Internship Guide",
-    pinned: true,
-    updatedAt: "4 days ago",
-    messages: [
-      { id: "m9", sender: "user", text: "What are key points to focus on for research internships?", timestamp: "4 days ago" },
-      { id: "m10", sender: "ai", text: "Focus on published open-source contributions, clear statement of purpose (SOP), and demonstrating proficiency with PyTorch / system architecture.", timestamp: "4 days ago" },
-    ],
-  },
-  {
-    id: "chat-6",
-    title: "Google Campus Ambassador...",
-    pinned: true,
-    updatedAt: "5 days ago",
-    messages: [
-      { id: "m11", sender: "user", text: "Draft application essay for campus ambassador program.", timestamp: "5 days ago" },
-      { id: "m12", sender: "ai", text: "Here is a compelling draft highlighting community leadership, hackathon organizing experience, and technical outreach passion.", timestamp: "5 days ago" },
-    ],
-  },
-  {
-    id: "chat-7",
-    title: "Hackord Project",
-    pinned: false,
-    updatedAt: "Today",
-    messages: [
-      { id: "m13", sender: "user", text: "What features are implemented in Hackord?", timestamp: "11:00 AM" },
-      { id: "m14", sender: "ai", text: "Hackord includes Rooms, Live Agora Audio/Video meetings, Real-time Chat with Voice-to-Text, Task Management, GitHub Live Stats, and AI Workspace.", timestamp: "11:01 AM" },
-    ],
-  },
-  {
-    id: "chat-8",
-    title: "Instagram Carousel Design",
-    pinned: false,
-    updatedAt: "Yesterday",
-    messages: [
-      { id: "m15", sender: "user", text: "Create slide outline for 5-slide tech tips carousel.", timestamp: "Yesterday" },
-      { id: "m16", sender: "ai", text: "Slide 1: Hook Headline\nSlide 2: The Core Problem\nSlide 3: Step-by-Step Solution\nSlide 4: Code Snippet Example\nSlide 5: Call to Action (Follow & Save)", timestamp: "Yesterday" },
-    ],
-  },
-  {
-    id: "chat-9",
-    title: "Face Swap Description",
-    pinned: false,
-    updatedAt: "3 days ago",
-    messages: [
-      { id: "m17", sender: "user", text: "Write technical explanation for face swap pipeline.", timestamp: "3 days ago" },
-      { id: "m18", sender: "ai", text: "Uses InsightFace embeddings + GAN-based face alignment for zero-shot identity transfer.", timestamp: "3 days ago" },
-    ],
-  },
-  {
-    id: "chat-10",
-    title: "Image Modification Request",
-    pinned: false,
-    updatedAt: "4 days ago",
-    messages: [
-      { id: "m19", sender: "user", text: "How to apply background blur dynamically in canvas?", timestamp: "4 days ago" },
-      { id: "m20", sender: "ai", text: "Use HTML5 Canvas `ctx.filter = 'blur(10px)'` or WebGL shaders for hardware-accelerated real-time segmentation.", timestamp: "4 days ago" },
-    ],
-  },
-  {
-    id: "chat-11",
-    title: "Improved Study Prompt",
-    pinned: false,
-    updatedAt: "5 days ago",
-    messages: [
-      { id: "m21", sender: "user", text: "Generate Feynman technique prompt for DSA algorithms.", timestamp: "5 days ago" },
-      { id: "m22", sender: "ai", text: "Prompt created! 'Explain QuickSort as if I am 10 years old, using plain English and visual analogies.'", timestamp: "5 days ago" },
-    ],
-  },
-  {
-    id: "chat-12",
-    title: "AI for SEO Automation",
-    pinned: false,
-    updatedAt: "6 days ago",
-    messages: [
-      { id: "m23", sender: "user", text: "How to automate meta descriptions with LLMs?", timestamp: "6 days ago" },
-      { id: "m24", sender: "ai", text: "Extract page H1 + introductory paragraph -> Pass to Gemini API with strict 155-character constraints -> Write meta tag to head dynamically.", timestamp: "6 days ago" },
-    ],
-  },
-  {
-    id: "chat-13",
-    title: "DSA Roadmap in Java",
-    pinned: false,
-    updatedAt: "1 week ago",
-    messages: [
-      { id: "m25", sender: "user", text: "What order should I learn Java data structures?", timestamp: "1 week ago" },
-      { id: "m26", sender: "ai", text: "Arrays -> ArrayList -> LinkedList -> Stack/Queue -> HashMap/HashSet -> Trees (BST) -> Graphs -> Dynamic Programming.", timestamp: "1 week ago" },
-    ],
-  },
-];
-
-function AITab() {
-  const [chats, setChats] = useState<AIChat[]>(INITIAL_AI_CHATS);
-  const [selectedChatId, setSelectedChatId] = useState<string | null>("chat-8"); // default selected chat
   const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
   const [recentsCollapsed, setRecentsCollapsed] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileViewChatActive, setMobileViewChatActive] = useState(false);
+  const [isFilesSidebarOpen, setIsFilesSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
   // Input state
   const [input, setInput] = useState("");
   const [selectedPlugin, setSelectedPlugin] = useState<string | null>(null);
@@ -2363,15 +2237,140 @@ function AITab() {
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
-  // File upload hidden ref & base text ref for speech dictation
+  // Single file attachment state (< 5MB)
+  const [fileAttachment, setFileAttachment] = useState<AiFileAttachment | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const baseTextRef = useRef<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const aiChannelRef = useRef<BroadcastChannel | null>(null);
+
+  // Load real room-wide conversations from MongoDB on mount or when room changes
+  useEffect(() => {
+    let isMounted = true;
+    async function loadConversations() {
+      setIsLoadingChats(true);
+      try {
+        const fetched = await fetchAiConversations(room.id);
+        if (isMounted) {
+          setChats(fetched);
+          if (fetched.length > 0 && !selectedChatId) {
+            setSelectedChatId(fetched[0].id);
+          }
+        }
+      } catch (err: any) {
+        console.error("Failed to load AI conversations:", err);
+      } finally {
+        if (isMounted) setIsLoadingChats(false);
+      }
+    }
+    loadConversations();
+    return () => {
+      isMounted = false;
+    };
+  }, [room.id]);
+
+  // Multi-Tab BroadcastChannel for instantaneous zero-latency local tab sync
+  useEffect(() => {
+    if (typeof window === "undefined" || !room?.id) return;
+    const channel = new BroadcastChannel(`hackord_ai_workspace_${room.id}`);
+    aiChannelRef.current = channel;
+
+    channel.onmessage = (event) => {
+      const data = event.data;
+      if (!data) return;
+
+      if (data.type === "AI_CONV_CREATED") {
+        const newConv: AiConversation = data.payload;
+        setChats((prev) => {
+          if (prev.some((c) => c.id === newConv.id)) return prev;
+          return [newConv, ...prev];
+        });
+      } else if (data.type === "AI_CONV_UPDATED") {
+        const updatedConv: AiConversation = data.payload;
+        setChats((prev) => {
+          const exists = prev.some((c) => c.id === updatedConv.id);
+          if (exists) {
+            return prev.map((c) => (c.id === updatedConv.id ? updatedConv : c));
+          } else {
+            return [updatedConv, ...prev];
+          }
+        });
+      } else if (data.type === "AI_CONV_DELETED") {
+        const chatId: string = data.payload.chatId;
+        setChats((prev) => prev.filter((c) => c.id !== chatId));
+        setSelectedChatId((prev) => (prev === chatId ? null : prev));
+      }
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, [room?.id]);
+
+  // Real-time automatic polling to sync room AI conversations and messages from MongoDB live
+  useEffect(() => {
+    if (!room?.id) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await fetchAiConversations(room.id);
+        if (!isMounted || !fresh) return;
+
+        setChats((prev) => {
+          // If no changes from DB, skip updating state to prevent unnecessary re-renders
+          if (JSON.stringify(prev) === JSON.stringify(fresh)) return prev;
+
+          // If currently generating, preserve pending optimistic message in active chat
+          if (isGenerating && selectedChatId) {
+            return fresh.map((freshConv) => {
+              if (freshConv.id === selectedChatId) {
+                const prevActive = prev.find((p) => p.id === selectedChatId);
+                const optimisticMsgs = (prevActive?.messages || []).filter((m) =>
+                  m.id.startsWith("m-temp-")
+                );
+                if (optimisticMsgs.length > 0) {
+                  const existingIds = new Set(freshConv.messages.map((m) => m.id));
+                  const unmerged = optimisticMsgs.filter((m) => !existingIds.has(m.id));
+                  return {
+                    ...freshConv,
+                    messages: [...freshConv.messages, ...unmerged],
+                  };
+                }
+              }
+              return freshConv;
+            });
+          }
+
+          // If user had no chat selected, select the latest one
+          if (!selectedChatId && fresh.length > 0) {
+            setSelectedChatId(fresh[0].id);
+          }
+
+          return fresh;
+        });
+      } catch {
+        // quiet background catch
+      }
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [room?.id, isGenerating, selectedChatId]);
 
   const activeChat = useMemo(() => {
     return chats.find((c) => c.id === selectedChatId) || null;
   }, [chats, selectedChatId]);
+
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [activeChat?.messages, isGenerating]);
 
   // Filtered chats based on search query
   const filteredChats = useMemo(() => {
@@ -2382,7 +2381,64 @@ function AITab() {
   const pinnedChats = useMemo(() => filteredChats.filter((c) => c.pinned), [filteredChats]);
   const recentChats = useMemo(() => filteredChats.filter((c) => !c.pinned), [filteredChats]);
 
-  // Voice speech to text initialization (Exact non-duplicating logic from ChatTab)
+  // Total files & artifacts count for header badge
+  const totalRoomFilesCount = useMemo(() => {
+    let count = 0;
+    const seen = new Set<string>();
+    for (const c of chats) {
+      for (const m of c.messages) {
+        if (m.fileAttachment?.name && !seen.has(m.fileAttachment.name)) {
+          seen.add(m.fileAttachment.name);
+          count++;
+        }
+      }
+    }
+    return count;
+  }, [chats]);
+
+  // Group messages by date with formatted headers (Today, Yesterday, Date)
+  const groupedMessageItems = useMemo(() => {
+    if (!activeChat || !activeChat.messages) return [];
+
+    const items: Array<{ type: 'date'; label: string } | { type: 'message'; message: AiChatMessage }> = [];
+    let lastDate = '';
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+
+    for (const msg of activeChat.messages) {
+      const msgDate = msg.date || (msg.createdAt ? msg.createdAt.split('T')[0] : todayStr);
+
+      if (msgDate !== lastDate) {
+        let label = msgDate;
+        if (msgDate === todayStr) {
+          label = 'Today';
+        } else if (msgDate === yesterdayStr) {
+          label = 'Yesterday';
+        } else {
+          try {
+            label = new Date(msgDate).toLocaleDateString(undefined, {
+              weekday: 'long',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            });
+          } catch {
+            label = msgDate;
+          }
+        }
+        items.push({ type: 'date', label });
+        lastDate = msgDate;
+      }
+      items.push({ type: 'message', message: msg });
+    }
+
+    return items;
+  }, [activeChat]);
+
+  // Voice speech to text initialization
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -2434,7 +2490,7 @@ function AITab() {
     if (isRecording) {
       try {
         recognitionRef.current.stop();
-      } catch {}
+      } catch { }
       setIsRecording(false);
       toast.info("Voice typing stopped.");
     } else {
@@ -2460,40 +2516,126 @@ function AITab() {
     }
   };
 
+  // Only one plugin can be activated at a time per message
   const handleSelectPlugin = (toolKey: string) => {
     const tool = AI_TOOLS.find((t) => t.key === toolKey);
     if (tool) {
       setSelectedPlugin(tool.title);
       setShowPluginPicker(false);
-      setInput((prev) => prev.replace(/[/@]$/, ""));
-      toast.success(`Plugin @${tool.title} attached!`);
+      setInput((prev) => prev.replace(/[/@]\w*$/, "").trim());
+      toast.success(`Plugin active: @${tool.title}`);
     }
   };
 
-  const handleCreateNewChat = (pluginTitle?: string) => {
-    const newId = `chat-${Date.now()}`;
-    const newChat: AIChat = {
-      id: newId,
-      title: pluginTitle ? `${pluginTitle} Workspace` : "New Conversation",
-      pinned: false,
-      activePlugin: pluginTitle,
-      updatedAt: "Just now",
-      messages: [
-        {
-          id: `msg-welcome-${Date.now()}`,
-          sender: "ai",
-          text: pluginTitle
-            ? `Welcome to **${pluginTitle}** mode! How can I assist you with your project today?`
-            : "Hello! I am your AI Workspace assistant. Ask me anything, generate diagrams, PPTs, or READMEs.",
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          plugin: pluginTitle,
-        },
-      ],
-    };
-    setChats((prev) => [newChat, ...prev]);
-    setSelectedChatId(newId);
-    setMobileViewChatActive(true);
-    if (pluginTitle) setSelectedPlugin(pluginTitle);
+  const handleRemovePlugin = () => {
+    setSelectedPlugin(null);
+  };
+
+  // Process file upload (Single file < 5MB with deduplication & instant analysis)
+  const processUploadedFile = async (file: File) => {
+    const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+
+    if (file.size > MAX_BYTES) {
+      toast.error("File size exceeds 5MB limit. Please upload a file smaller than 5MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setIsUploadingFile(true);
+    const toastId = toast.loading(`Uploading "${file.name}" for AI analysis...`);
+
+    try {
+      const result = await uploadAiFile({
+        roomId: room.id,
+        userId: currentUserId,
+        userName: currentUserName,
+        file,
+      });
+
+      setFileAttachment({
+        id: result.id,
+        name: result.name,
+        size: result.size,
+        type: result.type,
+        dataUrl: result.dataUrl,
+        extractedText: result.extractedText,
+        author_name: currentUserName,
+        author_id: currentUserId,
+      });
+
+      if (result.isDuplicate) {
+        toast.success(`"${file.name}" loaded from workspace storage!`, { id: toastId });
+      } else {
+        toast.success(`"${file.name}" attached! Ready for Gemini analysis.`, { id: toastId });
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to upload file", { id: toastId });
+    } finally {
+      setIsUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      processUploadedFile(files[0]);
+    }
+  };
+
+  // Drag and drop file handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processUploadedFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleRemoveFileAttachment = () => {
+    setFileAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    toast.info("Attachment removed.");
+  };
+
+  // Create new conversation in MongoDB
+  const handleCreateNewChat = async (pluginTitle?: string) => {
+    const toastId = toast.loading("Creating new workspace conversation...");
+    try {
+      const newConv = await createAiConversation({
+        roomId: room.id,
+        userId: currentUserId,
+        userName: currentUserName,
+        userAvatar: currentUserAvatar,
+        title: pluginTitle ? `${pluginTitle} Workspace` : "New Conversation",
+        activePlugin: pluginTitle,
+      });
+
+      setChats((prev) => [newConv, ...prev]);
+      setSelectedChatId(newConv.id);
+      setMobileViewChatActive(true);
+      if (pluginTitle) setSelectedPlugin(pluginTitle);
+      aiChannelRef.current?.postMessage({ type: "AI_CONV_CREATED", payload: newConv });
+      toast.success("New conversation ready!", { id: toastId });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create conversation", { id: toastId });
+    }
   };
 
   const handleSelectChat = (chatId: string) => {
@@ -2501,118 +2643,195 @@ function AITab() {
     setMobileViewChatActive(true);
   };
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  // Send message to Gemini and update MongoDB conversation
+  const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!input.trim() && !selectedPlugin) return;
+    if ((!input.trim() && !fileAttachment && !selectedPlugin) || isGenerating) return;
 
-    let targetChatId = selectedChatId;
-    if (!targetChatId) {
-      const newId = `chat-${Date.now()}`;
-      const newChat: AIChat = {
-        id: newId,
-        title: input.trim().slice(0, 24) || "New Chat",
-        pinned: false,
-        activePlugin: selectedPlugin || undefined,
-        updatedAt: "Just now",
-        messages: [],
-      };
-      setChats((prev) => [newChat, ...prev]);
-      targetChatId = newId;
-      setSelectedChatId(newId);
-      setMobileViewChatActive(true);
-    }
+    const userPrompt = input.trim() || (fileAttachment ? `Please analyze attached file: ${fileAttachment.name}` : `Execute plugin @${selectedPlugin}`);
+    const activePluginForMessage = selectedPlugin;
+    const currentAttachment = fileAttachment;
 
-    const userMsgText = input.trim();
-    const currentPlugin = selectedPlugin;
-    const userMsg: AIChatMessage = {
-      id: `m-user-${Date.now()}`,
-      sender: "user",
-      text: userMsgText,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      plugin: currentPlugin || undefined,
-    };
-
-    let aiResponseText = `Processing request for: "${userMsgText}"...\n\n`;
-    if (currentPlugin === "Generate PPT") {
-      aiResponseText += "### 📊 Presentation Deck Outline Generated\n\n1. **Slide 1: Executive Summary**\n   - Problem & Opportunity\n   - Market Gap\n2. **Slide 2: System Architecture**\n   - Real-time WebRTC + LLM orchestration\n3. **Slide 3: Roadmap & Financials**\n   - Go-to-market plan.";
-    } else if (currentPlugin === "Workflow Diagram" || currentPlugin === "Architecture Diagram") {
-      aiResponseText += "### 🌐 Mermaid System Flowchart\n\n```mermaid\ngraph TD\n  A[User Web Client] -->|WebSockets| B[Express API Gateway]\n  B -->|Webhooks| C[ViaSocket Automation]\n  C -->|Alerts| D[WhatsApp Business API]\n  B -->|AI Context| E[Gemini / LLM Service]\n```";
-    } else {
-      aiResponseText += `Here is the structured solution for your inquiry:\n\n- **Analysis**: Evaluated prompt input.\n- **Recommendation**: Deploy with modular service boundary.\n- **Status**: Completed successfully.`;
-    }
-
-    const aiMsg: AIChatMessage = {
-      id: `m-ai-${Date.now()}`,
-      sender: "ai",
-      text: aiResponseText,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      plugin: currentPlugin || undefined,
-    };
-
-    setChats((prev) =>
-      prev.map((c) => (c.id === targetChatId ? { ...c, updatedAt: "Just now", messages: [...c.messages, userMsg, aiMsg] } : c))
-    );
-
+    // Clear input bar fields immediately
     setInput("");
     setSelectedPlugin(null);
+    setFileAttachment(null);
     setShowPluginPicker(false);
+    setIsGenerating(true);
+
+    const now = new Date();
+    // Optimistic user message
+    const tempUserMsg: AiChatMessage = {
+      id: `m-temp-${Date.now()}`,
+      sender: "user",
+      author_name: currentUserName,
+      author_avatar: currentUserAvatar,
+      author_id: currentUserId,
+      text: userPrompt,
+      timestamp: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      date: now.toISOString().split('T')[0],
+      plugin: activePluginForMessage || undefined,
+      fileAttachment: currentAttachment || undefined,
+    };
+
+    let targetChatId = selectedChatId;
+    if (targetChatId) {
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === targetChatId
+            ? { ...c, messages: [...c.messages, tempUserMsg], updatedAt: "Just now" }
+            : c
+        )
+      );
+    }
+
+    try {
+      const response = await sendAiChatMessage({
+        conversationId: targetChatId || undefined,
+        roomId: room.id,
+        userId: currentUserId,
+        userName: currentUserName,
+        userAvatar: currentUserAvatar,
+        prompt: userPrompt,
+        pluginTitle: activePluginForMessage,
+        fileAttachment: currentAttachment,
+      });
+
+      const updatedConv = response.conversation;
+      setChats((prev) => {
+        const exists = prev.some((c) => c.id === updatedConv.id);
+        if (exists) {
+          return prev.map((c) => (c.id === updatedConv.id ? updatedConv : c));
+        } else {
+          return [updatedConv, ...prev];
+        }
+      });
+
+      setSelectedChatId(updatedConv.id);
+      setMobileViewChatActive(true);
+      aiChannelRef.current?.postMessage({ type: "AI_CONV_UPDATED", payload: updatedConv });
+    } catch (err: any) {
+      console.error("[AI Chat Error]", err);
+      toast.error(err.message || "Failed to generate AI response. Please retry.");
+      // Rollback optimistic message if failed
+      if (targetChatId) {
+        setChats((prev) =>
+          prev.map((c) =>
+            c.id === targetChatId
+              ? { ...c, messages: c.messages.filter((m) => m.id !== tempUserMsg.id) }
+              : c
+          )
+        );
+      }
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  const handlePinChat = (chatId: string) => {
+  // Pin / Unpin in MongoDB
+  const handlePinChat = async (chatId: string) => {
+    const chat = chats.find((c) => c.id === chatId);
+    if (!chat) return;
+    const newPinned = !chat.pinned;
+
+    // Optimistic
+    const updated = { ...chat, pinned: newPinned };
     setChats((prev) =>
-      prev.map((c) => (c.id === chatId ? { ...c, pinned: !c.pinned } : c))
+      prev.map((c) => (c.id === chatId ? updated : c))
     );
-    toast.success("Chat pin status updated");
+    aiChannelRef.current?.postMessage({ type: "AI_CONV_UPDATED", payload: updated });
+
+    try {
+      await updateAiConversation(chatId, { pinned: newPinned });
+      toast.success(newPinned ? "Conversation pinned to top" : "Conversation unpinned");
+    } catch (err: any) {
+      toast.error("Failed to update pin status");
+    }
   };
 
-  const handleRenameChat = (chatId: string) => {
+  // Rename in MongoDB
+  const handleRenameChat = async (chatId: string) => {
     const currentChat = chats.find((c) => c.id === chatId);
     const newTitle = window.prompt("Enter new title for conversation:", currentChat?.title);
     if (newTitle && newTitle.trim()) {
+      const trimmedTitle = newTitle.trim();
+      const updated = { ...currentChat!, title: trimmedTitle };
       setChats((prev) =>
-        prev.map((c) => (c.id === chatId ? { ...c, title: newTitle.trim() } : c))
+        prev.map((c) => (c.id === chatId ? updated : c))
       );
-      toast.success("Chat renamed");
+      aiChannelRef.current?.postMessage({ type: "AI_CONV_UPDATED", payload: updated });
+      try {
+        await updateAiConversation(chatId, { title: trimmedTitle });
+        toast.success("Conversation renamed");
+      } catch (err: any) {
+        toast.error("Failed to rename conversation");
+      }
     }
   };
 
-  const handleDeleteChat = (chatId: string) => {
+  // Delete from MongoDB
+  const handleDeleteChat = async (chatId: string) => {
+    if (!confirm("Are you sure you want to delete this conversation thread?")) return;
+
     setChats((prev) => prev.filter((c) => c.id !== chatId));
     if (selectedChatId === chatId) {
       setSelectedChatId(null);
       setMobileViewChatActive(false);
     }
-    toast.success("Chat deleted");
+    aiChannelRef.current?.postMessage({ type: "AI_CONV_DELETED", payload: { chatId } });
+
+    try {
+      await deleteAiConversation(chatId);
+      toast.success("Conversation deleted");
+    } catch (err: any) {
+      toast.error("Failed to delete conversation from database");
+    }
   };
 
+  // Share conversation link
   const handleShareChat = (chatId: string) => {
     const chat = chats.find((c) => c.id === chatId);
     if (chat) {
-      navigator.clipboard.writeText(`${window.location.href}?chat=${chat.id}`);
+      navigator.clipboard.writeText(`${window.location.origin}/rooms/${room.id}?tab=ai&chat=${chat.id}`);
       toast.success(`Share link for "${chat.title}" copied to clipboard!`);
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const fileName = files[0].name;
-      setInput((prev) => `${prev} [Attached file: ${fileName}]`);
-      toast.success(`File "${fileName}" attached as context.`);
-    }
-  };
+  if (isLoadingChats) {
+    return <AiWorkspaceSkeleton />;
+  }
 
   return (
     <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       className={cn(
-        "grid grid-cols-1 gap-0 glass rounded-3xl border border-border shadow-spatial overflow-hidden h-[620px] transition-all duration-300",
+        "relative grid grid-cols-1 gap-0 glass rounded-3xl border border-border shadow-spatial overflow-hidden h-[660px] transition-all duration-300",
         isSidebarCollapsed ? "md:grid-cols-[70px_1fr]" : "md:grid-cols-[260px_1fr]"
       )}
     >
-      {/* Hidden File Input */}
-      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+      {/* Drag and drop overlay visual */}
+      {isDraggingOver && (
+        <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm z-50 flex flex-col items-center justify-center border-2 border-dashed border-primary rounded-3xl p-6 text-center space-y-2 pointer-events-none">
+          <UploadCloud className="h-12 w-12 text-primary animate-bounce" />
+          <h3 className="text-lg font-bold text-foreground">Drop File to Attach (&lt; 5MB)</h3>
+          <p className="text-xs text-muted-foreground max-w-sm">
+            PDFs, images, markdown, code, and text documents will be analyzed by Gemini intelligence.
+          </p>
+        </div>
+      )}
 
-      {/* ---------------- 1. LEFT SIDEBAR (MATCHES CHATTAB SIDEBAR THEME) ---------------- */}
+      {/* Hidden File Input for Single File Upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        onChange={handleFileUpload}
+        accept=".pdf,.doc,.docx,.txt,.md,.marp,.json,.csv,.js,.ts,.tsx,.jsx,.py,.html,.css,.png,.jpg,.jpeg,.webp"
+      />
+
+      {/* ---------------- 1. LEFT SIDEBAR (CONVERSATIONS LIST) ---------------- */}
       <div
         className={cn(
           "border-r border-border bg-sidebar/40 p-4 flex flex-col h-full overflow-hidden transition-all duration-300",
@@ -2621,9 +2840,8 @@ function AITab() {
         )}
       >
         {isSidebarCollapsed ? (
-          /* COLLAPSED SIDEBAR TOOLBAR (Only +, Search, Pin, All Conversations icons) */
+          /* COLLAPSED SIDEBAR TOOLBAR */
           <div className="flex flex-col items-center gap-3 py-1 w-full">
-            {/* Expand Toggle Button */}
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(false)}
@@ -2633,7 +2851,6 @@ function AITab() {
               <ChevronRight className="h-4 w-4" />
             </button>
 
-            {/* New Chat (+) Button */}
             <button
               type="button"
               onClick={() => handleCreateNewChat()}
@@ -2643,7 +2860,6 @@ function AITab() {
               <Plus className="h-5 w-5" />
             </button>
 
-            {/* Search Icon */}
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(false)}
@@ -2653,7 +2869,6 @@ function AITab() {
               <Search className="h-4.5 w-4.5" />
             </button>
 
-            {/* Pin Icon */}
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(false)}
@@ -2663,7 +2878,6 @@ function AITab() {
               <Pin className="h-4.5 w-4.5 text-primary" />
             </button>
 
-            {/* All Conversations Icon */}
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(false)}
@@ -2678,7 +2892,10 @@ function AITab() {
           <>
             {/* Sidebar Header & Collapse Toggle */}
             <div className="flex items-center justify-between mb-3 w-full">
-              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Workspaces</h3>
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                AI Workspaces
+              </h3>
               <button
                 type="button"
                 onClick={() => setIsSidebarCollapsed(true)}
@@ -2702,7 +2919,7 @@ function AITab() {
               <Sparkles className="h-3.5 w-3.5 text-primary/80" />
             </button>
 
-            {/* Search Bar for Chats */}
+            {/* Search Bar */}
             <div className="relative mb-3 w-full">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -2723,368 +2940,633 @@ function AITab() {
             </div>
 
             {/* Sidebar Scroll Container */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar w-full space-y-4">
-              {/* PINNED SECTION */}
-              <div>
-                <button
-                  onClick={() => setPinnedCollapsed(!pinnedCollapsed)}
-                  className="flex w-full items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground"
-                >
-                  <span className="flex items-center gap-1">
-                    Pinned
-                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", pinnedCollapsed && "-rotate-90")} />
-                  </span>
-                  <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">{pinnedChats.length}</span>
-                </button>
+            <div className="flex-1 overflow-y-auto custom-scrollbar w-full space-y-4 pr-0.5">
+              {isLoadingChats ? (
+                <div className="flex items-center justify-center py-8 text-xs text-muted-foreground gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span>Loading conversations...</span>
+                </div>
+              ) : chats.length === 0 ? (
+                <div className="text-center py-8 px-2 space-y-2">
+                  <p className="text-xs text-muted-foreground">No conversations yet.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCreateNewChat()}
+                    className="text-xs h-7 rounded-lg gap-1 border-primary/30 text-primary"
+                  >
+                    <Plus className="h-3 w-3" /> Start chat
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* PINNED SECTION */}
+                  <div className="flex flex-col">
+                    <button
+                      onClick={() => setPinnedCollapsed(!pinnedCollapsed)}
+                      className="flex w-full items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground"
+                    >
+                      <span className="flex items-center gap-1">
+                        Pinned
+                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", pinnedCollapsed && "-rotate-90")} />
+                      </span>
+                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">{pinnedChats.length}</span>
+                    </button>
 
-                {!pinnedCollapsed && (
-                  <div className="space-y-1 w-full">
-                    {pinnedChats.map((c) => (
-                      <div
-                        key={c.id}
-                        className={cn(
-                          "group relative flex items-center justify-between transition cursor-pointer gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium",
-                          selectedChatId === c.id
-                            ? "bg-primary/10 text-primary border border-primary/20 shadow-sm font-semibold"
-                            : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                    {!pinnedCollapsed && (
+                      <div className="space-y-1 w-full max-h-[160px] sm:max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                        {pinnedChats.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground italic px-2 py-1">No pinned chats</p>
+                        ) : (
+                          pinnedChats.map((c) => (
+                            <div
+                              key={c.id}
+                              className={cn(
+                                "group relative flex items-center justify-between transition cursor-pointer gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium",
+                                selectedChatId === c.id
+                                  ? "bg-primary/10 text-primary border border-primary/20 shadow-sm font-semibold"
+                                  : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                              )}
+                              onClick={() => handleSelectChat(c.id)}
+                            >
+                              <div className="flex items-center gap-2 truncate min-w-0">
+                                <MessageSquare className="h-4 w-4 shrink-0 text-primary" />
+                                <span className="truncate">{c.title}</span>
+                              </div>
+
+                              {/* 3 Dots Menu */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <button className="h-6 w-6 rounded-md sm:opacity-0 opacity-100 group-hover:opacity-100 flex items-center justify-center hover:bg-sidebar-accent transition shrink-0">
+                                    <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40 z-50">
+                                  <DropdownMenuItem onClick={() => handleShareChat(c.id)}>
+                                    <Share2 className="mr-2 h-4 w-4" /> Share
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleRenameChat(c.id)}>
+                                    <Edit className="mr-2 h-4 w-4" /> Rename
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handlePinChat(c.id)}>
+                                    <Pin className="mr-2 h-4 w-4" /> Unpin chat
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteChat(c.id)}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          ))
                         )}
-                        onClick={() => handleSelectChat(c.id)}
-                      >
-                        <div className="flex items-center gap-2 truncate min-w-0">
-                          <MessageSquare className="h-4 w-4 shrink-0 text-primary" />
-                          <span className="truncate">{c.title}</span>
-                        </div>
-
-                        {/* 3 Dots Menu (Always visible on mobile!) */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <button className="h-6 w-6 rounded-md sm:opacity-0 opacity-100 group-hover:opacity-100 flex items-center justify-center hover:bg-sidebar-accent transition shrink-0">
-                              <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40 z-50">
-                            <DropdownMenuItem onClick={() => handleShareChat(c.id)}>
-                              <Share2 className="mr-2 h-4 w-4" /> Share
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleRenameChat(c.id)}>
-                              <Edit className="mr-2 h-4 w-4" /> Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handlePinChat(c.id)}>
-                              <Pin className="mr-2 h-4 w-4" /> Unpin chat
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteChat(c.id)}>
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* ALL CONVERSATIONS / RECENTS SECTION */}
-              <div>
-                <button
-                  onClick={() => setRecentsCollapsed(!recentsCollapsed)}
-                  className="flex w-full items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground"
-                >
-                  <span className="flex items-center gap-1">
-                    All Conversations
-                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", recentsCollapsed && "-rotate-90")} />
-                  </span>
-                  <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">{recentChats.length}</span>
-                </button>
+                  {/* ALL CONVERSATIONS / RECENTS SECTION */}
+                  <div className="flex flex-col">
+                    <button
+                      onClick={() => setRecentsCollapsed(!recentsCollapsed)}
+                      className="flex w-full items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground"
+                    >
+                      <span className="flex items-center gap-1">
+                        All Conversations
+                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", recentsCollapsed && "-rotate-90")} />
+                      </span>
+                      <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">{recentChats.length}</span>
+                    </button>
 
-                {!recentsCollapsed && (
-                  <div className="space-y-1 w-full">
-                    {recentChats.map((c) => (
-                      <div
-                        key={c.id}
-                        className={cn(
-                          "group relative flex items-center justify-between transition cursor-pointer gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium",
-                          selectedChatId === c.id
-                            ? "bg-primary/10 text-primary border border-primary/20 shadow-sm font-semibold"
-                            : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                    {!recentsCollapsed && (
+                      <div className="space-y-1 w-full max-h-[260px] sm:max-h-[380px] overflow-y-auto custom-scrollbar pr-1">
+                        {recentChats.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground italic px-2 py-1">No conversations yet</p>
+                        ) : (
+                          recentChats.map((c) => (
+                            <div
+                              key={c.id}
+                              className={cn(
+                                "group relative flex items-center justify-between transition cursor-pointer gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium",
+                                selectedChatId === c.id
+                                  ? "bg-primary/10 text-primary border border-primary/20 shadow-sm font-semibold"
+                                  : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                              )}
+                              onClick={() => handleSelectChat(c.id)}
+                            >
+                              <div className="flex items-center gap-2 truncate min-w-0">
+                                <span className="truncate">{c.title}</span>
+                              </div>
+
+                              {/* 3 Dots Menu */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <button className="h-6 w-6 rounded-md sm:opacity-0 opacity-100 group-hover:opacity-100 flex items-center justify-center hover:bg-sidebar-accent transition shrink-0">
+                                    <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40 z-50">
+                                  <DropdownMenuItem onClick={() => handleShareChat(c.id)}>
+                                    <Share2 className="mr-2 h-4 w-4" /> Share
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleRenameChat(c.id)}>
+                                    <Edit className="mr-2 h-4 w-4" /> Rename
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handlePinChat(c.id)}>
+                                    <Pin className="mr-2 h-4 w-4" /> Pin chat
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteChat(c.id)}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          ))
                         )}
-                        onClick={() => handleSelectChat(c.id)}
-                      >
-                        <div className="flex items-center gap-2 truncate min-w-0">
-                          <span className="truncate">{c.title}</span>
-                        </div>
-
-                        {/* 3 Dots Menu (Always visible on mobile!) */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <button className="h-6 w-6 rounded-md sm:opacity-0 opacity-100 group-hover:opacity-100 flex items-center justify-center hover:bg-sidebar-accent transition shrink-0">
-                              <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40 z-50">
-                            <DropdownMenuItem onClick={() => handleShareChat(c.id)}>
-                              <Share2 className="mr-2 h-4 w-4" /> Share
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleRenameChat(c.id)}>
-                              <Edit className="mr-2 h-4 w-4" /> Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handlePinChat(c.id)}>
-                              <Pin className="mr-2 h-4 w-4" /> Pin chat
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteChat(c.id)}>
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </>
         )}
       </div>
 
-      {/* ---------------- 2. RIGHT MAIN PANEL (MATCHES CHATTAB RIGHT PANE THEME) ---------------- */}
+      {/* ---------------- 2. CENTER CHAT THREAD & 3. ARTIFACTS SIDEBAR ---------------- */}
       <div
         className={cn(
-          "flex flex-col h-full bg-card/10 overflow-hidden relative transition-all duration-300",
+          "flex flex-1 overflow-hidden transition-all duration-300",
           mobileViewChatActive ? "flex" : "hidden md:flex"
         )}
       >
-        {/* Header Bar */}
-        <div className="flex items-center justify-between border-b border-border p-4 gap-3 bg-card/30 backdrop-blur-md">
-          <div className="flex items-center gap-2 min-w-0">
-            {/* Mobile Back Button (WhatsApp style navigation) */}
-            <button
-              type="button"
-              onClick={() => {
-                setMobileViewChatActive(false);
-                setSelectedChatId(null);
-              }}
-              className="p-1.5 hover:bg-sidebar-accent rounded-lg text-muted-foreground transition shrink-0"
-              title="Back to conversation list"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-
-            <div className="min-w-0">
-              <h2 className="font-semibold text-sm sm:text-base truncate flex items-center gap-2">
-                {activeChat ? activeChat.title : "AI Workspace"}
-                {activeChat?.activePlugin && (
-                  <Badge variant="outline" className="border-primary/40 text-primary bg-primary/5 text-xs shrink-0">
-                    @{activeChat.activePlugin}
-                  </Badge>
-                )}
-              </h2>
-              <p className="text-[11px] text-muted-foreground truncate">
-                {activeChat ? `AI Workspace conversation thread` : "Specialized AI automation & plugin tools"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleCreateNewChat()}
-              className="h-8 gap-1.5 text-xs border-border hover:bg-accent shrink-0"
-            >
-              <Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">New Chat</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* Message Thread Box / Tools Overview (Scrollable, identical background) */}
-        <div className="flex-1 space-y-3.5 overflow-y-auto p-4 custom-scrollbar bg-slate-950/5 dark:bg-black/5">
-          {!selectedChatId ? (
-            /* TOOLS OVERVIEW & PURPOSE SECTION */
-            <div className="space-y-5 max-w-4xl mx-auto py-2">
-              {/* Purpose Header & New Chat Button */}
-              <div className="glass rounded-2xl p-6 border border-border bg-card/30 text-center space-y-4 shadow-sm my-auto">
-                <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-gradient-brand-soft shadow-md">
-                  <Sparkles className="h-6 w-6 text-primary" />
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-xl sm:text-2xl font-bold bg-gradient-brand bg-clip-text text-transparent">
-                    AI Workspace & Plugin Suite
-                  </h2>
-                  <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                    AI Workspace empowers your team with specialized AI plugins for generating presentation pitch decks, architecture flowcharts, automated READMEs, tech stack proposals, and structured project documentation.
-                  </p>
-                </div>
-
-                <div>
-                  <Button
-                    onClick={() => handleCreateNewChat()}
-                    className="bg-gradient-brand text-white shadow-glow hover:opacity-90 px-5 py-2.5 text-sm gap-2 rounded-xl font-semibold"
-                  >
-                    <Plus className="h-4 w-4" /> Start New Conversation
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* ACTIVE CHAT MESSAGES THREAD (MATCHES CHATTAB BUBBLES 1:1) */
-            <div className="space-y-3.5 max-w-4xl mx-auto">
-              {activeChat?.messages.map((m) => {
-                const isSelf = m.sender === "user";
-                return (
-                  <div key={m.id} className={cn("flex items-start gap-2 max-w-[88%] sm:max-w-[75%] group relative min-w-0", isSelf ? "ml-auto flex-row-reverse" : "mr-auto")}>
-                    {/* AI Avatar */}
-                    {!isSelf && (
-                      <Avatar className="h-8.5 w-8.5 shrink-0 border border-border shadow-sm">
-                        <AvatarFallback className="bg-primary/20 text-[10px] font-bold text-primary">AI</AvatarFallback>
-                      </Avatar>
-                    )}
-
-                    {/* Speech Bubble (Identical to ChatTab) */}
-                    <div
-                      className={cn(
-                        "relative p-3 rounded-2xl text-xs leading-relaxed shadow-sm transition-all duration-300 border min-w-0 overflow-hidden",
-                        isSelf
-                          ? "bg-primary text-white border-transparent rounded-tr-md rounded-bl-2xl rounded-br-2xl shadow-card"
-                          : "bg-card border-border text-foreground rounded-tl-md rounded-tr-2xl rounded-bl-2xl rounded-br-2xl"
-                      )}
-                    >
-                      {/* Header (Author & Time) */}
-                      <div className="flex items-center gap-2 mb-1 justify-between flex-wrap">
-                        <span className={cn("font-bold text-[11px]", isSelf ? "text-white/90" : "text-primary")}>
-                          {isSelf ? "You" : "Hackord AI Assistant"}
-                        </span>
-                        <span className={cn("text-[9px]", isSelf ? "text-white/60" : "text-muted-foreground")}>
-                          {m.timestamp}
-                        </span>
-                      </div>
-
-                      {/* Text */}
-                      <div className="break-words [overflow-wrap:anywhere] [word-break:break-word] whitespace-pre-wrap font-medium">
-                        {m.text}
-                      </div>
-
-                      {/* Copy Action */}
-                      {!isSelf && (
-                        <div className="flex items-center gap-2 pt-1.5 border-t border-border/30 mt-1.5">
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(m.text);
-                              toast.success("Response copied to clipboard!");
-                            }}
-                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition"
-                          >
-                            <Copy className="h-3 w-3" /> Copy
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </div>
-
-        {/* ---------------- 3. INPUT FORM (MATCHES CHATTAB INPUT BAR THEME) ---------------- */}
-        <form
-          className="flex items-center gap-2 border-t border-border p-3 bg-card/25 backdrop-blur-md relative"
-          onSubmit={handleSendMessage}
-        >
-          {/* Plugin Autocomplete Popover (Triggered by / or @) */}
-          {showPluginPicker && (
-            <div className="absolute bottom-full left-4 sm:left-6 mb-2 w-72 sm:w-80 rounded-xl border border-border bg-popover/95 p-2 shadow-spatial backdrop-blur-md z-50 space-y-1 text-xs">
-              <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                Select Plugin Tool
-              </div>
-              <div className="max-h-60 overflow-y-auto space-y-0.5 custom-scrollbar">
-                {AI_TOOLS.map((tool) => (
-                  <button
-                    key={tool.key}
-                    type="button"
-                    onClick={() => handleSelectPlugin(tool.key)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs text-foreground hover:bg-accent transition text-left"
-                  >
-                    <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-                    <div>
-                      <div className="font-medium">@{tool.title}</div>
-                      <div className="text-[10px] text-muted-foreground line-clamp-1">{tool.desc}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Plus / Attach Button Dropdown (Styled like ChatTab controls) */}
-          <DropdownMenu open={showAttachMenu} onOpenChange={setShowAttachMenu}>
-            <DropdownMenuTrigger asChild>
+        {/* Main Chat Pane */}
+        <div className="flex flex-col flex-1 h-full bg-card/10 overflow-hidden relative">
+          {/* Header Bar */}
+          <div className="flex items-center justify-between border-b border-border p-3.5 gap-3 bg-card/30 backdrop-blur-md">
+            <div className="flex items-center gap-2 min-w-0">
               <button
                 type="button"
-                className="p-2.5 rounded-xl border border-border bg-sidebar-accent/60 text-muted-foreground hover:border-primary/50 hover:text-primary transition shadow-sm shrink-0"
-                title="Attach files or choose plugins"
+                onClick={() => {
+                  setMobileViewChatActive(false);
+                  setSelectedChatId(null);
+                }}
+                className="md:hidden p-1.5 hover:bg-sidebar-accent rounded-lg text-muted-foreground transition shrink-0"
+                title="Back to conversation list"
               >
-                <Plus className="h-4.5 w-4.5" />
+                <ChevronLeft className="h-5 w-5" />
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" side="top" className="w-56 z-50 space-y-0.5 text-xs">
-              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-                <Paperclip className="mr-2 h-4 w-4" /> Add photos & files
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowPluginPicker(true)}>
-                <Sparkles className="mr-2 h-4 w-4 text-primary" /> Plugins
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCreateNewChat()}>
-                <Plus className="mr-2 h-4 w-4" /> New chat
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toggleRecording()}>
-                <Mic className="mr-2 h-4 w-4" /> Dictate
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => selectedChatId && handlePinChat(selectedChatId)}>
-                <Pin className="mr-2 h-4 w-4" /> Pin chat
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
 
-          {/* Speech Mic Button (Identical to ChatTab) */}
-          <button
-            type="button"
-            onClick={toggleRecording}
-            className={cn(
-              "p-2.5 rounded-xl border transition shadow-sm shrink-0",
-              isRecording
-                ? "bg-red-500/15 border-red-500 text-red-500 animate-pulse shadow-md"
-                : "bg-sidebar-accent/60 border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+              <div className="min-w-0">
+                <h2 className="font-semibold text-sm sm:text-base truncate flex items-center gap-2">
+                  {activeChat ? activeChat.title : "AI Workspace & Plugin Suite"}
+                  {activeChat?.activePlugin && (
+                    <Badge variant="outline" className="border-primary/40 text-primary bg-primary/5 text-xs shrink-0">
+                      @{activeChat.activePlugin}
+                    </Badge>
+                  )}
+                </h2>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {activeChat ? `AI Workspace conversation thread` : "Real-time Gemini intelligence with MongoDB persistence"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* Files / Artifacts Sidebar Toggle Button (Matching Screenshot) */}
+              <button
+                type="button"
+                onClick={() => setIsFilesSidebarOpen(!isFilesSidebarOpen)}
+                className={cn(
+                  "relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition shadow-sm",
+                  isFilesSidebarOpen
+                    ? "bg-primary/20 border-primary/40 text-primary"
+                    : "border-border bg-card/40 hover:bg-accent text-muted-foreground hover:text-foreground"
+                )}
+                title="View Room Artifacts & Content"
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Files</span>
+                {totalRoomFilesCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-primary/20 text-primary font-mono font-bold">
+                    {totalRoomFilesCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Share Conversation Link */}
+              {activeChat && (
+                <button
+                  type="button"
+                  onClick={() => handleShareChat(activeChat.id)}
+                  className="p-2 rounded-xl border border-border bg-card/40 hover:bg-accent text-muted-foreground hover:text-foreground transition text-xs shadow-sm"
+                  title="Share Conversation"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+
+              {/* New Chat Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleCreateNewChat()}
+                className="h-8 gap-1 text-xs border-border hover:bg-accent shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">New Chat</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Message Thread Box / Tools Overview */}
+          <div className="flex-1 space-y-3.5 overflow-y-auto p-4 custom-scrollbar bg-slate-950/5 dark:bg-black/5">
+            {!selectedChatId ? (
+              /* TOOLS OVERVIEW & PURPOSE SECTION */
+              <div className="space-y-6 max-w-4xl mx-auto py-2">
+                <div className="glass rounded-2xl p-6 border border-border bg-card/30 text-center space-y-4 shadow-sm">
+                  <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-gradient-brand-soft shadow-md">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-xl sm:text-2xl font-bold bg-gradient-brand bg-clip-text text-transparent">
+                      AI Workspace & Plugin Suite
+                    </h2>
+                    <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                      Powered by Google Gemini. Generate presentation pitch decks (.pptx, PDF, MD), live interactive Mermaid flowcharts, automated READMEs, and analyze uploaded documents (PDFs, code, images, web links).
+                    </p>
+                  </div>
+
+                  <div>
+                    <Button
+                      onClick={() => handleCreateNewChat()}
+                      className="bg-gradient-brand text-white shadow-glow hover:opacity-90 px-5 py-2.5 text-sm gap-2 rounded-xl font-semibold"
+                    >
+                      <Plus className="h-4 w-4" /> Start New Conversation
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Quick Plugin Tool Cards */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                    Specialized AI Plugins
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {AI_TOOLS.map((tool) => (
+                      <button
+                        key={tool.key}
+                        onClick={() => handleCreateNewChat(tool.title)}
+                        className="group flex flex-col justify-between p-3.5 rounded-2xl border border-border/80 bg-card/40 hover:bg-card hover:border-primary/50 text-left transition shadow-sm"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 font-semibold text-xs text-foreground group-hover:text-primary transition">
+                            <Sparkles className="h-3.5 w-3.5 text-primary" />
+                            <span>@{tool.title}</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
+                            {tool.desc}
+                          </p>
+                        </div>
+                        <div className="text-[10px] text-primary/80 font-medium pt-2 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                          Launch plugin →
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* ACTIVE CHAT MESSAGES THREAD (WITH DATE DIVIDERS) */
+              <div className="space-y-4 max-w-4xl mx-auto">
+                {groupedMessageItems.map((item, idx) => {
+                  if (item.type === 'date') {
+                    return (
+                      <div key={`date-${idx}`} className="flex items-center justify-center my-3">
+                        <span className="px-3 py-1 rounded-full text-[10px] font-semibold bg-muted/30 border border-border/60 text-muted-foreground shadow-sm">
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  const m = item.message;
+                  const isSelf = m.sender === "user";
+
+                  return (
+                    <div
+                      key={m.id}
+                      className={cn(
+                        "flex items-start gap-2 max-w-[90%] sm:max-w-[82%] group relative min-w-0",
+                        isSelf ? "ml-auto flex-row-reverse" : "mr-auto"
+                      )}
+                    >
+                      {/* AI or User Avatar */}
+                      {!isSelf ? (
+                        <Avatar className="h-8 w-8 shrink-0 border border-primary/30 shadow-sm mt-1">
+                          <AvatarFallback className="bg-primary/20 text-[10px] font-bold text-primary">
+                            AI
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <Avatar className="h-8 w-8 shrink-0 border border-primary/40 shadow-sm mt-1">
+                          {m.author_avatar && <AvatarImage src={m.author_avatar} alt={m.author_name || "User"} />}
+                          <AvatarFallback className="bg-primary text-white text-[10px] font-bold">
+                            {(m.author_name || "U").slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+
+                      {/* Speech Bubble */}
+                      <div
+                        className={cn(
+                          "relative p-3.5 rounded-2xl text-xs leading-relaxed shadow-sm transition-all duration-300 border min-w-0 overflow-hidden w-full",
+                          isSelf
+                            ? "bg-primary text-white border-transparent rounded-tr-md rounded-bl-2xl rounded-br-2xl shadow-card"
+                            : "bg-card/90 border-border text-foreground rounded-tl-md rounded-tr-2xl rounded-bl-2xl rounded-br-2xl"
+                        )}
+                      >
+                        {/* Header (Author & Time) */}
+                        <div className="flex items-center gap-2 mb-2 justify-between flex-wrap border-b border-border/20 pb-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn("font-bold text-[11px]", isSelf ? "text-white/95" : "text-primary")}>
+                              {isSelf ? (m.author_name || "You") : "Hackord AI Assistant"}
+                            </span>
+                            {m.plugin && (
+                              <span className={cn("px-1.5 py-0.2 rounded-md text-[9px] font-mono border", isSelf ? "bg-white/15 border-white/25 text-white" : "bg-primary/10 border-primary/20 text-primary")}>
+                                @{m.plugin}
+                              </span>
+                            )}
+                          </div>
+                          <span className={cn("text-[9px]", isSelf ? "text-white/70" : "text-muted-foreground")}>
+                            {m.timestamp}
+                          </span>
+                        </div>
+
+                        {/* Attached File Chip on message (Clickable to open in new tab) */}
+                        {m.fileAttachment && (
+                          <div
+                            onClick={() => openFileInNewTab(m.fileAttachment!)}
+                            className={cn(
+                              "cursor-pointer flex items-center gap-2 p-2.5 rounded-xl text-xs mb-2.5 border transition-all duration-200 group/file",
+                              isSelf
+                                ? "bg-white/10 border-white/20 hover:bg-white/20 text-white"
+                                : "bg-muted/30 border-border hover:border-emerald-500/50 text-foreground"
+                            )}
+                            title="Click to view file in new tab"
+                          >
+                            <FileText className="h-4 w-4 shrink-0 text-emerald-400 group-hover/file:scale-110 transition-transform" />
+                            <div className="truncate flex-1">
+                              <div className="font-semibold truncate flex items-center gap-1">
+                                <span>{m.fileAttachment.name}</span>
+                                <ExternalLink className="h-3 w-3 opacity-70 group-hover/file:opacity-100 shrink-0" />
+                              </div>
+                              {m.fileAttachment.size && (
+                                <div className="text-[10px] opacity-75">
+                                  {(m.fileAttachment.size / (1024 * 1024)).toFixed(2)} MB • Stored in workspace
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Content Renderer */}
+                        {isSelf ? (
+                          <div className="break-words whitespace-pre-wrap font-medium">
+                            {m.text}
+                          </div>
+                        ) : (
+                          <AiMessageRenderer text={m.text} plugin={m.plugin} />
+                        )}
+
+                        {/* Copy Action */}
+                        {!isSelf && (
+                          <div className="flex items-center justify-between pt-2 border-t border-border/30 mt-2">
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(m.text);
+                                toast.success("Response copied to clipboard!");
+                              }}
+                              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition"
+                            >
+                              <Copy className="h-3 w-3" /> Copy text
+                            </button>
+                            <span className="text-[9px] text-muted-foreground/70 font-mono">
+                              Gemini Intelligence
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Generating / Typing Indicator */}
+                {isGenerating && (
+                  <div className="flex items-start gap-2 mr-auto max-w-[80%]">
+                    <Avatar className="h-8 w-8 shrink-0 border border-primary/30 shadow-sm mt-1">
+                      <AvatarFallback className="bg-primary/20 text-[10px] font-bold text-primary">
+                        AI
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="p-3.5 rounded-2xl text-xs bg-card/90 border border-border text-foreground rounded-tl-md space-y-2 shadow-sm">
+                      <div className="flex items-center gap-2 text-primary font-semibold">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Gemini is generating response...</span>
+                      </div>
+                      <div className="flex gap-1.5 items-center py-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
             )}
-            title="Speech-to-Text Voice Typing (Hindi / English)"
-          >
-            {isRecording ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
-          </button>
+          </div>
 
-          {/* Input Field (Identical to ChatTab) */}
-          <Input
-            value={input}
-            onChange={handleInputChange}
-            placeholder={
-              selectedPlugin
-                ? `Plugin @${selectedPlugin} active... enter prompt`
-                : "Ask AI or type / or @ for plugins..."
-            }
-            className="flex-1 rounded-xl border border-border bg-background/50 text-xs sm:text-sm h-10 px-3 outline-none focus:border-primary/50 transition min-w-0"
-          />
-
-          {/* Send Button (Identical to ChatTab) */}
-          <Button
-            type="submit"
-            disabled={!input.trim() && !selectedPlugin}
-            className="bg-gradient-brand text-white shadow-glow hover:opacity-90 rounded-xl px-3.5 h-10 gap-1.5 text-xs font-semibold shrink-0"
+          {/* ---------------- TYPE BAR (CHATGPT / MODERN AI STYLE) ---------------- */}
+          <form
+            className="flex flex-col border-t border-border p-3 bg-card/35 backdrop-blur-md relative gap-2"
+            onSubmit={handleSendMessage}
           >
-            <span className="hidden sm:inline">Send</span>
-            <Send className="h-3.5 w-3.5" />
-          </Button>
-        </form>
+            {/* Plugin Autocomplete Popover (Triggered by / or @) */}
+            {showPluginPicker && (
+              <div className="absolute bottom-full left-4 sm:left-6 mb-2 w-72 sm:w-80 rounded-2xl border border-border bg-popover/95 p-2.5 shadow-spatial backdrop-blur-md z-50 space-y-1 text-xs">
+                <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                  <span>Select Single Plugin</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowPluginPicker(false)}
+                    className="text-muted-foreground hover:text-foreground text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="max-h-60 overflow-y-auto space-y-1 custom-scrollbar">
+                  {AI_TOOLS.map((tool) => (
+                    <button
+                      key={tool.key}
+                      type="button"
+                      onClick={() => handleSelectPlugin(tool.key)}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs text-foreground transition text-left",
+                        selectedPlugin === tool.title
+                          ? "bg-primary/15 text-primary font-semibold border border-primary/20"
+                          : "hover:bg-accent"
+                      )}
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <div>
+                        <div className="font-medium">@{tool.title}</div>
+                        <div className="text-[10px] text-muted-foreground line-clamp-1">{tool.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ACTIVE TAGS BAR: Shows Active Plugin Pill and File Attachment Pill */}
+            {(selectedPlugin || fileAttachment) && (
+              <div className="flex items-center gap-2 flex-wrap px-1">
+                {/* Active Plugin Tag Pill (Only 1 active at a time) */}
+                {selectedPlugin && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-primary/15 border border-primary/30 text-primary text-xs font-semibold shadow-sm animate-fade-in">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>@{selectedPlugin}</span>
+                    <button
+                      type="button"
+                      onClick={handleRemovePlugin}
+                      className="ml-1 p-0.5 rounded-md hover:bg-primary/20 text-primary transition"
+                      title="Remove active plugin"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Single File Attachment Pill (< 5MB, Click to view in new tab) */}
+                {fileAttachment && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium shadow-sm animate-fade-in">
+                    <FileText className="h-3.5 w-3.5" />
+                    <span
+                      onClick={() => openFileInNewTab(fileAttachment)}
+                      className="truncate max-w-[160px] font-semibold cursor-pointer hover:underline"
+                      title="Click to view file in new tab"
+                    >
+                      {fileAttachment.name}
+                    </span>
+                    {fileAttachment.size && (
+                      <span className="text-[10px] opacity-80">
+                        ({(fileAttachment.size / (1024 * 1024)).toFixed(1)} MB)
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleRemoveFileAttachment}
+                      className="ml-1 p-0.5 rounded-md hover:bg-emerald-500/20 text-emerald-400 transition"
+                      title="Remove attached file"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Main Input Row */}
+            <div className="flex items-center gap-2">
+              {/* Plus / Attach Button Dropdown */}
+              <DropdownMenu open={showAttachMenu} onOpenChange={setShowAttachMenu}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={isUploadingFile || isGenerating}
+                    className="p-2.5 rounded-xl border border-border bg-sidebar-accent/60 text-muted-foreground hover:border-primary/50 hover:text-primary transition shadow-sm shrink-0 disabled:opacity-50"
+                    title="Attach single file (<5MB) or select plugin"
+                  >
+                    {isUploadingFile ? <Loader2 className="h-4.5 w-4.5 animate-spin text-primary" /> : <Plus className="h-4.5 w-4.5" />}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" side="top" className="w-60 z-50 space-y-0.5 text-xs">
+                  <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                    <Paperclip className="mr-2 h-4 w-4 text-emerald-400" />
+                    <span>Attach file (&lt;5MB)</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowPluginPicker(true)}>
+                    <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                    <span>Activate plugin</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleCreateNewChat()}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span>New conversation</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => toggleRecording()}>
+                    <Mic className="mr-2 h-4 w-4" />
+                    <span>Voice dictation</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Speech Mic Button */}
+              <button
+                type="button"
+                onClick={toggleRecording}
+                className={cn(
+                  "p-2.5 rounded-xl border transition shadow-sm shrink-0",
+                  isRecording
+                    ? "bg-red-500/15 border-red-500 text-red-500 animate-pulse shadow-md"
+                    : "bg-sidebar-accent/60 border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                )}
+                title="Voice Dictation (Speech-to-Text)"
+              >
+                {isRecording ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
+              </button>
+
+              {/* Input Field */}
+              <Input
+                value={input}
+                onChange={handleInputChange}
+                disabled={isGenerating}
+                placeholder={
+                  selectedPlugin
+                    ? `Prompt for @${selectedPlugin}...`
+                    : fileAttachment
+                      ? `Ask questions about ${fileAttachment.name}...`
+                      : "Ask AI or type / or @ to activate plugins..."
+                }
+                className="flex-1 rounded-xl border border-border bg-background/50 text-xs sm:text-sm h-10 px-3 outline-none focus:border-primary/50 transition min-w-0"
+              />
+
+              {/* Send Button */}
+              <Button
+                type="submit"
+                disabled={(!input.trim() && !fileAttachment && !selectedPlugin) || isGenerating}
+                className="bg-gradient-brand text-white shadow-glow hover:opacity-90 rounded-xl px-3.5 h-10 gap-1.5 text-xs font-semibold shrink-0 disabled:opacity-40"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">Send</span>
+                    <Send className="h-3.5 w-3.5" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
+
+        {/* Artifacts & Content Right Sidebar Drawer (Matching Screenshot) */}
+        <AiFilesSidebar
+          isOpen={isFilesSidebarOpen}
+          onClose={() => setIsFilesSidebarOpen(false)}
+          conversations={chats}
+          activeChatId={selectedChatId}
+        />
       </div>
     </div>
   );
@@ -3097,12 +3579,12 @@ function GithubTab({
   room: DbRoom; onRoomUpdate?: () => void; isOwnerOrAdmin?: boolean;
 }) {
   const defaultGithubUrl = room.github_url || room.project_links?.find(l => l.url?.includes("github.com"))?.url || "https://github.com/SAFAL-TIWARI/Hackord";
-  
+
   const [repoUrl, setRepoUrl] = useState<string>(defaultGithubUrl);
   const [data, setData] = useState<GithubWorkspaceData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Modal state for connecting/changing repo
   const [openModal, setOpenModal] = useState<boolean>(false);
   const [inputUrl, setInputUrl] = useState<string>("");
@@ -3113,11 +3595,11 @@ function GithubTab({
   // Determine Live Demo Website URL (from GitHub homepage or room project links)
   const liveDemoUrl = useMemo(() => {
     if (data?.repoInfo.homepage) return data.repoInfo.homepage;
-    const roomDemoLink = room.project_links?.find(l => 
-      l.label?.toLowerCase().includes("demo") || 
-      l.label?.toLowerCase().includes("live") || 
-      l.url?.includes("vercel.app") || 
-      l.url?.includes("netlify.app") || 
+    const roomDemoLink = room.project_links?.find(l =>
+      l.label?.toLowerCase().includes("demo") ||
+      l.label?.toLowerCase().includes("live") ||
+      l.url?.includes("vercel.app") ||
+      l.url?.includes("netlify.app") ||
       l.url?.includes("render.com")
     );
     return roomDemoLink ? roomDemoLink.url : null;
@@ -3257,7 +3739,7 @@ function GithubTab({
                 <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> {loading ? "Syncing..." : "Refresh"}
               </Button>
             )}
-            
+
             {/* Owner & Admin Only Controls */}
             {isOwnerOrAdmin && (
               <>

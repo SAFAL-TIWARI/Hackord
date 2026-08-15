@@ -28,7 +28,7 @@ export function ThemeToggle({ theme, onToggle, className }: Props) {
       onClick={handleClick}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
-        "relative flex h-8 w-25 shrink-0 cursor-pointer items-center rounded-full border p-1 select-none overflow-hidden shadow-inner transition-all duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+        "relative flex h-7 sm:h-8 w-20 sm:w-25 shrink-0 cursor-pointer items-center rounded-full border p-1 select-none overflow-hidden shadow-inner transition-all duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
         isDark
           ? "bg-black/30 border-white/10 shadow-black/40"
           : "bg-white/15 border-white/30 shadow-white/10",
@@ -58,7 +58,7 @@ export function ThemeToggle({ theme, onToggle, className }: Props) {
       <span
         suppressHydrationWarning
         className={cn(
-          "absolute left-4.5 text-xs font-semibold uppercase tracking-wider text-slate-100 transition-all duration-300 pointer-events-none",
+          "absolute left-3.5 sm:left-4.5 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-100 transition-all duration-300 pointer-events-none",
           isDark
             ? "opacity-100 translate-x-0"
             : "opacity-0 -translate-x-3"
@@ -70,7 +70,7 @@ export function ThemeToggle({ theme, onToggle, className }: Props) {
       <span
         suppressHydrationWarning
         className={cn(
-          "absolute right-4.5 text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-200 transition-all duration-300 pointer-events-none",
+          "absolute right-3.5 sm:right-4.5 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-200 transition-all duration-300 pointer-events-none",
           isDark
             ? "opacity-0 translate-x-3"
             : "opacity-100 translate-x-0"
@@ -83,9 +83,9 @@ export function ThemeToggle({ theme, onToggle, className }: Props) {
       <span
         suppressHydrationWarning
         className={cn(
-          "absolute flex h-6 w-6 items-center justify-center rounded-full transition-all duration-500 cubic-bezier(0.25, 1, 0.5, 1)",
+          "absolute flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full transition-all duration-500 cubic-bezier(0.25, 1, 0.5, 1)",
           isDark
-            ? "translate-x-[65px] bg-gradient-to-tr from-indigo-600 via-blue-500 to-cyan-400"
+            ? "translate-x-[50px] sm:translate-x-[65px] bg-gradient-to-tr from-indigo-600 via-blue-500 to-cyan-400"
             : "translate-x-0 bg-gradient-to-tr from-amber-500 via-orange-400 to-yellow-300"
         )}
         style={{
@@ -95,9 +95,9 @@ export function ThemeToggle({ theme, onToggle, className }: Props) {
         }}
       >
         {isDark ? (
-          <Moon className="h-4 w-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
+          <Moon className="h-3 w-3 sm:h-4 sm:w-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
         ) : (
-          <Sun className="h-4 w-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
+          <Sun className="h-3 w-3 sm:h-4 sm:w-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
         )}
       </span>
     </button>
