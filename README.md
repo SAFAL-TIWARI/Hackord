@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/sparkles.svg" alt="Hackord Logo" width="72" height="72">
+  <img src="https://hackord.vercel.app/logo.png" alt="Hackord Logo" width="72" height="72">
   <h1>Hackord — Frontend</h1>
   <p><strong>The Ultimate Collaboration Workspace for Hackathon Builders</strong></p>
 
