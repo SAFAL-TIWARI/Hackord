@@ -51,6 +51,7 @@ import {
   type HostRequestSubmission,
   type ContactMessageItem,
 } from "@/lib/hackathons-api";
+import { formatDateNumeric, formatDateTime } from "@/lib/date-utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({
@@ -420,9 +421,12 @@ function AdminPage() {
         <section className="glass rounded-2xl p-6 shadow-card border border-primary/20">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-5">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Database className="h-5 w-5 text-amber-400" />
                 <h2 className="text-lg font-semibold">Scraped Hackathons File Storage</h2>
+                <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-300 border-amber-500/20">
+                  {scrapedStatus?.totalCount ?? 0} {scrapedStatus?.totalCount === 1 ? "Item" : "Items"}
+                </Badge>
                 <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30">
                   Step 1: Save to File → Step 2: Feed DB
                 </Badge>
@@ -468,7 +472,7 @@ function AdminPage() {
               <span>
                 <strong>Last Updated:</strong>{" "}
                 {scrapedStatus?.updatedAt
-                  ? new Date(scrapedStatus.updatedAt).toLocaleString()
+                  ? formatDateTime(scrapedStatus.updatedAt)
                   : "Never"}
               </span>
             </div>
@@ -556,14 +560,17 @@ function AdminPage() {
         <section className="glass rounded-2xl p-6 shadow-card border border-emerald-500/20">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-4">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <FileText className="h-5 w-5 text-emerald-400" />
                 <h2 className="text-lg font-semibold">Hosted Hackathon Submissions</h2>
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-300 border-emerald-500/20">
+                  {filteredHostRequests.length} {filteredHostRequests.length === 1 ? "Submission" : "Submissions"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
                   {filteredHostRequests.filter((r: HostRequestSubmission) => r.status === "pending").length} Pending
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Submissions sent via the "Host Your Hackathon" form on Contact page. One-click approve to publish to Explore registry.
               </p>
             </div>
@@ -612,7 +619,7 @@ function AdminPage() {
                           {req.status === "approved" ? "✓ Published" : "Pending Review"}
                         </Badge>
                         <span className="text-[10px] text-white/90 bg-black/60 px-2 py-0.5 rounded backdrop-blur-md font-mono">
-                          {new Date(req.createdAt).toLocaleDateString()}
+                          {formatDateNumeric(req.createdAt)}
                         </span>
                       </div>
                     </div>
@@ -692,14 +699,14 @@ function AdminPage() {
         <section className="glass rounded-2xl p-6 shadow-card border border-purple-500/20">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-4">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <MessageSquare className="h-5 w-5 text-purple-400" />
                 <h2 className="text-lg font-semibold">User Messages & Queries</h2>
                 <Badge variant="secondary" className="text-[10px] bg-purple-500/10 text-purple-300 border-purple-500/20">
-                  {filteredContactMessages.length} Messages Received
+                  {filteredContactMessages.length} {filteredContactMessages.length === 1 ? "Message" : "Messages"}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Inquiries, bug reports, and general feedbacks.
               </p>
             </div>
@@ -736,7 +743,7 @@ function AdminPage() {
                         {msg.category || "General Query"}
                       </Badge>
                       <span className="text-[10px] text-muted-foreground">
-                        {new Date(msg.createdAt).toLocaleDateString()}
+                        {formatDateNumeric(msg.createdAt)}
                       </span>
                     </div>
 
@@ -777,10 +784,14 @@ function AdminPage() {
         <section className="glass rounded-2xl p-6 shadow-card">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Layers3 className="h-5 w-5 text-primary" /> Platform Rooms Stored by User Creator
-              </h2>
-              <p className="text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Layers3 className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Platform Rooms Stored by User Creator</h2>
+                <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-300 border-blue-500/20">
+                  {filteredRooms.length} {filteredRooms.length === 1 ? "Room" : "Rooms"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 All rooms created across the platform stored and associated with specific user profiles
               </p>
             </div>
@@ -971,9 +982,15 @@ function AdminPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Users Table */}
           <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2">
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold">Registered User Profiles</h2>
-              <div className="relative max-w-xs flex-1">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Users2 className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Registered User Profiles</h2>
+                <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                  {users.length} {users.length === 1 ? "Profile" : "Profiles"}
+                </Badge>
+              </div>
+              <div className="relative max-w-xs w-full sm:flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, email, college…"
@@ -1037,7 +1054,7 @@ function AdminPage() {
                           </span>
                         )}
                         <span className="inline-flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {new Date(u.createdAt).toLocaleDateString()}
+                          <Clock className="h-3 w-3" /> {formatDateNumeric(u.createdAt)}
                         </span>
                       </div>
                     </div>
@@ -1051,9 +1068,14 @@ function AdminPage() {
           <section className="space-y-6">
             {stats && stats.topSkills.length > 0 && (
               <div className="glass rounded-2xl p-6 shadow-card">
-                <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" /> Top Skills
-                </h2>
+                <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" /> Top Skills
+                  </h2>
+                  <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                    {stats.topSkills.length} {stats.topSkills.length === 1 ? "Skill" : "Skills"}
+                  </Badge>
+                </div>
                 <div className="space-y-2.5">
                   {stats.topSkills.map((s) => (
                     <div key={s.skill} className="flex items-center justify-between text-sm">

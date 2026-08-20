@@ -52,16 +52,19 @@ export const FILES: any[] = [];
 export const TASKS: any[] = [];
 
 export const AI_TOOLS = [
+  { key: "image", title: "Generate Image", desc: "Generate photorealistic & artistic images using Google Imagen 3.", icon: "Image" },
+  { key: "flowchart", title: "Flowchart Suite", desc: "Generate Process, Swimlane, DFD, Decision Tree, PERT & System Flowcharts.", icon: "Workflow" },
+  { key: "chart", title: "Interactive Charts & Graphs", desc: "Generate live Area, Radar, Bar, Pareto, KPI, Pie, Sparkline & Geo Bubble charts.", icon: "BarChart3" },
   { key: "ppt", title: "Generate PPT", desc: "Turn your idea into a pitch-ready deck outline.", icon: "Presentation" },
   { key: "readme", title: "Generate README", desc: "Craft a polished README from your project details.", icon: "FileText" },
-  { key: "workflow", title: "Workflow Diagram", desc: "Visualize user flows and system workflows.", icon: "Workflow" },
+  { key: "workflow", title: "Workflow Diagram", desc: "Visualize user flows and cross-team swimlanes.", icon: "GitMerge" },
+  { key: "arch", title: "Architecture Diagram", desc: "Sketch a high-level system architecture & data flow.", icon: "Network" },
   { key: "validate", title: "Idea Validation", desc: "Stress-test your concept against market signals.", icon: "ShieldCheck" },
   { key: "stack", title: "Tech Stack", desc: "Get an opinionated stack for your build.", icon: "Layers" },
-  { key: "tasks", title: "Task Breakdown", desc: "Turn goals into actionable tickets.", icon: "ListChecks" },
-  { key: "arch", title: "Architecture Diagram", desc: "Sketch a high-level system architecture.", icon: "Network" },
-  { key: "biz", title: "Business Model", desc: "Explore monetization and go-to-market.", icon: "Briefcase" },
-  { key: "pitch", title: "Pitch Generator", desc: "Craft a winning judge-facing pitch.", icon: "Sparkles" },
-  { key: "demo", title: "Demo Script", desc: "Storyboard a 3-minute demo.", icon: "Clapperboard" },
+  { key: "tasks", title: "Task Breakdown", desc: "Turn goals into actionable sprint tickets.", icon: "ListChecks" },
+  { key: "biz", title: "Business Model", desc: "Explore monetization, revenue models, and GTM.", icon: "Briefcase" },
+  { key: "pitch", title: "Pitch Generator", desc: "Craft a winning judge-facing hackathon pitch.", icon: "Sparkles" },
+  { key: "demo", title: "Demo Script", desc: "Storyboard a 3-minute interactive product demo.", icon: "Clapperboard" },
   { key: "elevator", title: "Elevator Pitch", desc: "60-second pitch, ready to memorize.", icon: "Rocket" },
 ] as const;
 

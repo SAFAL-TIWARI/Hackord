@@ -1,3 +1,5 @@
+import { formatDateWord } from "./date-utils";
+
 export interface GithubRepoInfo {
   name: string;
   full_name: string;
@@ -411,8 +413,8 @@ function buildCommitGraph(commits: GithubCommit[]): CommitGraphBar[] {
   return counts.map((count, idx) => {
     const diffDays = barsCount - 1 - idx;
     const barDate = new Date(now.getTime() - diffDays * 24 * 60 * 60 * 1000);
-    const dateLabel = barDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const dayLabel = barDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const dateLabel = formatDateWord(barDate);
+    const dayLabel = formatDateWord(barDate, { includeYear: false });
     const heightPercent = count === 0 ? 15 : Math.min(100, Math.round((count / maxCount) * 85) + 15);
     return {
       dayLabel,

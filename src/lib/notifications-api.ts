@@ -1,5 +1,6 @@
 import { getRooms, getLoggedInUser } from "./rooms-api";
 import { getPendingInvitations, getUserSettings } from "./users-api";
+import { formatDateWord } from "./date-utils";
 
 export type RealNotification = {
   id: string;
@@ -86,7 +87,7 @@ export async function fetchRealNotifications(user?: { _id: string; email: string
               notifs.push({
                 id: `dl_${r.id}_${d.name}`,
                 title: `${d.name}: ${r.name}`,
-                detail: `${d.name} for ${r.hackathon} is scheduled for ${target.toDateString().slice(4)} (${diffDays <= 0 ? "Due Now" : `${diffDays} days left`}).`,
+                detail: `${d.name} for ${r.hackathon} is scheduled for ${formatDateWord(target)} (${diffDays <= 0 ? "Due Now" : `${diffDays} days left`}).`,
                 time: diffDays <= 0 ? "Due Now" : `${diffDays}d left`,
                 unread: diffDays <= 3,
                 type: "deadline",

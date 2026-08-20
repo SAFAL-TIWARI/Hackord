@@ -2,16 +2,16 @@ import { createFileRoute, Link, useNavigate, notFound } from "@tanstack/react-ro
 import { useState, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import {
-  Users, MessageSquare, Bot, Github, FileIcon, CalendarDays, Video,
+  Users, MessageSquare, Bot, Github, FileIcon, CalendarDays, CalendarPlus, Video,
   Crown, ExternalLink, Search, Send, Paperclip, Smile, Pin, Plus, Edit,
-  FileText, Image as ImageIcon, Film, Archive, Sparkles, GitBranch,
+  FileText, Image as ImageIcon, Film, Music, Archive, Sparkles, GitBranch,
   GitPullRequest, CircleDot, Check, Clock, Play, Link as LinkIcon, Trash2, Lock, ShieldAlert, LogOut,
   Star, GitFork, RefreshCw, Unlink, AlertCircle, GitCommit,
   Linkedin, Globe, Trophy, GraduationCap,
   Mic, MicOff, Reply, MoreVertical, ChevronLeft, ChevronRight,
   Brain, ChevronDown, Share2, MoreHorizontal, ArrowUp, Copy, CornerDownRight,
   Presentation, Workflow, ShieldCheck, Layers, ListChecks, Network, Briefcase, Clapperboard, Rocket,
-  X, Loader2, FileCheck, HelpCircle, FileStack, UploadCloud, FolderOpen
+  X, Loader2, FileCheck, HelpCircle, FileStack, UploadCloud, FolderOpen, Square
 } from "lucide-react";
 import { fetchGithubWorkspaceData, parseGithubUrl, type GithubWorkspaceData } from "@/lib/github-api";
 import {
@@ -20,14 +20,21 @@ import {
   updateAiConversation,
   deleteAiConversation,
   sendAiChatMessage,
+  streamAiChatMessage,
+  updateAiMessage,
   uploadAiFile,
   openFileInNewTab,
+  isAudioFile,
+  isVideoFile,
+  isPdfFile,
+  isImageFile,
   type AiConversation,
   type AiChatMessage,
   type AiFileAttachment,
 } from "@/lib/ai-api";
 import { AiMessageRenderer } from "@/components/ai/AiMessageRenderer";
 import { AiFilesSidebar } from "@/components/ai/AiFilesSidebar";
+import { AiMultimodalStudio } from "@/components/ai/AiMultimodalStudio";
 import { AiWorkspaceSkeleton } from "@/components/ai/AiWorkspaceSkeleton";
 import { AgoraMeeting } from "@/components/AgoraMeeting";
 import { AppShell } from "@/components/AppShell";
@@ -57,6 +64,9 @@ import {
   type DbRoom, type DbMember, type DbMessage, type DbFileResource, type DbTask, type DbActivity,
 } from "@/lib/rooms-api";
 import { searchUsers, sendRoomInvitation, getUserById, type DbUser } from "@/lib/users-api";
+import { formatDateWord, formatDateNumeric } from "@/lib/date-utils";
+import { AddToCalendarMenu } from "@/components/AddToCalendarMenu";
+import { getMilestoneGoogleCalendarUrl } from "@/lib/calendar-utils";
 
 export const Route = createFileRoute("/rooms/$roomId")({
   head: ({ params }) => ({
@@ -346,6 +356,7 @@ function RoomPage() {
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{room.problem || room.description}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <AddToCalendarMenu room={room} />
               {isOwnerOrAdmin ? (
                 <>
                   <Button size="sm" variant="outline" onClick={() => setOpenEditModal(true)} className="gap-1.5 h-8">
@@ -374,7 +385,7 @@ function RoomPage() {
             {Object.entries(deadlines).map(([k, v]) => (
               <div key={k} className="rounded-xl border border-border/60 bg-card/50 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</p>
-                <p className="mt-1 text-sm font-medium">{v ? new Date(v).toDateString().slice(4) : "—"}</p>
+                <p className="mt-1 text-sm font-medium">{v ? formatDateWord(v) : "—"}</p>
               </div>
             ))}
           </div>
@@ -703,7 +714,7 @@ function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoom
             {Object.entries(deadlines).map(([k, v]) => (
               <li key={k} className="flex items-center justify-between">
                 <span className="capitalize text-muted-foreground">{k}</span>
-                <span className="font-medium">{v ? new Date(v).toDateString().slice(4) : "—"}</span>
+                <span className="font-medium">{v ? formatDateWord(v) : "—"}</span>
               </li>
             ))}
           </ul>
@@ -1491,7 +1502,10 @@ function ChatTab({
     } else if (d.toDateString() === yesterday.toDateString()) {
       return "Yesterday";
     } else {
-      return d.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+      const day = d.getDate();
+      const month = d.toLocaleDateString("en-GB", { month: "short" });
+      const weekday = d.toLocaleDateString("en-GB", { weekday: "long" });
+      return `${weekday}, ${day} ${month}`;
     }
   };
 
@@ -2025,7 +2039,10 @@ function TimelineTab({ room }: { room: DbRoom }) {
           <h2 className="text-lg font-semibold">Hackathon Milestones & Timeline</h2>
           <p className="text-xs text-muted-foreground">Seekbar automatically syncs according to deadline dates</p>
         </div>
-        <Badge variant="outline" className="w-fit">Timeline Status: {progressPercent}% Completed</Badge>
+        <div className="flex items-center gap-2">
+          <AddToCalendarMenu room={room} />
+          <Badge variant="outline" className="w-fit">Timeline Status: {progressPercent}% Completed</Badge>
+        </div>
       </div>
 
       <div className="relative pt-2 pb-6">
@@ -2048,10 +2065,29 @@ function TimelineTab({ room }: { room: DbRoom }) {
             )}>
               {s.status === "done" && <Check className="h-2.5 w-2.5 text-white" />}
             </span>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="font-medium">{s.label}</h3>
-              <span className="text-xs text-muted-foreground">
-                {s.dateStr ? new Date(s.dateStr).toDateString().slice(4) : "Date Not Set"}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <h3 className="font-medium">{s.label}</h3>
+                {s.dateStr && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = getMilestoneGoogleCalendarUrl(room, s.label, s.dateStr);
+                      window.open(url, "_blank", "noopener,noreferrer");
+                      toast.success(`Opening Google Calendar for ${s.label}...`, {
+                        description: `Scheduled for ${formatDateWord(s.dateStr)}`,
+                      });
+                    }}
+                    title={`Add "${s.label}" to Google Calendar`}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors opacity-75 hover:opacity-100 px-1.5 py-0.5 rounded hover:bg-primary/10"
+                  >
+                    <CalendarPlus className="h-3 w-3" />
+                    <span>Sync GCal</span>
+                  </button>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground font-mono">
+                {s.dateStr ? formatDateWord(s.dateStr) : "Date Not Set"}
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -2221,12 +2257,15 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isLoadingChats, setIsLoadingChats] = useState<boolean>(true);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [editingUserMessage, setEditingUserMessage] = useState<AiChatMessage | null>(null);
 
   const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
   const [recentsCollapsed, setRecentsCollapsed] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileViewChatActive, setMobileViewChatActive] = useState(false);
   const [isFilesSidebarOpen, setIsFilesSidebarOpen] = useState(false);
+  const [isMultimodalStudioOpen, setIsMultimodalStudioOpen] = useState(false);
+  const [multimodalStudioTab, setMultimodalStudioTab] = useState<'image' | 'audio' | 'document' | 'ppt'>('image');
   const [searchQuery, setSearchQuery] = useState("");
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
@@ -2242,6 +2281,8 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const recognitionRef = useRef<any>(null);
   const baseTextRef = useRef<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -2256,8 +2297,8 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
         const fetched = await fetchAiConversations(room.id);
         if (isMounted) {
           setChats(fetched);
-          if (fetched.length > 0 && !selectedChatId) {
-            setSelectedChatId(fetched[0].id);
+          if (fetched.length > 0) {
+            setSelectedChatId((prev) => (prev && fetched.some((c) => c.id === prev) ? prev : fetched[0].id));
           }
         }
       } catch (err: any) {
@@ -2310,12 +2351,15 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
     };
   }, [room?.id]);
 
-  // Real-time automatic polling to sync room AI conversations and messages from MongoDB live
+  // Periodic lightweight background sync to sync room AI conversations and messages from MongoDB live
   useEffect(() => {
     if (!room?.id) return;
 
     let isMounted = true;
     const interval = setInterval(async () => {
+      // Don't poll if document is hidden to save bandwidth and prevent MongoDB connection saturation
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+
       try {
         const fresh = await fetchAiConversations(room.id);
         if (!isMounted || !fresh) return;
@@ -2324,13 +2368,13 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
           // If no changes from DB, skip updating state to prevent unnecessary re-renders
           if (JSON.stringify(prev) === JSON.stringify(fresh)) return prev;
 
-          // If currently generating, preserve pending optimistic message in active chat
+          // If currently generating, preserve pending optimistic/streaming messages in active chat
           if (isGenerating && selectedChatId) {
             return fresh.map((freshConv) => {
               if (freshConv.id === selectedChatId) {
                 const prevActive = prev.find((p) => p.id === selectedChatId);
                 const optimisticMsgs = (prevActive?.messages || []).filter((m) =>
-                  m.id.startsWith("m-temp-")
+                  m.id.startsWith("m-temp-") || m.id.startsWith("m-ai-")
                 );
                 if (optimisticMsgs.length > 0) {
                   const existingIds = new Set(freshConv.messages.map((m) => m.id));
@@ -2355,7 +2399,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
       } catch {
         // quiet background catch
       }
-    }, 3000);
+    }, 8000);
 
     return () => {
       isMounted = false;
@@ -2366,6 +2410,17 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
   const activeChat = useMemo(() => {
     return chats.find((c) => c.id === selectedChatId) || null;
   }, [chats, selectedChatId]);
+
+  // Find ID of latest user message for edit prompt highlight
+  const latestUserMessageId = useMemo(() => {
+    if (!activeChat?.messages) return null;
+    for (let i = activeChat.messages.length - 1; i >= 0; i--) {
+      if (activeChat.messages[i].sender === "user") {
+        return activeChat.messages[i].id;
+      }
+    }
+    return null;
+  }, [activeChat?.messages]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -2419,12 +2474,12 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
           label = 'Yesterday';
         } else {
           try {
-            label = new Date(msgDate).toLocaleDateString(undefined, {
-              weekday: 'long',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            });
+            const d = new Date(msgDate);
+            const day = d.getDate();
+            const month = d.toLocaleDateString("en-GB", { month: "short" });
+            const year = d.getFullYear();
+            const weekday = d.toLocaleDateString("en-GB", { weekday: "long" });
+            label = `${weekday}, ${day} ${month} ${year}`;
           } catch {
             label = msgDate;
           }
@@ -2643,7 +2698,35 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
     setMobileViewChatActive(true);
   };
 
-  // Send message to Gemini and update MongoDB conversation
+  // Stop response generation handler (Aborts stream immediately and keeps generated partial text)
+  const handleStopResponse = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsGenerating(false);
+    toast.info("AI response generation stopped.");
+  };
+
+  // Start editing a user message prompt
+  const handleStartEditPrompt = (msg: AiChatMessage) => {
+    setEditingUserMessage(msg);
+    setInput(msg.text);
+    if (msg.plugin) setSelectedPlugin(msg.plugin);
+    if (msg.fileAttachment) setFileAttachment(msg.fileAttachment);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  const handleCancelEditPrompt = () => {
+    setEditingUserMessage(null);
+    setInput("");
+    setSelectedPlugin(null);
+    setFileAttachment(null);
+  };
+
+  // Send message to Gemini with real-time SSE streaming & MongoDB persistence
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if ((!input.trim() && !fileAttachment && !selectedPlugin) || isGenerating) return;
@@ -2651,80 +2734,168 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
     const userPrompt = input.trim() || (fileAttachment ? `Please analyze attached file: ${fileAttachment.name}` : `Execute plugin @${selectedPlugin}`);
     const activePluginForMessage = selectedPlugin;
     const currentAttachment = fileAttachment;
+    const editingMsg = editingUserMessage;
 
     // Clear input bar fields immediately
     setInput("");
     setSelectedPlugin(null);
     setFileAttachment(null);
     setShowPluginPicker(false);
+    setEditingUserMessage(null);
     setIsGenerating(true);
 
-    const now = new Date();
-    // Optimistic user message
-    const tempUserMsg: AiChatMessage = {
-      id: `m-temp-${Date.now()}`,
-      sender: "user",
-      author_name: currentUserName,
-      author_avatar: currentUserAvatar,
-      author_id: currentUserId,
-      text: userPrompt,
-      timestamp: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      date: now.toISOString().split('T')[0],
-      plugin: activePluginForMessage || undefined,
-      fileAttachment: currentAttachment || undefined,
-    };
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
+    const now = new Date();
     let targetChatId = selectedChatId;
+    const tempUserMsgId = editingMsg ? editingMsg.id : `m-temp-${Date.now()}`;
+    const tempAiMsgId = `m-ai-${Date.now()}`;
+
+    // Setup optimistic user & empty AI message in state
     if (targetChatId) {
       setChats((prev) =>
-        prev.map((c) =>
-          c.id === targetChatId
-            ? { ...c, messages: [...c.messages, tempUserMsg], updatedAt: "Just now" }
-            : c
-        )
+        prev.map((c) => {
+          if (c.id !== targetChatId) return c;
+
+          let updatedMsgs: AiChatMessage[];
+          if (editingMsg) {
+            const editIdx = c.messages.findIndex((m) => m.id === editingMsg.id);
+            if (editIdx !== -1) {
+              const priorMsgs = c.messages.slice(0, editIdx);
+              const updatedUserMsg: AiChatMessage = {
+                ...c.messages[editIdx],
+                text: userPrompt,
+                plugin: activePluginForMessage || undefined,
+                fileAttachment: currentAttachment || undefined,
+                timestamp: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                date: now.toISOString().split("T")[0],
+              };
+              const initialAiMsg: AiChatMessage = {
+                id: tempAiMsgId,
+                sender: "ai",
+                author_name: "Hackord AI Assistant",
+                author_avatar: "",
+                author_id: "ai-assistant",
+                text: "",
+                timestamp: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                date: now.toISOString().split("T")[0],
+                plugin: activePluginForMessage || undefined,
+              };
+              updatedMsgs = [...priorMsgs, updatedUserMsg, initialAiMsg];
+            } else {
+              updatedMsgs = [...c.messages];
+            }
+          } else {
+            const newUserMsg: AiChatMessage = {
+              id: tempUserMsgId,
+              sender: "user",
+              author_name: currentUserName,
+              author_avatar: currentUserAvatar,
+              author_id: currentUserId,
+              text: userPrompt,
+              timestamp: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              date: now.toISOString().split("T")[0],
+              plugin: activePluginForMessage || undefined,
+              fileAttachment: currentAttachment || undefined,
+            };
+            const initialAiMsg: AiChatMessage = {
+              id: tempAiMsgId,
+              sender: "ai",
+              author_name: "Hackord AI Assistant",
+              author_avatar: "",
+              author_id: "ai-assistant",
+              text: "",
+              timestamp: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              date: now.toISOString().split("T")[0],
+              plugin: activePluginForMessage || undefined,
+            };
+            updatedMsgs = [...c.messages, newUserMsg, initialAiMsg];
+          }
+
+          return {
+            ...c,
+            messages: updatedMsgs,
+            updatedAt: "Just now",
+          };
+        })
       );
     }
 
     try {
-      const response = await sendAiChatMessage({
-        conversationId: targetChatId || undefined,
-        roomId: room.id,
-        userId: currentUserId,
-        userName: currentUserName,
-        userAvatar: currentUserAvatar,
-        prompt: userPrompt,
-        pluginTitle: activePluginForMessage,
-        fileAttachment: currentAttachment,
-      });
+      await streamAiChatMessage(
+        {
+          conversationId: targetChatId || undefined,
+          roomId: room.id,
+          userId: currentUserId,
+          userName: currentUserName,
+          userAvatar: currentUserAvatar,
+          prompt: userPrompt,
+          pluginTitle: activePluginForMessage,
+          fileAttachment: currentAttachment,
+          editMessageId: editingMsg ? editingMsg.id : undefined,
+        },
+        {
+          onStart: (startData) => {
+            if (startData.conversationId && !selectedChatId) {
+              setSelectedChatId(startData.conversationId);
+              targetChatId = startData.conversationId;
+            }
+          },
+          onChunk: ({ chunk, fullText, modelUsed }) => {
+            setChats((prev) =>
+              prev.map((c) => {
+                if (c.id === (targetChatId || selectedChatId) || (!targetChatId && prev[0]?.id === c.id)) {
+                  const msgs = [...c.messages];
+                  const lastAiIndex = msgs.findLastIndex((m) => m.sender === "ai");
+                  if (lastAiIndex !== -1) {
+                    msgs[lastAiIndex] = {
+                      ...msgs[lastAiIndex],
+                      text: fullText,
+                      structuredData: { modelUsed },
+                    };
+                  }
+                  return { ...c, messages: msgs };
+                }
+                return c;
+              })
+            );
+          },
+          onDone: (doneData) => {
+            const updatedConv = doneData.conversation;
+            setChats((prev) => {
+              const exists = prev.some((c) => c.id === updatedConv.id);
+              if (exists) {
+                return prev.map((c) => (c.id === updatedConv.id ? updatedConv : c));
+              } else {
+                return [updatedConv, ...prev];
+              }
+            });
 
-      const updatedConv = response.conversation;
-      setChats((prev) => {
-        const exists = prev.some((c) => c.id === updatedConv.id);
-        if (exists) {
-          return prev.map((c) => (c.id === updatedConv.id ? updatedConv : c));
-        } else {
-          return [updatedConv, ...prev];
-        }
-      });
-
-      setSelectedChatId(updatedConv.id);
-      setMobileViewChatActive(true);
-      aiChannelRef.current?.postMessage({ type: "AI_CONV_UPDATED", payload: updatedConv });
+            setSelectedChatId(updatedConv.id);
+            setMobileViewChatActive(true);
+            aiChannelRef.current?.postMessage({ type: "AI_CONV_UPDATED", payload: updatedConv });
+            setIsGenerating(false);
+            abortControllerRef.current = null;
+          },
+          onError: (err) => {
+            if (abortController.signal.aborted) return;
+            console.error("[AI Streaming Error]", err);
+            toast.error(err.message || "Failed to stream AI response. Please retry.");
+            setIsGenerating(false);
+            abortControllerRef.current = null;
+          },
+        },
+        abortController.signal
+      );
     } catch (err: any) {
-      console.error("[AI Chat Error]", err);
-      toast.error(err.message || "Failed to generate AI response. Please retry.");
-      // Rollback optimistic message if failed
-      if (targetChatId) {
-        setChats((prev) =>
-          prev.map((c) =>
-            c.id === targetChatId
-              ? { ...c, messages: c.messages.filter((m) => m.id !== tempUserMsg.id) }
-              : c
-          )
-        );
+      if (!abortController.signal.aborted) {
+        console.error("[AI Chat Error]", err);
+        toast.error(err.message || "Failed to generate AI response.");
       }
     } finally {
       setIsGenerating(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -2817,7 +2988,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
           <UploadCloud className="h-12 w-12 text-primary animate-bounce" />
           <h3 className="text-lg font-bold text-foreground">Drop File to Attach (&lt; 5MB)</h3>
           <p className="text-xs text-muted-foreground max-w-sm">
-            PDFs, images, markdown, code, and text documents will be analyzed by Gemini intelligence.
+            Audio (MP3, M4A, WAV), Video (MP4, MOV, WEBM), PDFs, images, code, and documents will be analyzed by Gemini intelligence.
           </p>
         </div>
       )}
@@ -2828,7 +2999,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
         ref={fileInputRef}
         className="hidden"
         onChange={handleFileUpload}
-        accept=".pdf,.doc,.docx,.txt,.md,.marp,.json,.csv,.js,.ts,.tsx,.jsx,.py,.html,.css,.png,.jpg,.jpeg,.webp"
+        accept=".pdf,.doc,.docx,.txt,.md,.marp,.json,.csv,.js,.ts,.tsx,.jsx,.py,.html,.css,.png,.jpg,.jpeg,.webp,.mp3,.m4a,.wav,.mp4,.mov,.webm,audio/*,video/*"
       />
 
       {/* ---------------- 1. LEFT SIDEBAR (CONVERSATIONS LIST) ---------------- */}
@@ -3133,6 +3304,20 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
             </div>
 
             <div className="flex items-center gap-1.5">
+              {/* AI Multimodal Studio (Imagen 3, Docs, Voice, PPT) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMultimodalStudioTab('image');
+                  setIsMultimodalStudioOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-primary/40 bg-primary/15 hover:bg-primary/25 text-primary text-xs font-semibold transition shadow-sm"
+                title="Free Multimodal Studio (Image Generation, PDF/DOCX/CSV Exporter, Voice TTS, PPT)"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <span className="hidden sm:inline">AI Studio</span>
+              </button>
+
               {/* Files / Artifacts Sidebar Toggle Button (Matching Screenshot) */}
               <button
                 type="button"
@@ -3284,6 +3469,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                             ? "bg-primary text-white border-transparent rounded-tr-md rounded-bl-2xl rounded-br-2xl shadow-card"
                             : "bg-card/90 border-border text-foreground rounded-tl-md rounded-tr-2xl rounded-bl-2xl rounded-br-2xl"
                         )}
+                        style={{ minWidth: '-webkit-fill-available' }}
                       >
                         {/* Header (Author & Time) */}
                         <div className="flex items-center gap-2 mb-2 justify-between flex-wrap border-b border-border/20 pb-1">
@@ -3302,43 +3488,104 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                           </span>
                         </div>
 
-                        {/* Attached File Chip on message (Clickable to open in new tab) */}
+                        {/* Attached File Chip on message (Clickable to open in new tab & inline media preview) */}
                         {m.fileAttachment && (
-                          <div
-                            onClick={() => openFileInNewTab(m.fileAttachment!)}
-                            className={cn(
-                              "cursor-pointer flex items-center gap-2 p-2.5 rounded-xl text-xs mb-2.5 border transition-all duration-200 group/file",
-                              isSelf
-                                ? "bg-white/10 border-white/20 hover:bg-white/20 text-white"
-                                : "bg-muted/30 border-border hover:border-emerald-500/50 text-foreground"
-                            )}
-                            title="Click to view file in new tab"
-                          >
-                            <FileText className="h-4 w-4 shrink-0 text-emerald-400 group-hover/file:scale-110 transition-transform" />
-                            <div className="truncate flex-1">
-                              <div className="font-semibold truncate flex items-center gap-1">
-                                <span>{m.fileAttachment.name}</span>
-                                <ExternalLink className="h-3 w-3 opacity-70 group-hover/file:opacity-100 shrink-0" />
-                              </div>
-                              {m.fileAttachment.size && (
-                                <div className="text-[10px] opacity-75">
-                                  {(m.fileAttachment.size / (1024 * 1024)).toFixed(2)} MB • Stored in workspace
-                                </div>
+                          <div className="mb-2.5 space-y-2">
+                            <div
+                              onClick={() => openFileInNewTab(m.fileAttachment!)}
+                              className={cn(
+                                "cursor-pointer flex items-center gap-2 p-2.5 rounded-xl text-xs border transition-all duration-200 group/file",
+                                isSelf
+                                  ? "bg-white/10 border-white/20 hover:bg-white/20 text-white"
+                                  : "bg-muted/30 border-border hover:border-emerald-500/50 text-foreground"
                               )}
+                              title="Click to view/play file in new tab"
+                            >
+                              {isAudioFile(m.fileAttachment) ? (
+                                <Music className="h-4 w-4 shrink-0 text-violet-400 group-hover/file:scale-110 transition-transform" />
+                              ) : isVideoFile(m.fileAttachment) ? (
+                                <Film className="h-4 w-4 shrink-0 text-cyan-400 group-hover/file:scale-110 transition-transform" />
+                              ) : (
+                                <FileText className="h-4 w-4 shrink-0 text-emerald-400 group-hover/file:scale-110 transition-transform" />
+                              )}
+                              <div className="truncate flex-1">
+                                <div className="font-semibold truncate flex items-center gap-1.5">
+                                  <span>{m.fileAttachment.name}</span>
+                                  {isAudioFile(m.fileAttachment) && (
+                                    <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30">AUDIO</span>
+                                  )}
+                                  {isVideoFile(m.fileAttachment) && (
+                                    <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">VIDEO</span>
+                                  )}
+                                  <ExternalLink className="h-3 w-3 opacity-70 group-hover/file:opacity-100 shrink-0 ml-auto" />
+                                </div>
+                                {m.fileAttachment.size && (
+                                  <div className="text-[10px] opacity-75">
+                                    {(m.fileAttachment.size / (1024 * 1024)).toFixed(2)} MB • Stored in workspace
+                                  </div>
+                                )}
+                              </div>
                             </div>
+
+                            {/* Inline Audio Player for Audio Attachments */}
+                            {/* {isAudioFile(m.fileAttachment) && m.fileAttachment.dataUrl && (
+                              <div className="rounded-xl overflow-hidden bg-black/40 border border-violet-500/30 p-2 shadow-inner">
+                                <audio controls className="w-full h-8" src={m.fileAttachment.dataUrl} />
+                              </div>
+                            )} */}
+
+                            {/* Inline Video Player for Video Attachments */}
+                            {/* {isVideoFile(m.fileAttachment) && m.fileAttachment.dataUrl && (
+                              <div className="rounded-xl overflow-hidden bg-black/60 border border-cyan-500/30 shadow-inner max-w-sm">
+                                <video controls playsInline className="w-full max-h-48 rounded-lg object-contain bg-black" src={m.fileAttachment.dataUrl} />
+                              </div>
+                            )} */}
                           </div>
                         )}
 
                         {/* Content Renderer */}
                         {isSelf ? (
-                          <div className="break-words whitespace-pre-wrap font-medium">
-                            {m.text}
+                          <div className="space-y-2">
+                            <div className="break-words whitespace-pre-wrap font-medium">
+                              {m.text}
+                            </div>
+                            <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t border-white/20">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditPrompt(m)}
+                                className={cn(
+                                  "flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-lg transition-all shadow-sm",
+                                  latestUserMessageId === m.id
+                                    ? "bg-white/20 text-white hover:bg-white/30 border border-white/30"
+                                    : "text-white/80 hover:text-white hover:bg-white/15"
+                                )}
+                                title={latestUserMessageId === m.id ? "Edit your latest prompt message" : "Edit this prompt message"}
+                              >
+                                <Edit className="h-2.5 w-2.5" />
+                                <span>{latestUserMessageId === m.id ? "Edit prompt" : "Edit"}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(m.text);
+                                  toast.success("Prompt copied to clipboard!");
+                                }}
+                                className="flex items-center gap-1 text-[10px] text-white/80 hover:text-white px-1.5 py-0.5 rounded hover:bg-white/15 transition"
+                                title="Copy prompt text"
+                              >
+                                <Copy className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
                           </div>
                         ) : (
-                          <AiMessageRenderer text={m.text} plugin={m.plugin} />
+                          <AiMessageRenderer
+                            text={m.text}
+                            plugin={m.plugin}
+                            isStreaming={isGenerating && idx === groupedMessageItems.length - 1 && m.sender === 'ai'}
+                          />
                         )}
 
-                        {/* Copy Action */}
+                        {/* Copy Action for AI */}
                         {!isSelf && (
                           <div className="flex items-center justify-between pt-2 border-t border-border/30 mt-2">
                             <button
@@ -3360,9 +3607,9 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                   );
                 })}
 
-                {/* Generating / Typing Indicator */}
-                {isGenerating && (
-                  <div className="flex items-start gap-2 mr-auto max-w-[80%]">
+                {/* Initial Generating / Thinking Indicator when streaming begins and no tokens yet */}
+                {isGenerating && (!activeChat?.messages.length || (activeChat.messages[activeChat.messages.length - 1]?.sender === 'user' || activeChat.messages[activeChat.messages.length - 1]?.text === '')) && (
+                  <div className="flex items-start gap-2 mr-auto max-w-[80%] animate-fade-in">
                     <Avatar className="h-8 w-8 shrink-0 border border-primary/30 shadow-sm mt-1">
                       <AvatarFallback className="bg-primary/20 text-[10px] font-bold text-primary">
                         AI
@@ -3392,6 +3639,25 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
             className="flex flex-col border-t border-border p-3 bg-card/35 backdrop-blur-md relative gap-2"
             onSubmit={handleSendMessage}
           >
+            {/* Editing banner if user is editing a prompt */}
+            {editingUserMessage && (
+              <div className="flex items-center justify-between border border-primary/30 bg-primary/10 px-3 py-1.5 text-[11px] backdrop-blur-sm rounded-xl animate-fade-in">
+                <div className="flex items-center gap-1.5 text-foreground truncate min-w-0">
+                  <Edit className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="font-bold text-primary">Editing prompt:</span>
+                  <span className="truncate italic text-muted-foreground">"{editingUserMessage.text}"</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelEditPrompt}
+                  className="text-muted-foreground hover:text-foreground text-xs font-semibold px-2 py-0.5 rounded hover:bg-primary/20 transition shrink-0 ml-2"
+                  title="Cancel editing"
+                >
+                  ✕ Cancel
+                </button>
+              </div>
+            )}
+
             {/* Plugin Autocomplete Popover (Triggered by / or @) */}
             {showPluginPicker && (
               <div className="absolute bottom-full left-4 sm:left-6 mb-2 w-72 sm:w-80 rounded-2xl border border-border bg-popover/95 p-2.5 shadow-spatial backdrop-blur-md z-50 space-y-1 text-xs">
@@ -3450,12 +3716,25 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
 
                 {/* Single File Attachment Pill (< 5MB, Click to view in new tab) */}
                 {fileAttachment && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium shadow-sm animate-fade-in">
-                    <FileText className="h-3.5 w-3.5" />
+                  <div className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium shadow-sm animate-fade-in border",
+                    isAudioFile(fileAttachment)
+                      ? "bg-violet-500/15 border-violet-500/30 text-violet-300"
+                      : isVideoFile(fileAttachment)
+                      ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
+                      : "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                  )}>
+                    {isAudioFile(fileAttachment) ? (
+                      <Music className="h-3.5 w-3.5 text-violet-400" />
+                    ) : isVideoFile(fileAttachment) ? (
+                      <Film className="h-3.5 w-3.5 text-cyan-400" />
+                    ) : (
+                      <FileText className="h-3.5 w-3.5 text-emerald-400" />
+                    )}
                     <span
                       onClick={() => openFileInNewTab(fileAttachment)}
                       className="truncate max-w-[160px] font-semibold cursor-pointer hover:underline"
-                      title="Click to view file in new tab"
+                      title="Click to view/play file in new tab"
                     >
                       {fileAttachment.name}
                     </span>
@@ -3467,7 +3746,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                     <button
                       type="button"
                       onClick={handleRemoveFileAttachment}
-                      className="ml-1 p-0.5 rounded-md hover:bg-emerald-500/20 text-emerald-400 transition"
+                      className="ml-1 p-0.5 rounded-md hover:bg-white/10 text-current transition"
                       title="Remove attached file"
                     >
                       <X className="h-3 w-3" />
@@ -3486,25 +3765,37 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                     type="button"
                     disabled={isUploadingFile || isGenerating}
                     className="p-2.5 rounded-xl border border-border bg-sidebar-accent/60 text-muted-foreground hover:border-primary/50 hover:text-primary transition shadow-sm shrink-0 disabled:opacity-50"
-                    title="Attach single file (<5MB) or select plugin"
+                    title="Attach audio, video, doc (<5MB) or select plugin"
                   >
                     {isUploadingFile ? <Loader2 className="h-4.5 w-4.5 animate-spin text-primary" /> : <Plus className="h-4.5 w-4.5" />}
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="top" className="w-60 z-50 space-y-0.5 text-xs">
-                  <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <DropdownMenuContent align="start" side="top" className="w-64 z-50 space-y-0.5 text-xs">
+                  {/* Create Image with Google Imagen 3 */}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setMultimodalStudioTab('image');
+                      setIsMultimodalStudioOpen(true);
+                    }}
+                    className="cursor-pointer font-medium text-primary hover:bg-primary/10"
+                  >
+                    <ImageIcon className="mr-2 h-4 w-4 text-primary" />
+                    <span>Create Image & More</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
                     <Paperclip className="mr-2 h-4 w-4 text-emerald-400" />
-                    <span>Attach file (&lt;5MB)</span>
+                    <span>Attach media / doc (&lt;5MB)</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowPluginPicker(true)}>
+                  <DropdownMenuItem onClick={() => setShowPluginPicker(true)} className="cursor-pointer">
                     <Sparkles className="mr-2 h-4 w-4 text-primary" />
-                    <span>Activate plugin</span>
+                    <span>Browse all plugins</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleCreateNewChat()}>
+                  <DropdownMenuItem onClick={() => handleCreateNewChat()} className="cursor-pointer">
                     <Plus className="mr-2 h-4 w-4" />
                     <span>New conversation</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => toggleRecording()}>
+                  <DropdownMenuItem onClick={() => toggleRecording()} className="cursor-pointer">
                     <Mic className="mr-2 h-4 w-4" />
                     <span>Voice dictation</span>
                   </DropdownMenuItem>
@@ -3515,8 +3806,9 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
               <button
                 type="button"
                 onClick={toggleRecording}
+                disabled={isGenerating}
                 className={cn(
-                  "p-2.5 rounded-xl border transition shadow-sm shrink-0",
+                  "p-2.5 rounded-xl border transition shadow-sm shrink-0 disabled:opacity-50",
                   isRecording
                     ? "bg-red-500/15 border-red-500 text-red-500 animate-pulse shadow-md"
                     : "bg-sidebar-accent/60 border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
@@ -3528,11 +3820,14 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
 
               {/* Input Field */}
               <Input
+                ref={inputRef}
                 value={input}
                 onChange={handleInputChange}
                 disabled={isGenerating}
                 placeholder={
-                  selectedPlugin
+                  editingUserMessage
+                    ? "Edit your prompt..."
+                    : selectedPlugin
                     ? `Prompt for @${selectedPlugin}...`
                     : fileAttachment
                       ? `Ask questions about ${fileAttachment.name}...`
@@ -3541,21 +3836,28 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                 className="flex-1 rounded-xl border border-border bg-background/50 text-xs sm:text-sm h-10 px-3 outline-none focus:border-primary/50 transition min-w-0"
               />
 
-              {/* Send Button */}
-              <Button
-                type="submit"
-                disabled={(!input.trim() && !fileAttachment && !selectedPlugin) || isGenerating}
-                className="bg-gradient-brand text-white shadow-glow hover:opacity-90 rounded-xl px-3.5 h-10 gap-1.5 text-xs font-semibold shrink-0 disabled:opacity-40"
-              >
-                {isGenerating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <>
-                    <span className="hidden sm:inline">Send</span>
-                    <Send className="h-3.5 w-3.5" />
-                  </>
-                )}
-              </Button>
+              {/* Send or Stop Button (Dynamically replaced during generation) */}
+              {isGenerating ? (
+                <Button
+                  type="button"
+                  onClick={handleStopResponse}
+                  className="bg-destructive hover:bg-destructive/90 text-white shadow-glow rounded-xl px-3.5 h-10 gap-1.5 text-xs font-semibold shrink-0 animate-pulse"
+                  title="Stop AI response generation"
+                >
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                  <span>Stop</span>
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={(!input.trim() && !fileAttachment && !selectedPlugin)}
+                  className="bg-gradient-brand text-white shadow-glow hover:opacity-90 rounded-xl px-3.5 h-10 gap-1.5 text-xs font-semibold shrink-0 disabled:opacity-40"
+                  title={editingUserMessage ? "Update prompt and regenerate" : "Send prompt"}
+                >
+                  <span className="hidden sm:inline">{editingUserMessage ? "Update" : "Send"}</span>
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           </form>
         </div>
@@ -3566,6 +3868,13 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
           onClose={() => setIsFilesSidebarOpen(false)}
           conversations={chats}
           activeChatId={selectedChatId}
+        />
+
+        {/* Free Multimodal Studio (Imagen 3, Docs, Audio, PPT) */}
+        <AiMultimodalStudio
+          isOpen={isMultimodalStudioOpen}
+          onClose={() => setIsMultimodalStudioOpen(false)}
+          initialTab={multimodalStudioTab}
         />
       </div>
     </div>

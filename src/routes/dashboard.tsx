@@ -33,6 +33,7 @@ import {
 } from "@/lib/users-api";
 import { fetchRealNotifications, type RealNotification } from "@/lib/notifications-api";
 import { getNotes, createNote, deleteNote, type DbNote } from "@/lib/notes-api";
+import { formatDateWord } from "@/lib/date-utils";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Hackord" }] }),
@@ -157,7 +158,7 @@ function DashboardPage() {
             list.push({
               title: p.title,
               room: r.name,
-              date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+              date: formatDateWord(d, { includeYear: false }),
               urgency,
               rawDate: d,
             });
@@ -197,7 +198,7 @@ function DashboardPage() {
             const urgency = diffDays <= 2 ? "danger" : diffDays <= 7 ? "warning" : "muted";
             roomDeadlines.push({
               title: p.title,
-              date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+              date: formatDateWord(d, { includeYear: false }),
               urgency,
               rawDate: d,
             });

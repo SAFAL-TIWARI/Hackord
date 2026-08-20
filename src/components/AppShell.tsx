@@ -425,21 +425,32 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        {/* Floating Create Room */}
-        <button
-          onClick={() => {
-            if (!user) {
-              navigate({ to: "/signup" });
-              return;
-            }
-            haptic("medium");
-            setOpenCreate(true);
-          }}
-          className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-brand px-5 py-3 text-sm font-medium text-white shadow-glow transition hover:scale-105 active:scale-95"
-        >
-          <Plus className="h-4 w-4" />
-          Create Room
-        </button>
+        {/* Floating Create Room - Only visible on Dashboard, Explore, and My Rooms */}
+        {(() => {
+          const isAllowedPage =
+            pathname === "/dashboard" ||
+            pathname === "/explore" ||
+            pathname === "/rooms" ||
+            pathname === "/rooms/";
+          if (!isAllowedPage) return null;
+
+          return (
+            <button
+              onClick={() => {
+                if (!user) {
+                  navigate({ to: "/signup" });
+                  return;
+                }
+                haptic("medium");
+                setOpenCreate(true);
+              }}
+              className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-brand px-5 py-3 text-sm font-medium text-white shadow-glow transition hover:scale-105 active:scale-95"
+            >
+              <Plus className="h-4 w-4" />
+              Create Room
+            </button>
+          );
+        })()}
 
 
         {/* Mobile Bottom Navigation Bar (Dynamic elevated active link with liquid glass styling) */}

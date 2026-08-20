@@ -9,9 +9,24 @@ import {
   FileCode,
   Sparkles,
   Paperclip,
+  Music,
+  Film,
+  Play,
+  Volume2,
 } from 'lucide-react';
-import { openFileInNewTab, type AiConversation, type AiFileAttachment } from '@/lib/ai-api';
+import {
+  openFileInNewTab,
+  isAudioFile,
+  isVideoFile,
+  isPdfFile,
+  isImageFile,
+  type AiConversation,
+  type AiFileAttachment,
+} from '@/lib/ai-api';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import pptxgen from 'pptxgenjs';
+import { parseMarkdownSlides } from './PresentationViewer';
 
 interface AiFilesSidebarProps {
   isOpen: boolean;
@@ -126,7 +141,52 @@ export function AiFilesSidebar({
 
   if (!isOpen) return null;
 
-  const handleDownloadArtifact = (art: ArtifactItem) => {
+  const handleDownloadArtifact = async (art: ArtifactItem) => {
+    if (art.format === 'PPTX' || art.type === 'Pitch Deck') {
+      try {
+        const slides = parseMarkdownSlides(art.content);
+        const pres = new pptxgen();
+        pres.layout = 'LAYOUT_16x9';
+        pres.title = art.title;
+        pres.author = 'Hackord AI Workspace';
+
+        slides.forEach((slide) => {
+          const pSlide = pres.addSlide();
+          pSlide.background = { color: '0B0F19' };
+          pSlide.addShape(pres.ShapeType.rect, {
+            x: 0.6,
+            y: 0.5,
+            w: 0.15,
+            h: 0.6,
+            fill: { color: '6366F1' },
+          });
+          pSlide.addText(slide.title, {
+            x: 0.9,
+            y: 0.45,
+            w: 11.5,
+            h: 0.7,
+            fontSize: 22,
+            bold: true,
+            color: 'F8FAFC',
+          });
+          const bullets = slide.bulletPoints.map((bp) => ({
+            text: bp,
+            options: { bullet: { type: 'bullet' }, fontSize: 16, color: 'F8FAFC', paraSpaceAfter: 10 },
+          }));
+          if (bullets.length > 0) {
+            pSlide.addText(bullets as any, { x: 0.9, y: 1.4, w: 11.2, h: 4.8 });
+          }
+        });
+
+        const filename = `${art.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.pptx`;
+        await pres.writeFile({ fileName: filename });
+        toast.success(`Downloaded PowerPoint presentation "${filename}"`);
+        return;
+      } catch (err) {
+        console.error('PPTX export error:', err);
+      }
+    }
+
     const blob = new Blob([art.content], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -241,25 +301,52 @@ export function AiFilesSidebar({
                 <FileText className="h-4 w-4 text-emerald-400 mx-auto" />
                 <p>No attached files in this room.</p>
                 <p className="text-[10px] text-muted-foreground/75">
-                  Drag & drop or attach PDFs, code, docs, and images.
+                  Drag & drop audio (MP3, WAV), video (MP4, MOV), PDFs, code, and docs.
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {uploadedFiles.map((file, idx) => {
-                  const isImage =
-                    file.type?.startsWith('image/') || file.name.match(/\.(png|jpg|jpeg|webp)$/i);
-                  const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+                  const isAudio = isAudioFile(file);
+                  const isVideo = isVideoFile(file);
+                  const isImage = isImageFile(file);
+                  const isPdf = isPdfFile(file);
+                  const ext = (file.name.toLowerCase().split('.').pop() || '').toUpperCase();
 
                   return (
                     <div
                       key={idx}
                       onClick={() => openFileInNewTab(file)}
-                      className="group relative cursor-pointer flex flex-col justify-between p-2 rounded-xl border border-border/80 bg-card/50 hover:bg-card hover:border-emerald-500/40 transition shadow-sm overflow-hidden h-24"
+                      className={cn(
+                        "group relative cursor-pointer flex flex-col justify-between p-2 rounded-xl border transition shadow-sm overflow-hidden h-24",
+                        isAudio
+                          ? "border-violet-500/30 bg-violet-950/20 hover:border-violet-500/60 hover:bg-violet-950/35"
+                          : isVideo
+                          ? "border-cyan-500/30 bg-cyan-950/20 hover:border-cyan-500/60 hover:bg-cyan-950/35"
+                          : "border-border/80 bg-card/50 hover:bg-card hover:border-emerald-500/40"
+                      )}
+                      title={`Click to open/play ${file.name}`}
                     >
                       {/* Visual Preview / Thumbnail */}
                       <div className="flex-1 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 p-1 mb-1 border border-border/40 relative">
-                        {isImage && file.dataUrl ? (
+                        {isAudio ? (
+                          <div className="flex flex-col items-center justify-center text-violet-400 space-y-1">
+                            <Music className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                            <span className="text-[7px] uppercase font-bold text-violet-300 tracking-wider">
+                              PLAY AUDIO
+                            </span>
+                          </div>
+                        ) : isVideo ? (
+                          <div className="flex flex-col items-center justify-center text-cyan-400 space-y-1">
+                            <div className="relative">
+                              <Film className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                              <Play className="h-2.5 w-2.5 text-white absolute inset-0 m-auto fill-white" />
+                            </div>
+                            <span className="text-[7px] uppercase font-bold text-cyan-300 tracking-wider">
+                              PLAY VIDEO
+                            </span>
+                          </div>
+                        ) : isImage && file.dataUrl ? (
                           <img
                             src={file.dataUrl}
                             alt={file.name}
@@ -278,8 +365,19 @@ export function AiFilesSidebar({
                           </div>
                         )}
 
-                        <span className="absolute top-1 right-1 px-1 py-0.2 rounded text-[7px] font-mono bg-black/80 text-white border border-white/20">
-                          {isPdf ? 'PDF' : isImage ? 'IMG' : 'FILE'}
+                        <span
+                          className={cn(
+                            "absolute top-1 right-1 px-1 py-0.2 rounded text-[7px] font-mono font-bold border",
+                            isAudio
+                              ? "bg-violet-950/80 text-violet-300 border-violet-500/40"
+                              : isVideo
+                              ? "bg-cyan-950/80 text-cyan-300 border-cyan-500/40"
+                              : isPdf
+                              ? "bg-red-950/80 text-red-300 border-red-500/40"
+                              : "bg-black/80 text-white border-white/20"
+                          )}
+                        >
+                          {ext || (isAudio ? 'AUDIO' : isVideo ? 'VIDEO' : isPdf ? 'PDF' : isImage ? 'IMG' : 'FILE')}
                         </span>
                       </div>
 
@@ -288,7 +386,14 @@ export function AiFilesSidebar({
                         <span className="truncate font-semibold text-foreground/90 max-w-[80px]">
                           {file.name}
                         </span>
-                        <ExternalLink className="h-2.5 w-2.5 text-muted-foreground group-hover:text-emerald-400 shrink-0 transition" />
+                        <ExternalLink className={cn(
+                          "h-2.5 w-2.5 transition shrink-0",
+                          isAudio
+                            ? "text-violet-400"
+                            : isVideo
+                            ? "text-cyan-400"
+                            : "text-muted-foreground group-hover:text-emerald-400"
+                        )} />
                       </div>
                     </div>
                   );

@@ -43,6 +43,7 @@ import { ALL_TAGS, type Hackathon } from "@/lib/hackathon-data";
 import { getHackathons, createHackathon, deleteHackathon, triggerHackathonScrape } from "@/lib/hackathons-api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { formatDateWord } from "@/lib/date-utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/explore")({
@@ -69,11 +70,7 @@ export const Route = createFileRoute("/explore")({
 
 function formatDate(iso: string) {
   if (!iso) return "TBD";
-  return new Date(iso).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDateWord(iso);
 }
 
 function daysUntil(iso: string) {

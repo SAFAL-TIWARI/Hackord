@@ -814,13 +814,11 @@ export function AgoraMeeting({
           });
 
           client.on("user-published", async (user, mediaType) => {
-            console.log("[AgoraRTC] Remote user published track:", user.uid, mediaType);
             await subscribeToUser(user, mediaType);
             broadcastLocalUserInfo(false);
           });
 
           client.on("user-unpublished", (user, mediaType) => {
-            console.log("[AgoraRTC] Remote user unpublished track:", user.uid, mediaType);
             if (mediaType === "video") {
               user.videoTrack?.stop();
               setRemotePresenterUid((prev) => (String(prev) === String(user.uid) ? null : prev));
@@ -831,13 +829,11 @@ export function AgoraMeeting({
           });
 
           client.on("user-joined", (user) => {
-            console.log("[AgoraRTC] Remote user joined channel:", user.uid);
             setRemoteUsers([...client!.remoteUsers]);
             broadcastLocalUserInfo(false);
           });
 
           client.on("user-left", (user, reason) => {
-            console.log("[AgoraRTC] Remote user left channel:", user.uid, reason);
             setRemoteUsers([...client!.remoteUsers]);
             setUserInfoMap((prev) => {
               const next = { ...prev };
@@ -892,7 +888,7 @@ export function AgoraMeeting({
               tokenToUse = tokenData.token;
             }
           } catch (tokenErr) {
-            console.warn("[AgoraRTC] Error fetching meeting token from backend:", tokenErr);
+            // Silently handled
           }
 
           if (!active) return;
@@ -900,11 +896,8 @@ export function AgoraMeeting({
           let uid: string | number;
           try {
             uid = await client.join(appIdToUse, channelNameToUse, tokenToUse, null);
-            console.log("[AgoraRTC] Successfully joined channel:", channelNameToUse, "UID:", uid);
           } catch (joinErr) {
-            console.warn("[AgoraRTC] Dynamic token join error, falling back to static App ID join:", joinErr);
             uid = await client.join(appIdToUse, channelNameToUse, null, null);
-            console.log("[AgoraRTC] Successfully joined channel with static App ID:", channelNameToUse, "UID:", uid);
           }
 
           if (!active) {
@@ -1634,9 +1627,9 @@ export function AgoraMeeting({
               <Copy className="h-3.5 w-3.5" />
             </button>
           </div>
-          <Badge variant="outline" className="hidden sm:inline-flex gap-1 text-[11px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+          {/* <Badge variant="outline" className="hidden sm:inline-flex gap-1 text-[11px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Agora RTC Active
-          </Badge>
+          </Badge> */}
         </div>
 
         <div className="flex items-center gap-2">

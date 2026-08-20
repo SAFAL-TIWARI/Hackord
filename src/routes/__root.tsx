@@ -84,7 +84,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "hackathon, developer workspace, hackathon team finder, real time video call, agora rtc, github integration, developer collaboration, virtual project room, open source projects, coding rooms",
       },
-      { name: "author", content: "Hackord" },
+      { name: "author", content: "Safal Tiwari" },
       { name: "robots", content: "index, follow" },
       { name: "theme-color", content: "#090d16" },
       { name: "google-site-verification", content: "KOi1bvu2tRkeojuYE0ABHOWsA8_frAbvSeMWsQGhBM4" },

@@ -22,6 +22,8 @@ import { createRoom } from "@/lib/rooms-api";
 import { useAuth } from "@/lib/auth";
 import type { Hackathon } from "@/lib/hackathon-data";
 
+import { formatDateWord } from "@/lib/date-utils";
+
 interface QuickCreateRoomModalProps {
   hackathon: Hackathon | null;
   open: boolean;
@@ -29,11 +31,7 @@ interface QuickCreateRoomModalProps {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDateWord(iso);
 }
 
 export function QuickCreateRoomModal({
