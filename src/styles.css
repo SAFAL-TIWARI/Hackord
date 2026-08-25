@@ -53,22 +53,22 @@
   /* ─── Dark Mode Spatial UI (Deep Spatial Obsidian Midnight) ─── */
   --background: #060813;
   --foreground: #f8fafc;
-  --card: rgba(8, 12, 28, 0.18);
+  --card: rgba(10, 15, 30, 0.65);
   --card-foreground: #f8fafc;
-  --popover: rgba(10, 15, 30, 0.75);
+  --popover: rgba(10, 15, 30, 0.85);
   --popover-foreground: #f8fafc;
   --primary: #8b5cf6;
   --primary-foreground: #ffffff;
-  --secondary: rgba(255, 255, 255, 0.05);
+  --secondary: rgba(255, 255, 255, 0.06);
   --secondary-foreground: #f8fafc;
-  --muted: rgba(255, 255, 255, 0.05);
-  --muted-foreground: #94a3b8;
-  --accent: rgba(255, 255, 255, 0.05);
+  --muted: rgba(255, 255, 255, 0.06);
+  --muted-foreground: #cbd5e1;
+  --accent: rgba(255, 255, 255, 0.06);
   --accent-foreground: #f8fafc;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.06);
   --ring: #8b5cf6;
   --brand: #8b5cf6;        /* spatial violet */
   --brand-2: #38bdf8;      /* cyan spark */
@@ -77,79 +77,78 @@
 
   --gradient-brand: linear-gradient(135deg, #8b5cf6 0%, #38bdf8 100%);
   --gradient-brand-soft: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(56, 189, 248, 0.15));
-  --gradient-mesh: radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.22) 0px, transparent 55%),
-                   radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.22) 0px, transparent 55%),
-                   radial-gradient(at 50% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 60%),
-                   radial-gradient(at 20% 70%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
-  --shadow-glow: 0 20px 80px -15px rgba(139, 92, 246, 0.45);
-  --shadow-card: 0 12px 40px -8px rgba(0, 0, 0, 0.45), inset 0 1.5px 0px 0px rgba(255, 255, 255, 0.22), inset 0 -1px 0px 0px rgba(0, 0, 0, 0.2);
-  --shadow-spatial: 0 30px 70px -10px rgba(0, 0, 0, 0.6), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.35), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.3);
+  --gradient-mesh: radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.18) 0px, transparent 55%),
+                   radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.18) 0px, transparent 55%),
+                   radial-gradient(at 50% 100%, rgba(236, 72, 153, 0.08) 0px, transparent 60%),
+                   radial-gradient(at 20% 70%, rgba(139, 92, 246, 0.06) 0px, transparent 50%);
+  --shadow-glow: 0 20px 80px -15px rgba(139, 92, 246, 0.35);
+  --shadow-card: 0 12px 40px -8px rgba(0, 0, 0, 0.45), inset 0 1.5px 0px 0px rgba(255, 255, 255, 0.15), inset 0 -1px 0px 0px rgba(0, 0, 0, 0.2);
+  --shadow-spatial: 0 30px 70px -10px rgba(0, 0, 0, 0.6), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.2), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.3);
 
-   --sidebar: rgba(6, 8, 20, 0.22);
+  --sidebar: rgba(6, 8, 20, 0.6);
   --sidebar-foreground: #f8fafc;
   --sidebar-primary: #8b5cf6;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: rgba(255, 255, 255, 0.06);
   --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-border: rgba(255, 255, 255, 0.12);
   --sidebar-ring: #8b5cf6;
 }
-
 
 /* ─── Light Mode Spatial UI (Alabaster Frost & Premium Glass) ─── */
 html.light {
   color-scheme: light;
   --background: #EBF3FF;
   --foreground: #0f172a;
-  --card: rgba(255, 255, 255, 0.18);
+  --card: rgba(255, 255, 255, 0.82);
   --card-foreground: #0f172a;
-  --popover: rgba(255, 255, 255, 0.75);
+  --popover: rgba(255, 255, 255, 0.92);
   --popover-foreground: #0f172a;
   --primary: #7c3aed;
   --primary-foreground: #ffffff;
-  --secondary: rgba(15, 23, 42, 0.04);
+  --secondary: rgba(15, 23, 42, 0.05);
   --secondary-foreground: #0f172a;
-  --muted: rgba(15, 23, 42, 0.04);
-  --muted-foreground: #64748b;
-  --accent: rgba(15, 23, 42, 0.04);
+  --muted: rgba(15, 23, 42, 0.05);
+  --muted-foreground: #475569;
+  --accent: rgba(15, 23, 42, 0.05);
   --accent-foreground: #0f172a;
-  --border: rgba(255, 255, 255, 0.5);
-  --input: rgba(15, 23, 42, 0.04);
+  --border: rgba(203, 213, 225, 0.85);
+  --input: rgba(15, 23, 42, 0.06);
   --ring: #7c3aed;
   --brand: #7c3aed;
   --brand-2: #0284c7;
 
   --gradient-brand: linear-gradient(135deg, #7c3aed 0%, #0284c7 100%);
   --gradient-brand-soft: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(2, 132, 199, 0.08));
-  --gradient-mesh: radial-gradient(at 0% 0%, rgba(124, 58, 237, 0.18) 0px, transparent 60%),
-                   radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.24) 0px, transparent 60%),
-                   radial-gradient(at 50% 100%, rgba(236, 72, 153, 0.12) 0px, transparent 60%);
+  --gradient-mesh: radial-gradient(at 0% 0%, rgba(124, 58, 237, 0.12) 0px, transparent 60%),
+                   radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 60%),
+                   radial-gradient(at 50% 100%, rgba(236, 72, 153, 0.08) 0px, transparent 60%);
 
-  --shadow-card: 0 12px 40px -8px rgba(31, 38, 135, 0.07), inset 0 1.5px 0px 0px rgba(255, 255, 255, 0.8), inset 0 -1px 0px 0px rgba(0, 0, 0, 0.05);
-  --shadow-spatial: 0 30px 70px -10px rgba(31, 38, 135, 0.1), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.9), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 12px 40px -8px rgba(31, 38, 135, 0.08), inset 0 1.5px 0px 0px rgba(255, 255, 255, 0.9), inset 0 -1px 0px 0px rgba(0, 0, 0, 0.05);
+  --shadow-spatial: 0 30px 70px -10px rgba(31, 38, 135, 0.12), inset 0 1.5px 1px 0px rgba(255, 255, 255, 1), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.05);
 
-  --sidebar: rgba(255, 255, 255, 0.22);
+  --sidebar: rgba(255, 255, 255, 0.75);
   --sidebar-foreground: #0f172a;
   --sidebar-primary: #7c3aed;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(15, 23, 42, 0.03);
+  --sidebar-accent: rgba(15, 23, 42, 0.04);
   --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: rgba(255, 255, 255, 0.4);
+  --sidebar-border: rgba(203, 213, 225, 0.7);
 }
 
 html.light .glass {
-  background-color: transparent;
-  border-color: rgba(255, 255, 255, 0.55);
-  box-shadow: 0 10px 30px -5px rgba(31, 38, 135, 0.05), inset 0 1.5px 0 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 0 rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(24px) saturate(220%);
-  
+  background-color: rgba(255, 255, 255, 0.78);
+  border-color: rgba(203, 213, 225, 0.8);
+  box-shadow: 0 10px 30px -5px rgba(31, 38, 135, 0.06), inset 0 1.5px 0 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 0 rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(24px) saturate(180%);
 }
 
 html.light .glass-strong {
- background-color: transparent;
-  border-color: rgba(255, 255, 255, 0.65);
-  box-shadow: 0 24px 64px -12px rgba(31, 38, 135, 0.08), inset 0 1.5px 1px 0px rgba(255, 255, 255, 0.9), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(32px) saturate(240%);
+  background-color: rgba(255, 255, 255, 0.88);
+  border-color: rgba(203, 213, 225, 0.85);
+  box-shadow: 0 24px 64px -12px rgba(31, 38, 135, 0.1), inset 0 1.5px 1px 0px rgba(255, 255, 255, 1), inset 0 -1.5px 1px 0px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(32px) saturate(200%);
+}(32px) saturate(240%);
 }
 
 @layer base {
@@ -226,15 +225,15 @@ html.light .glass-strong {
 @utility spatial-card-hover {
   &:hover {
     transform: translateY(-4px) scale(1.005);
-    box-shadow: 0 30px 70px -15px rgba(139, 92, 246, 0.35), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.35);
-    border-color: rgba(139, 92, 246, 0.45);
+    box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.4), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
   }
 }
 
 /* Light Mode Card Hover Override */
 html.light .spatial-card-hover:hover {
-  box-shadow: 0 30px 70px -15px rgba(124, 58, 237, 0.12), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.85);
-  border-color: rgba(124, 58, 237, 0.45);
+  box-shadow: 0 30px 70px -15px rgba(15, 23, 42, 0.1), inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95);
+  border-color: rgba(148, 163, 184, 0.9);
 }
 
 /* Hide scrollbars for cleaner mobile navigation views */

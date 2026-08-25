@@ -9,6 +9,8 @@ import { AboutHackordSection } from "@/components/AboutHackordSection";
 import { HomeNavbar } from "@/components/HomeNavbar";
 import { HomeFooter } from "@/components/HomeFooter";
 
+import { ScrollSequence } from "@/components/ScrollSequence";
+
 const HeroBackground = React.lazy(() =>
   import("@/components/HeroBackground").then((m) => ({ default: m.HeroBackground }))
 );
@@ -29,9 +31,13 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between">
-      {/* Header */}
-      <HomeNavbar />
+    <div className="relative min-h-screen bg-background lg:bg-[#060813] text-foreground flex flex-col justify-between">
+      {/* Desktop-only Cinematic Background Scroll Reveal Effect */}
+      <ScrollSequence frameCount={204} />
+
+      <div className="relative z-10 flex flex-col justify-between min-h-screen">
+        {/* Header */}
+        <HomeNavbar />
 
       {/* Hero Section */}
       <section className="relative  max-w-8xl px-6 pt-24 sm:pt-32 pb-20 sm:pb-24 overflow-hidden lg:overflow-visible">
@@ -60,15 +66,14 @@ function Landing() {
             <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-4 animate-fade-in animate-delay-300">
               <Link
                 to="/signup"
-                className="group relative rounded-xl px-8 py-3 text-center font-semibold text-background transition-all hover:scale-105 active:scale-95 shadow-[0_0_40px_-10px_var(--color-primary)]"
+                className="group relative rounded-xl px-8 py-3 text-center font-semibold text-background transition-all hover:scale-105 active:scale-95 shadow-card"
               >
                 <div className="absolute inset-0 rounded-xl bg-foreground group-hover:bg-foreground/90 transition-colors" />
-                <div className="absolute inset-[-1px] rounded-xl bg-gradient-to-r from-primary via-brand to-primary opacity-0 group-hover:opacity-100 blur-sm transition-opacity" />
                 <span className="relative">Create a workspace</span>
               </Link>
               <Link
                 to="/explore"
-                className="rounded-xl glass-strong px-8 py-3 text-center font-semibold transition hover:bg-muted/50 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                className="rounded-xl bg-card/85 dark:bg-card/45 backdrop-blur-2xl border border-border px-8 py-3 text-center font-semibold text-foreground transition hover:bg-card hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-card"
               >
                 <Sparkles className="h-4 w-4 text-primary animate-pulse" />
                 Explore hackathons
@@ -93,6 +98,7 @@ function Landing() {
 
       {/* Premium Footer with Direct Privacy & Terms Links */}
       <HomeFooter />
+      </div>
     </div>
   );
 }

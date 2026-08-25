@@ -39,19 +39,19 @@ export function FeaturedRooms() {
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {/* CREATE NEW ROOM CARD */}
-        <SpotlightCard className="group relative flex flex-col justify-between rounded-2xl border-2 border-dashed border-primary/40 bg-card/30 p-6 transition-all duration-300 hover:border-primary hover:bg-card/55 hover:shadow-glow cursor-pointer">
+        <SpotlightCard className="group relative flex flex-col justify-between rounded-2xl border-2 border-dashed border-border bg-card/85 dark:bg-card/45 backdrop-blur-2xl p-6 transition-all duration-300 hover:border-foreground/30 hover:bg-card shadow-card cursor-pointer">
           <div>
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-brand text-white shadow-glow transition-transform duration-300 group-hover:scale-110">
+            <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-brand text-white shadow-glow transition-transform duration-300 group-hover:scale-105">
               <Plus className="h-6 w-6" />
             </div>
-            <h3 className="mt-4 text-xl font-bold text-foreground group-hover:text-primary transition-colors">+ Create New Room</h3>
+            <h3 className="mt-4 text-xl font-bold text-foreground transition-colors">+ Create New Room</h3>
             <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
               Start a team workspace for your next hackathon. Set project goals, invite teammates, and auto-generate pitch decks.
             </p>
           </div>
           <Link
             to="/dashboard"
-            className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-primary/10 py-2.5 text-xs font-bold text-primary ring-1 ring-primary/20 transition-all hover:bg-primary hover:text-white"
+            className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-primary/10 dark:bg-white/10 py-2.5 text-xs font-bold text-primary dark:text-white border border-border transition-all hover:bg-primary hover:text-white dark:hover:bg-white dark:hover:text-black"
           >
             <Plus className="h-4 w-4" />
             <span>Create Room Now</span>
@@ -60,7 +60,7 @@ export function FeaturedRooms() {
 
         {/* DYNAMIC REAL ROOMS */}
         {rooms.slice(0, 3).map((r) => (
-          <SpotlightCard key={r.id} className="flex flex-col justify-between rounded-2xl bg-card/30 backdrop-blur-xl p-6 border border-border shadow-card hover:shadow-spatial hover:-translate-y-1 transition-all duration-300">
+          <SpotlightCard key={r.id} className="flex flex-col justify-between rounded-2xl bg-card/85 dark:bg-card/45 backdrop-blur-2xl p-6 border border-border shadow-card hover:shadow-spatial hover:-translate-y-1 transition-all duration-300">
             <div>
               <div className="flex items-center justify-between">
                 <Badge variant="secondary" className="text-[10px]">
@@ -79,7 +79,7 @@ export function FeaturedRooms() {
               <div className="mt-4">
                 <div className="flex items-center justify-between text-[10px] font-medium text-muted-foreground mb-1">
                   <span>Progress</span>
-                  <span className="font-mono text-emerald-500 dark:text-emerald-400">{r.progress || 0}% Complete</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{r.progress || 0}% Complete</span>
                 </div>
                 <div className="h-1.5 w-full rounded-full bg-foreground/10 overflow-hidden">
                   <div

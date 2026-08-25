@@ -93,7 +93,6 @@ export function AboutHackordSection() {
   }, [isPaused]);
 
   const activeFeature = FEATURES[activeIndex];
-  const IconComponent = activeFeature.icon;
 
   return (
     <section
@@ -131,8 +130,8 @@ export function AboutHackordSection() {
               onClick={() => setActiveIndex(idx)}
               className={`flex items-center gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-all duration-300 ${
                 isActive
-                  ? "bg-gradient-brand text-white shadow-glow scale-105 ring-2 ring-primary/40"
-                  : "glass text-muted-foreground hover:text-foreground hover:bg-card/60"
+                  ? "bg-gradient-brand text-white shadow-glow scale-105 border border-transparent"
+                  : "glass text-foreground hover:bg-card/90 border border-border"
               }`}
             >
               <Icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${isActive ? "text-white animate-pulse" : "text-primary"}`} />
@@ -143,77 +142,14 @@ export function AboutHackordSection() {
       </div>
 
       {/* 3D Perspective Interactive Canvas Container */}
-      <div className="mt-8 sm:mt-12 grid lg:grid-cols-12 gap-6 lg:gap-8 items-center relative z-10">
-        {/* Left Column: Feature Breakdown Accordion List */}
-        <div className="lg:col-span-5 space-y-3 sm:space-y-4">
-          {FEATURES.map((feat, idx) => {
-            const Icon = feat.icon;
-            const isActive = idx === activeIndex;
-
-            return (
-              <div
-                key={feat.id}
-                onClick={() => setActiveIndex(idx)}
-                className={`group cursor-pointer rounded-xl sm:rounded-2xl p-3.5 sm:p-5 transition-all duration-300 border ${
-                  isActive
-                    ? "glass-strong border-primary/50 shadow-[0_10px_30px_-10px_var(--color-primary)] ring-1 ring-primary/30"
-                    : "glass border-border/50 hover:border-border hover:bg-card/40 opacity-75 hover:opacity-100"
-                }`}
-              >
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div
-                    className={`h-9 w-9 sm:h-11 sm:w-11 shrink-0 rounded-xl flex items-center justify-center transition-transform duration-300 ${
-                      isActive
-                        ? "bg-gradient-brand text-white shadow-glow scale-105 sm:scale-110"
-                        : "bg-primary/10 text-primary group-hover:scale-105"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </div>
-
-                  <div className="space-y-1 sm:space-y-1.5 flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
-                      <h3
-                        className={`text-sm sm:text-base font-semibold transition-colors ${
-                          isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
-                        }`}
-                      >
-                        {feat.title}
-                      </h3>
-                      {isActive && (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-primary border border-primary/20 shrink-0">
-                          {feat.badge}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed break-words">
-                      {isActive ? feat.detailedDesc : feat.shortDesc}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Progress bar animation for active tab */}
-                {isActive && (
-                  <div className="mt-3 sm:mt-4 h-1 w-full bg-muted/40 rounded-full overflow-hidden">
-                    <div
-                      key={activeIndex}
-                      className="h-full bg-gradient-brand transition-all duration-[6000ms] ease-linear"
-                      style={{ width: isPaused ? "100%" : "100%" }}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Right Column: 3D Stage Viewport Simulator */}
-        <div className="lg:col-span-7 relative group min-w-0">
-          {/* Ambient Card Backlight Aura */}
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-primary/30 via-indigo-500/20 to-purple-500/30 blur-3xl opacity-75 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+      <div className="mt-8 sm:mt-12 max-w-5xl mx-auto relative z-10 w-full">
+        {/* Stage Viewport Simulator */}
+        <div className="relative group min-w-0 w-full">
+          {/* Subtle Ambient Backlight */}
+          <div className="absolute inset-0 rounded-3xl bg-primary/10 blur-3xl opacity-40 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none" />
 
           {/* 3D Tilted Glass Canvas Window */}
-          <div className="relative rounded-2xl sm:rounded-3xl border border-border bg-card/30 backdrop-blur-2xl p-4 sm:p-8 shadow-card hover:shadow-spatial transition-all duration-700 transform lg:perspective-[1000px] lg:rotate-x-2 lg:-rotate-y-2 group-hover:rotate-x-0 group-hover:rotate-y-0 group-hover:scale-[1.01] overflow-hidden">
+          <div className="relative rounded-2xl sm:rounded-3xl border border-border bg-card/90 dark:bg-card/60 backdrop-blur-2xl p-4 sm:p-8 shadow-card hover:shadow-spatial transition-all duration-700 transform lg:perspective-[1000px] lg:rotate-x-2 lg:-rotate-y-2 group-hover:rotate-x-0 group-hover:rotate-y-0 group-hover:scale-[1.01] overflow-hidden">
             {/* Stage Top Header Bar */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3 sm:pb-4 mb-4 sm:mb-6">
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -224,7 +160,7 @@ export function AboutHackordSection() {
                   hackord://workspace/{activeFeature.id}
                 </span>
               </div>
-              <div className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full bg-primary/10 px-2.5 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium text-primary border border-primary/20 shrink-0">
+              <div className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full bg-primary/10 px-2.5 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium text-primary border border-border shrink-0">
                 <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 <span>{activeFeature.stats}</span>
               </div>
@@ -236,7 +172,7 @@ export function AboutHackordSection() {
               {activeIndex === 0 && (
                 <div className="space-y-3 sm:space-y-4 animate-fade-in">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="relative rounded-2xl overflow-hidden aspect-[16/10] sm:aspect-video bg-slate-900 border border-primary/30 p-3 flex flex-col justify-between shadow-lg">
+                    <div className="relative rounded-2xl overflow-hidden aspect-[16/10] sm:aspect-video bg-slate-900 border border-border p-3 flex flex-col justify-between shadow-lg">
                       <div className="flex justify-between items-center z-10">
                         <span className="rounded-md bg-black/60 backdrop-blur-md px-2 py-0.5 text-[10px] text-white font-medium truncate max-w-[120px]">
                           Alex Rivera (Lead Dev)
@@ -244,7 +180,7 @@ export function AboutHackordSection() {
                         <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-tr from-violet-900/40 to-indigo-900/30 flex items-center justify-center">
-                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-primary/30 border border-primary flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-glow">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-primary/30 border border-border flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-glow">
                           AR
                         </div>
                       </div>
@@ -277,7 +213,7 @@ export function AboutHackordSection() {
                   </div>
 
                   {/* Room Active Info Pill */}
-                  <div className="rounded-xl border border-border bg-card/60 p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="rounded-xl border border-border bg-card/85 dark:bg-card/45 backdrop-blur-xl p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                       <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
                         <Activity className="h-4 w-4" />
@@ -300,12 +236,12 @@ export function AboutHackordSection() {
               {/* STAGE 1: Hackathon Discovery Simulation */}
               {activeIndex === 1 && (
                 <div className="space-y-3 sm:space-y-4 animate-fade-in">
-                  <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-card to-primary/5 p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+                  <div className="rounded-2xl border border-border bg-card/85 dark:bg-card/50 backdrop-blur-xl p-3.5 sm:p-5 space-y-3 sm:space-y-4">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                      <span className="rounded-full bg-primary/20 text-primary border border-primary/30 px-2.5 sm:px-3 py-0.5 text-xs font-semibold">
+                      <span className="rounded-full bg-primary/10 text-primary border border-border px-2.5 sm:px-3 py-0.5 text-xs font-semibold">
                         Featured Global Hackathon
                       </span>
-                      <span className="text-xs font-mono text-emerald-400 font-semibold flex items-center gap-1">
+                      <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
                         <Trophy className="h-3.5 w-3.5 shrink-0" /> $75,000 Prize Pool
                       </span>
                     </div>
@@ -354,7 +290,7 @@ export function AboutHackordSection() {
                 <div className="space-y-3 sm:space-y-4 animate-fade-in">
                   <div className="rounded-xl sm:rounded-2xl border border-border bg-slate-950 p-3 sm:p-4 font-mono text-[11px] sm:text-xs text-slate-200 shadow-xl space-y-2.5 overflow-x-auto">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-[11px] text-slate-400 border-b border-slate-800 pb-2">
-                      <span className="flex items-center gap-1.5 sm:gap-2 truncate max-w-[180px] sm:max-w-none">
+                      <span className="flex items-center gap-1.5 sm:gap-1.5 truncate max-w-[180px] sm:max-w-none">
                         <Code2 className="h-3.5 w-3.5 text-purple-400 shrink-0" />
                         SAFAL-TIWARI/Hackord (main branch)
                       </span>
@@ -377,9 +313,9 @@ export function AboutHackordSection() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-border bg-card/60 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                  <div className="rounded-xl border border-border bg-card/85 dark:bg-card/45 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
                     <span className="text-muted-foreground">Connected GitHub Repositories: <strong className="text-foreground">12 active repos</strong></span>
-                    <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400 shrink-0">
+                    <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0 border border-border">
                       Live Pull Request Sync
                     </span>
                   </div>
@@ -390,7 +326,7 @@ export function AboutHackordSection() {
               {activeIndex === 3 && (
                 <div className="space-y-3 sm:space-y-4 animate-fade-in">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-                    <div className="rounded-xl border border-border bg-card/60 p-2.5 sm:p-3 space-y-2">
+                    <div className="rounded-xl border border-border bg-card/85 dark:bg-card/45  p-2.5 sm:p-3 space-y-2">
                       <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">To Do (2)</span>
                       <div className="rounded-lg bg-background p-2 sm:p-2.5 border border-border text-xs font-medium space-y-1 shadow-sm">
                         <p className="text-foreground truncate">Design Pitch Deck</p>
@@ -398,16 +334,16 @@ export function AboutHackordSection() {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-primary/30 bg-primary/5 p-2.5 sm:p-3 space-y-2">
+                    <div className="rounded-xl border border-border bg-card/85 dark:bg-card/45 p-2.5 sm:p-3 space-y-2">
                       <span className="text-[10px] sm:text-[11px] font-semibold text-primary uppercase tracking-wider">In Progress (3)</span>
-                      <div className="rounded-lg bg-background p-2 sm:p-2.5 border border-primary/40 text-xs font-medium space-y-1 shadow-sm">
+                      <div className="rounded-lg bg-background p-2 sm:p-2.5 border border-border text-xs font-medium space-y-1 shadow-sm">
                         <p className="text-foreground truncate">Agora Video Integration</p>
                         <span className="inline-block rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9px] text-emerald-400 font-semibold">Backend</span>
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-card/60 p-2.5 sm:p-3 space-y-2">
-                      <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">Done (8)</span>
+                    <div className="rounded-xl border border-border bg-card/85 dark:bg-card/45 backdrop-blur-xl p-2.5 sm:p-3 space-y-2">
+                      <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Done (8)</span>
                       <div className="rounded-lg bg-background p-2 sm:p-2.5 border border-border text-xs font-medium space-y-1 shadow-sm opacity-80">
                         <p className="text-foreground line-through truncate">OAuth Authentication</p>
                         <span className="inline-block rounded bg-purple-500/10 px-1.5 py-0.5 text-[9px] text-purple-400 font-semibold">Auth</span>
@@ -415,7 +351,7 @@ export function AboutHackordSection() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-border bg-card/60 p-3 sm:p-3.5 flex items-center justify-between">
+                  <div className="rounded-xl border border-border bg-card/85 dark:bg-card/45 backdrop-blur-xl p-3 sm:p-3.5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Zap className="h-4 w-4 text-primary shrink-0" />
                       <span className="text-xs font-medium text-foreground">Project Completion Progress</span>
@@ -439,19 +375,19 @@ export function AboutHackordSection() {
 
       {/* Bottom Key Pillars Grid */}
       <div className="mt-10 sm:mt-16 grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 relative z-10">
-        <div className="glass-strong rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center space-y-1 border border-border/60 min-w-0">
+        <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center space-y-1 border border-border bg-card/85 dark:bg-card/45 backdrop-blur-2xl min-w-0 shadow-card">
           <span className="text-base sm:text-xl font-bold text-gradient-brand font-mono truncate block">&lt; 100ms</span>
           <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate block">Agora RTC Voice/Video</p>
         </div>
-        <div className="glass-strong rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center space-y-1 border border-border/60 min-w-0">
+        <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center space-y-1 border border-border bg-card/85 dark:bg-card/45 backdrop-blur-2xl min-w-0 shadow-card">
           <span className="text-base sm:text-xl font-bold text-gradient-brand font-mono truncate block">100% Free</span>
           <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate block">Developer Workspaces</p>
         </div>
-        <div className="glass-strong rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center space-y-1 border border-border/60 min-w-0">
+        <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center space-y-1 border border-border bg-card/85 dark:bg-card/45 backdrop-blur-2xl min-w-0 shadow-card">
           <span className="text-base sm:text-xl font-bold text-gradient-brand font-mono truncate block">GitHub Sync</span>
           <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate block">Real-time Commit Feeds</p>
         </div>
-        <div className="glass-strong rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center space-y-1 border border-border/60 min-w-0">
+        <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center space-y-1 border border-border bg-card/85 dark:bg-card/45 backdrop-blur-2xl min-w-0 shadow-card">
           <span className="text-base sm:text-xl font-bold text-gradient-brand font-mono truncate block">OAuth 2.0</span>
           <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate block">Google & GitHub Auth</p>
         </div>
