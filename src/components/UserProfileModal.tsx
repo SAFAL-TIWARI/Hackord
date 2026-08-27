@@ -149,7 +149,7 @@ export function UserProfileModal({
                 </AvatarFallback>
               </Avatar>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 -mx-4">
                 <Button
                   type="button"
                   onClick={() => {
@@ -164,7 +164,21 @@ export function UserProfileModal({
                   className="h-9 px-4 gap-2 text-sm bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition"
                 >
                   <MessageSquare className="h-4 w-4" />
-                  Direct Chat
+                  Chat
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    onOpenChange(false);
+                    navigate({ to: `/profile/${userProp.username || userProp._id}` });
+                  }}
+                  className="h-9 px-3.5 gap-1.5 text-sm hover:bg-card hover:border-primary/40 transition"
+                  title="Open Full Profile Page"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Profile
                 </Button>
 
                 {inviteSent ? (

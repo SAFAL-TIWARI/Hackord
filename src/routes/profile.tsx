@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
@@ -63,14 +63,18 @@ export type UserProfile = {
 };
 
 function ProfilePage() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isChild = pathname !== "/profile" && pathname !== "/profile/";
+
   const { user, updateProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (isChild) return;
     if (!authLoading && !user) {
       navigate({ to: "/login" });
     }
-  }, [authLoading, user, navigate]);
+  }, [authLoading, user, navigate, isChild]);
 
   const getProfileState = (): UserProfile => {
     if (!user) {
@@ -138,6 +142,10 @@ function ProfilePage() {
       setRoomsLoading(false);
     }
   }, [user]);
+
+  if (isChild) {
+    return <Outlet />;
+  }
 
   if (authLoading) {
     return (

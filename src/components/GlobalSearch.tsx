@@ -198,9 +198,9 @@ export function GlobalSearch({ isMobileTop = false }: { isMobileTop?: boolean })
   const showResults = q.length > 0;
 
   const handleOpenUserProfile = (user: DbUser) => {
-    setSelectedUser(user);
-    setProfileModalOpen(true);
     setOpen(false);
+    setQuery("");
+    navigate({ to: `/profile/${user.username || user._id}` });
   };
 
   return (

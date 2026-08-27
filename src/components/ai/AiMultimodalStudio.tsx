@@ -16,17 +16,23 @@ import {
   Check,
   Layers,
   Wand2,
+  ExternalLink,
+  Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { exportToPdf, exportToDocx, exportToCsv, exportToMarkdown } from '@/lib/document-exporter';
 import pptxgen from 'pptxgenjs';
 import { parseMarkdownSlides } from './PresentationViewer';
+import { saveAiStudioImage, type AiStudioImage } from '@/lib/ai-api';
 
 interface AiMultimodalStudioProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: 'image' | 'audio' | 'document' | 'ppt';
   prefilledContent?: string;
+  conversationId?: string | null;
+  previousImages?: AiStudioImage[];
+  onImageGenerated?: (newImage: AiStudioImage) => void;
 }
 
 export function AiMultimodalStudio({
@@ -34,6 +40,9 @@ export function AiMultimodalStudio({
   onClose,
   initialTab = 'image',
   prefilledContent = '',
+  conversationId,
+  previousImages = [],
+  onImageGenerated,
 }: AiMultimodalStudioProps) {
   const [activeTab, setActiveTab] = useState<'image' | 'audio' | 'document' | 'ppt'>(initialTab);
 
@@ -59,6 +68,24 @@ export function AiMultimodalStudio({
   );
 
   if (!isOpen) return null;
+
+  // Persist image helper
+  const persistImageToConversation = async (imageUrl: string, promptText: string, styleText: string, ratioText: string) => {
+    if (!conversationId) return;
+    try {
+      const res = await saveAiStudioImage(conversationId, {
+        url: imageUrl,
+        prompt: promptText,
+        style: styleText,
+        aspectRatio: ratioText,
+      });
+      if (res?.image && onImageGenerated) {
+        onImageGenerated(res.image);
+      }
+    } catch (e) {
+      console.error('Failed to save studio image to conversation:', e);
+    }
+  };
 
   // Generate Image using Google Imagen 3 prompt synthesizer & high-res engine
   const handleGenerateImage = () => {
@@ -87,12 +114,14 @@ export function AiMultimodalStudio({
     img.onload = () => {
       setGeneratedImageUrl(url);
       setIsGeneratingImage(false);
-      toast.success('Image generated successfully!', { id: toastId });
+      persistImageToConversation(url, imagePrompt.trim(), imageStyle, imageAspectRatio);
+      toast.success('Image generated & saved to conversation!', { id: toastId });
     };
     img.onerror = () => {
       setGeneratedImageUrl(url);
       setIsGeneratingImage(false);
-      toast.success('Image ready!', { id: toastId });
+      persistImageToConversation(url, imagePrompt.trim(), imageStyle, imageAspectRatio);
+      toast.success('Image ready & saved to conversation!', { id: toastId });
     };
     img.src = url;
   };
@@ -375,15 +404,85 @@ export function AiMultimodalStudio({
                       <span>Download PNG</span>
                     </button>
                   </div>
-                  <div className="flex justify-center bg-muted/30 dark:bg-black/40 rounded-xl overflow-hidden p-2">
+                  <div className="flex justify-center bg-muted/30 dark:bg-black/40 rounded-xl overflow-hidden p-2 cursor-pointer" onClick={() => window.open(generatedImageUrl, '_blank')}>
                     <img
                       src={generatedImageUrl}
                       alt={imagePrompt}
-                      className="max-h-[380px] w-auto rounded-lg object-contain shadow-md"
+                      className="max-h-[380px] w-auto rounded-lg object-contain shadow-md hover:opacity-95 transition"
+                      title="Click to open image in new tab"
                     />
                   </div>
                 </div>
               )}
+
+              {/* Previous Generated Images in this Conversation */}
+              <div className="mt-6 pt-5 border-t border-border/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-primary" />
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                      Previous Images in this Conversation
+                    </h3>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-primary/10 text-primary border border-primary/20 font-semibold">
+                    {previousImages.length} {previousImages.length === 1 ? 'image' : 'images'}
+                  </span>
+                </div>
+
+                {previousImages.length === 0 ? (
+                  <div className="p-4 rounded-2xl border border-dashed border-border/70 text-center text-muted-foreground text-xs space-y-1 bg-muted/10">
+                    <ImageIcon className="h-5 w-5 mx-auto text-muted-foreground/60" />
+                    <p className="font-medium">No previous images in this chat yet.</p>
+                    <p className="text-[10px] text-muted-foreground/75">
+                      Generate images using the prompt box above and they will be saved here automatically.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {previousImages.map((imgItem) => (
+                      <div
+                        key={imgItem.id}
+                        onClick={() => window.open(imgItem.url, '_blank')}
+                        className="group relative cursor-pointer rounded-xl border border-border/70 bg-card/60 hover:bg-card hover:border-primary/50 transition-all duration-200 overflow-hidden shadow-sm flex flex-col justify-between"
+                        title="Click to open image in new tab"
+                      >
+                        {/* Thumbnail */}
+                        <div className="relative aspect-video bg-black/40 overflow-hidden">
+                          <img
+                            src={imgItem.url}
+                            alt={imgItem.prompt || 'Generated Image'}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white">
+                            <ExternalLink className="h-4 w-4 drop-shadow" />
+                            <span className="text-[10px] font-bold drop-shadow">Open</span>
+                          </div>
+
+                          {imgItem.aspectRatio && (
+                            <span className="absolute top-1 left-1 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold bg-black/70 text-white/90 backdrop-blur-sm border border-white/10">
+                              {imgItem.aspectRatio}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Metadata */}
+                        <div className="p-2 space-y-1">
+                          <p className="text-[11px] font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                            {imgItem.prompt || 'Generated Image'}
+                          </p>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>{imgItem.style || 'Photorealistic'}</span>
+                            <span className="flex items-center gap-0.5 opacity-75 font-mono">
+                              <ExternalLink className="h-2.5 w-2.5" />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

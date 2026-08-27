@@ -37,6 +37,7 @@ import { ViewToggle } from "@/components/ViewToggle";
 import { useAuth, type AuthUser } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { getRooms, deleteRoom, type DbRoom } from "@/lib/rooms-api";
+import { deleteUserByAdmin } from "@/lib/users-api";
 import {
   getScrapedFileStatus,
   triggerHackathonScrape,
@@ -69,7 +70,7 @@ type AdminStats = {
 };
 
 function AdminPage() {
-  const { isAdmin, loading: authLoading } = useAuth();
+  const { user: currentUser, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   const [users, setUsers] = useState<AuthUser[]>([]);
@@ -78,6 +79,7 @@ function AdminPage() {
   const [search, setSearch] = useState("");
   const [roomSearch, setRoomSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   // Scraper File State
   const [scrapedStatus, setScrapedStatus] = useState<ScrapedFileStatus | null>(null);
@@ -171,6 +173,39 @@ function AdminPage() {
       toast.error(err.message || "Failed to delete contact message");
     } finally {
       setDeletingMsgId(null);
+    }
+  };
+
+  const handleDeleteUser = async (e: React.MouseEvent, userToDelete: AuthUser) => {
+    e.stopPropagation();
+    if (currentUser?._id === userToDelete._id || currentUser?.email === userToDelete.email) {
+      toast.error("You cannot delete your own admin account.");
+      return;
+    }
+    if (
+      !confirm(
+        `Are you sure you want to permanently delete user "${userToDelete.name || userToDelete.email}"? All associated profile data and invitations will be removed.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingUserId(userToDelete._id);
+    try {
+      const res = await deleteUserByAdmin(userToDelete._id);
+      toast.success(res.message || `User "${userToDelete.name || userToDelete.email}" deleted successfully`);
+      setUsers((prev) => prev.filter((u) => u._id !== userToDelete._id));
+      if (stats) {
+        setStats({
+          ...stats,
+          totalUsers: Math.max(0, stats.totalUsers - 1),
+          totalAdmins: userToDelete.role === "admin" ? Math.max(0, stats.totalAdmins - 1) : stats.totalAdmins,
+        });
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete user");
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -1024,39 +1059,76 @@ function AdminPage() {
                 {users.map((u) => (
                   <div
                     key={u._id}
-                    className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/50 p-4 transition hover:bg-card"
+                    onClick={() => navigate({ to: `/profile/${u.username || u._id}` })}
+                    className="group flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-card/50 p-4 transition hover:bg-card hover:border-primary/40 cursor-pointer shadow-sm"
                   >
-                    <Avatar className="h-10 w-10 shrink-0">
-                      <AvatarImage src={u.avatar} />
-                      <AvatarFallback>{(u.name || "?")[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium">{u.name}</p>
-                        {u.role === "admin" && (
-                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                            Admin
-                          </Badge>
-                        )}
-                        {u.experience && u.experience !== "Beginner" && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {u.experience}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <Mail className="h-3 w-3" /> {u.email}
-                        </span>
-                        {u.college && (
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                      <Avatar className="h-10 w-10 shrink-0 group-hover:ring-2 group-hover:ring-primary/40 transition">
+                        <AvatarImage src={u.avatar} />
+                        <AvatarFallback>{(u.name || "?")[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="truncate text-sm font-medium group-hover:text-primary transition">{u.name}</p>
+                          {u.username && (
+                            <span className="text-xs text-muted-foreground hidden sm:inline">@{u.username}</span>
+                          )}
+                          {u.role === "admin" && (
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                              Admin
+                            </Badge>
+                          )}
+                          {u.experience && u.experience !== "Beginner" && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {u.experience}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
-                            <GraduationCap className="h-3 w-3" /> {u.college}
+                            <Mail className="h-3 w-3" /> {u.email}
                           </span>
-                        )}
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {formatDateNumeric(u.createdAt)}
-                        </span>
+                          {u.college && (
+                            <span className="inline-flex items-center gap-1">
+                              <GraduationCap className="h-3 w-3" /> {u.college}
+                            </span>
+                          )}
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> {formatDateNumeric(u.createdAt)}
+                          </span>
+                        </div>
                       </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        title="View Profile"
+                        onClick={() => navigate({ to: `/profile/${u.username || u._id}` })}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                      {currentUser?._id !== u._id && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={deletingUserId === u._id}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Delete User"
+                          onClick={(e) => handleDeleteUser(e, u)}
+                        >
+                          {deletingUserId === u._id ? (
+                            <RefreshCw className="h-4 w-4 animate-spin text-destructive" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-destructive/80 hover:text-destructive" />
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}

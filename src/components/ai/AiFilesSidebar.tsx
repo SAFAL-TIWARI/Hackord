@@ -20,6 +20,7 @@ import {
   isVideoFile,
   isPdfFile,
   isImageFile,
+  isAiFileExpired,
   type AiConversation,
   type AiFileAttachment,
 } from '@/lib/ai-api';
@@ -52,7 +53,7 @@ export function AiFilesSidebar({
   conversations,
   activeChatId,
 }: AiFilesSidebarProps) {
-  // Collect all uploaded files across room conversations (or active conversation)
+  // Collect all uploaded files across room conversations (or active conversation), filtering out expired (> 24h)
   const { uploadedFiles, artifacts } = useMemo(() => {
     const filesMap = new Map<string, AiFileAttachment>();
     const artifactList: ArtifactItem[] = [];
@@ -67,14 +68,16 @@ export function AiFilesSidebar({
 
     for (const conv of targetConvs) {
       for (const msg of conv.messages) {
-        // Collect attached files
+        // Collect attached files (only unexpired files within 24h window)
         if (msg.fileAttachment && msg.fileAttachment.name) {
-          const key = `${msg.fileAttachment.name}_${msg.fileAttachment.size || 0}`;
-          if (!filesMap.has(key)) {
-            filesMap.set(key, {
-              ...msg.fileAttachment,
-              author_name: msg.author_name || msg.fileAttachment.author_name || 'Team Member',
-            });
+          if (!isAiFileExpired(msg.fileAttachment.uploadedAt)) {
+            const key = `${msg.fileAttachment.name}_${msg.fileAttachment.size || 0}`;
+            if (!filesMap.has(key)) {
+              filesMap.set(key, {
+                ...msg.fileAttachment,
+                author_name: msg.author_name || msg.fileAttachment.author_name || 'Team Member',
+              });
+            }
           }
         }
 

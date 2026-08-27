@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useId } from 'react';
 import mermaid from 'mermaid';
 import {
   Download,
@@ -16,6 +16,7 @@ import {
   Move,
   Maximize2,
   Minimize2,
+  Maximize,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -62,6 +63,24 @@ export interface FlowchartData {
   lanes?: string[];
   nodes: FlowNode[];
   edges: FlowEdge[];
+}
+
+function calculateContentBounds(nodes: FlowNode[]) {
+  if (!nodes || nodes.length === 0) {
+    return { minX: 0, minY: 0, maxX: 600, maxY: 400, width: 600, height: 400 };
+  }
+  const minX = Math.min(...nodes.map((n) => n.x));
+  const minY = Math.min(...nodes.map((n) => n.y));
+  const maxX = Math.max(...nodes.map((n) => n.x + 180));
+  const maxY = Math.max(...nodes.map((n) => n.y + 75));
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: Math.max(100, maxX - minX),
+    height: Math.max(100, maxY - minY),
+  };
 }
 
 /**
@@ -269,18 +288,21 @@ function serializeFlowchartToMermaid(flow: FlowchartData): string {
 }
 
 export function InteractiveFlowchart({ chart }: { chart: string }) {
+  const rawId = useId();
+  const instanceId = rawId.replace(/[^a-zA-Z0-9_-]/g, '_');
+
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<SVGSVGElement>(null);
 
   // Live editable code state
   const [liveCode, setLiveCode] = useState<string>(chart.trim());
   const [isEditingCode, setIsEditingCode] = useState<boolean>(false);
-  const [zoom, setZoom] = useState<number>(1);
+  const [zoom, setZoom] = useState<number>(0.85);
   const [copied, setCopied] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
-  // Canvas Pan (Drag background to navigate)
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Canvas Pan (Drag background to navigate infinite canvas)
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 20, y: 20 });
   const [isPanningCanvas, setIsPanningCanvas] = useState<boolean>(false);
   const [panStart, setPanStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -297,11 +319,64 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  // Auto-fit function to center and frame diagram comfortably
+  const fitView = useCallback((nodes: FlowNode[]) => {
+    if (!containerRef.current || !nodes.length) return;
+    const container = containerRef.current.getBoundingClientRect();
+    if (container.width === 0 || container.height === 0) return;
+
+    const bounds = calculateContentBounds(nodes);
+    const padding = 50;
+    const availWidth = Math.max(100, container.width - padding * 2);
+    const availHeight = Math.max(100, container.height - padding * 2);
+
+    const scaleX = availWidth / bounds.width;
+    const scaleY = availHeight / bounds.height;
+    const calculatedZoom = Math.min(1.1, Math.max(0.45, Math.min(scaleX, scaleY)));
+
+    const centerX = (container.width - bounds.width * calculatedZoom) / 2 - bounds.minX * calculatedZoom;
+    const centerY = (container.height - bounds.height * calculatedZoom) / 2 - bounds.minY * calculatedZoom;
+
+    setZoom(Number(calculatedZoom.toFixed(2)));
+    setPan({ x: Math.round(centerX), y: Math.round(centerY) });
+  }, []);
+
   // Update whenever chart prop changes
   useEffect(() => {
     setLiveCode(chart.trim());
-    setFlowData(parseMermaidCode(chart));
-  }, [chart]);
+    const parsed = parseMermaidCode(chart);
+    setFlowData(parsed);
+    // Fit view after small timeout to allow container rendering
+    setTimeout(() => {
+      fitView(parsed.nodes);
+    }, 50);
+  }, [chart, fitView]);
+
+  // Smooth Wheel Zoom & Two-Finger Pan on Canvas
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        // Pinch / Ctrl + Wheel Zoom
+        const zoomDelta = e.deltaY < 0 ? 1.1 : 0.9;
+        setZoom((prev) => Math.min(3.0, Math.max(0.2, Number((prev * zoomDelta).toFixed(2)))));
+      } else {
+        // Trackpad 2-finger pan or regular mouse wheel scroll
+        setPan((prev) => ({
+          x: Math.round(prev.x - e.deltaX),
+          y: Math.round(prev.y - e.deltaY),
+        }));
+      }
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', onWheel);
+    };
+  }, []);
 
   const handleCodeChange = (newCode: string) => {
     setLiveCode(newCode);
@@ -318,6 +393,7 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
       const parsed = parseMermaidCode(liveCode);
       setFlowData(parsed);
       setIsEditingCode(false);
+      setTimeout(() => fitView(parsed.nodes), 50);
       toast.success('Diagram updated from edited code!');
     } else {
       setIsEditingCode(true);
@@ -326,14 +402,11 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
 
   // Canvas Background Pointer Down (Canvas Panning)
   const handleCanvasPointerDown = (e: React.PointerEvent) => {
-    // If clicking directly on SVG canvas background (not a node), start canvas pan
-    if (e.target === canvasRef.current || (e.target as HTMLElement).tagName === 'rect') {
-      setIsPanningCanvas(true);
-      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-      try {
-        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-      } catch {}
-    }
+    setIsPanningCanvas(true);
+    setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    } catch {}
   };
 
   // Node Pointer Down (Dragging Node)
@@ -346,10 +419,10 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
     setSelectedNode(node);
     setEditingNodeText(node.label);
 
-    const svgRect = canvasRef.current?.getBoundingClientRect();
-    if (svgRect) {
-      const mouseX = (e.clientX - svgRect.left - pan.x) / zoom;
-      const mouseY = (e.clientY - svgRect.top - pan.y) / zoom;
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (containerRect) {
+      const mouseX = (e.clientX - containerRect.left - pan.x) / zoom;
+      const mouseY = (e.clientY - containerRect.top - pan.y) / zoom;
       setDragOffset({
         x: mouseX - node.x,
         y: mouseY - node.y,
@@ -360,13 +433,13 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
   // Unified Pointer Move (handles Node drag & Canvas pan)
   const handlePointerMove = (e: React.PointerEvent) => {
     // 1. If dragging a node
-    if (draggingNodeId && canvasRef.current) {
-      const svgRect = canvasRef.current.getBoundingClientRect();
-      const mouseX = (e.clientX - svgRect.left - pan.x) / zoom;
-      const mouseY = (e.clientY - svgRect.top - pan.y) / zoom;
+    if (draggingNodeId && containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const mouseX = (e.clientX - containerRect.left - pan.x) / zoom;
+      const mouseY = (e.clientY - containerRect.top - pan.y) / zoom;
 
-      const newX = Math.max(-200, Math.round(mouseX - dragOffset.x));
-      const newY = Math.max(-200, Math.round(mouseY - dragOffset.y));
+      const newX = Math.round(mouseX - dragOffset.x);
+      const newY = Math.round(mouseY - dragOffset.y);
 
       setFlowData((prev) => {
         const updatedNodes = prev.nodes.map((n) => (n.id === draggingNodeId ? { ...n, x: newX, y: newY } : n));
@@ -442,20 +515,35 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
     toast.success(`Node "${newNode.label}" added to diagram!`);
   };
 
-  // Reset Pan and Zoom
+  // Reset Pan and Zoom & Fit View
   const handleReset = () => {
+    const parsed = parseMermaidCode(chart);
     setLiveCode(chart.trim());
-    setFlowData(parseMermaidCode(chart));
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    setFlowData(parsed);
+    fitView(parsed.nodes);
     toast.success('Diagram view & layout reset');
   };
 
   // Export SVG
   const handleDownloadSVG = () => {
     if (canvasRef.current) {
+      const bounds = calculateContentBounds(flowData.nodes);
+      const padding = 60;
+      const exportWidth = bounds.width + padding * 2;
+      const exportHeight = bounds.height + padding * 2;
+
       const serializer = new XMLSerializer();
-      const svgStr = serializer.serializeToString(canvasRef.current);
+      const clonedSvg = canvasRef.current.cloneNode(true) as SVGSVGElement;
+      clonedSvg.setAttribute('width', String(exportWidth));
+      clonedSvg.setAttribute('height', String(exportHeight));
+      clonedSvg.setAttribute('viewBox', `${bounds.minX - padding} ${bounds.minY - padding} ${exportWidth} ${exportHeight}`);
+      
+      const contentGroup = clonedSvg.querySelector('[data-diagram-content]');
+      if (contentGroup) {
+        contentGroup.removeAttribute('transform');
+      }
+
+      const svgStr = serializer.serializeToString(clonedSvg);
       const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -472,30 +560,42 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
   // Export PNG
   const handleDownloadPNG = () => {
     const targetElement = canvasRef.current;
-    if (!targetElement) {
+    if (!targetElement || !flowData.nodes.length) {
       toast.error('Flowchart canvas not ready');
       return;
     }
 
     try {
-      const serializer = new XMLSerializer();
-      const svgStr = serializer.serializeToString(targetElement);
-      const width = 1200;
-      const height = 800;
+      const bounds = calculateContentBounds(flowData.nodes);
+      const padding = 60;
+      const exportWidth = Math.max(800, bounds.width + padding * 2);
+      const exportHeight = Math.max(500, bounds.height + padding * 2);
 
+      const serializer = new XMLSerializer();
+      const clonedSvg = targetElement.cloneNode(true) as SVGSVGElement;
+      clonedSvg.setAttribute('width', String(exportWidth));
+      clonedSvg.setAttribute('height', String(exportHeight));
+      clonedSvg.setAttribute('viewBox', `${bounds.minX - padding} ${bounds.minY - padding} ${exportWidth} ${exportHeight}`);
+
+      const contentGroup = clonedSvg.querySelector('[data-diagram-content]');
+      if (contentGroup) {
+        contentGroup.removeAttribute('transform');
+      }
+
+      const svgStr = serializer.serializeToString(clonedSvg);
       const svgDataUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgStr)))}`;
       const image = new Image();
 
       image.onload = () => {
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = exportWidth * 2;
+        canvas.height = exportHeight * 2;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
         ctx.fillStyle = '#0B0F19';
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(image, 20, 20, width - 40, height - 40);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
         const pngUrl = canvas.toDataURL('image/png');
         const link = document.createElement('a');
@@ -504,7 +604,7 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast.success('Flowchart exported as PNG image!');
+        toast.success('Flowchart exported as high-res PNG image!');
       };
 
       image.onerror = () => handleDownloadSVG();
@@ -543,22 +643,23 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
     }
   };
 
+  const gridPatternId = `canvas-grid-${instanceId}`;
+  const arrowMarkerId = `flow-arrow-${instanceId}`;
+
   return (
     <div
       className={`my-3.5 rounded-2xl border border-border/80 bg-card dark:bg-black/80 backdrop-blur-md overflow-hidden shadow-card transition-all ${
         isFullscreen ? 'fixed inset-3 sm:inset-6 z-50 flex flex-col' : 'w-full max-w-full'
       }`}
     >
-      {/* Interactive Toolbar - Responsive for Mobile without altering Desktop */}
+      {/* Interactive Toolbar */}
       <div className="p-2.5 sm:p-3.5 border-b border-border/60 bg-muted/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <h3 className="font-bold text-xs sm:text-sm text-foreground tracking-tight truncate">
             {flowData.title || 'Interactive Flowchart'}
           </h3>
-          <span className="hidden sm:inline px-1.5 py-0.5 rounded text-[9px] font-mono bg-primary/10 text-primary border border-primary/20">
-            Draggable Canvas
-          </span>
+         
         </div>
 
         {/* Toolbar Controls */}
@@ -568,18 +669,25 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
             <div className="flex items-center bg-background/60 rounded-lg border border-border/60 p-0.5 shrink-0">
               <button
                 type="button"
-                onClick={() => setZoom((z) => Math.max(0.4, z - 0.15))}
+                onClick={() => setZoom((z) => Math.max(0.2, Number((z - 0.15).toFixed(2))))}
                 className="p-1 text-muted-foreground hover:text-foreground rounded transition"
-                title="Zoom Out"
+                title="Zoom Out (or Ctrl + Scroll)"
               >
                 <ZoomOut className="h-3.5 w-3.5" />
               </button>
-              <span className="text-[10px] px-1 font-mono text-muted-foreground">{Math.round(zoom * 100)}%</span>
               <button
                 type="button"
-                onClick={() => setZoom((z) => Math.min(2.5, z + 0.15))}
+                onClick={() => fitView(flowData.nodes)}
+                className="text-[10px] px-1 font-mono text-muted-foreground hover:text-primary transition"
+                title="Click to Fit Diagram to Screen"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(3.0, Number((z + 0.15).toFixed(2))))}
                 className="p-1 text-muted-foreground hover:text-foreground rounded transition"
-                title="Zoom In"
+                title="Zoom In (or Ctrl + Scroll)"
               >
                 <ZoomIn className="h-3.5 w-3.5" />
               </button>
@@ -587,11 +695,24 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
                 type="button"
                 onClick={handleReset}
                 className="p-1 text-muted-foreground hover:text-foreground rounded transition ml-0.5"
-                title="Reset Pan & Zoom View"
+                title="Reset View & Recenter"
               >
                 <RotateCcw className="h-3 w-3" />
               </button>
             </div>
+          )}
+
+          {/* Fit View Button */}
+          {!isEditingCode && (
+            <button
+              type="button"
+              onClick={() => fitView(flowData.nodes)}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg border border-border/60 bg-background/50 hover:bg-background text-muted-foreground hover:text-foreground text-xs font-semibold transition shrink-0"
+              title="Fit entire flowchart into screen"
+            >
+              <Maximize className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Fit</span>
+            </button>
           )}
 
           {/* Add Step Button */}
@@ -627,7 +748,7 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
             type="button"
             onClick={handleDownloadPNG}
             className="flex items-center gap-1 px-2 py-1 rounded-lg border border-border/60 bg-background/50 hover:bg-background text-muted-foreground hover:text-foreground text-xs font-semibold transition shrink-0"
-            title="Export as PNG Image"
+            title="Export as High-Res PNG Image"
           >
             <Download className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">PNG</span>
@@ -646,7 +767,10 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
           {/* Fullscreen Toggle */}
           {/* <button
             type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
+            onClick={() => {
+              setIsFullscreen(!isFullscreen);
+              setTimeout(() => fitView(flowData.nodes), 100);
+            }}
             className="p-1.5 rounded-lg border border-border/60 bg-background/50 hover:bg-background text-muted-foreground hover:text-foreground transition shrink-0"
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Canvas'}
           >
@@ -691,11 +815,11 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
           </div>
         </div>
       ) : (
-        /* Live Interactive Draggable Elements & Draggable Canvas Background */
+        /* Live Infinite Interactive Draggable Canvas */
         <div
           ref={containerRef}
-          className={`relative w-full h-[360px] sm:h-[460px] overflow-hidden bg-radial-grid select-none cursor-grab active:cursor-grabbing p-1 ${
-            isFullscreen ? 'flex-1 h-full' : ''
+          className={`relative w-full h-[400px] sm:h-[480px] overflow-hidden bg-[#070a13] select-none cursor-grab active:cursor-grabbing ${
+            isFullscreen ? 'flex-1 h-full min-h-[500px]' : ''
           }`}
           style={{ touchAction: 'none' }}
           onPointerDown={handleCanvasPointerDown}
@@ -704,16 +828,12 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
         >
           <svg
             ref={canvasRef}
-            className="w-full h-full min-w-full min-h-full"
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: '0 0',
-              transition: isPanningCanvas || draggingNodeId ? 'none' : 'transform 0.1s ease-out',
-            }}
+            className="w-full h-full block overflow-visible select-none"
+            style={{ width: '100%', height: '100%' }}
           >
             <defs>
               <marker
-                id="flow-arrow-head"
+                id={arrowMarkerId}
                 viewBox="0 0 10 10"
                 refX="8"
                 refY="5"
@@ -724,177 +844,206 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
                 <path d="M 0 1 L 10 5 L 0 9 z" fill="#818CF8" />
               </marker>
 
-              {/* Grid dots */}
-              <pattern id="canvas-grid" width="28" height="28" patternUnits="userSpaceOnUse">
-                <circle cx="2" cy="2" r="1" fill="#334155" fillOpacity="0.4" />
+              {/* Infinite Grid Dots synced to pan & zoom */}
+              <pattern
+                id={gridPatternId}
+                width={28 * zoom}
+                height={28 * zoom}
+                patternUnits="userSpaceOnUse"
+                patternTransform={`translate(${pan.x}, ${pan.y})`}
+              >
+                <circle
+                  cx={2 * zoom}
+                  cy={2 * zoom}
+                  r={Math.max(0.8, 1.2 * Math.min(zoom, 1.2))}
+                  fill="#475569"
+                  fillOpacity="0.45"
+                />
               </pattern>
             </defs>
 
-            {/* Canvas grid background */}
-            <rect width="2000%" height="2000%" x="-1000%" y="-1000%" fill="url(#canvas-grid)" />
+            {/* Full Viewport Infinite Grid Background */}
+            <rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              fill={`url(#${gridPatternId})`}
+              className="pointer-events-auto"
+            />
 
-            {/* Swimlane Column Containers if detected */}
-            {flowData.lanes &&
-              flowData.lanes.map((lane, laneIdx) => (
-                <g key={`lane-${laneIdx}`}>
-                  <rect
-                    x={40 + laneIdx * 250}
-                    y={20}
-                    width={230}
-                    height={420}
-                    rx={14}
-                    fill="#1E293B"
-                    fillOpacity={0.25}
-                    stroke="#334155"
-                    strokeDasharray="4 4"
-                  />
-                  <rect
-                    x={40 + laneIdx * 250}
-                    y={20}
-                    width={230}
-                    height={32}
-                    rx={14}
-                    fill="#0F172A"
-                    fillOpacity={0.6}
-                  />
-                  <text
-                    x={55 + laneIdx * 250}
-                    y={41}
-                    fill="#94A3B8"
-                    fontSize={10}
-                    fontWeight="bold"
-                    fontFamily="sans-serif"
-                    letterSpacing="1px"
-                  >
-                    {lane.toUpperCase()}
-                  </text>
-                </g>
-              ))}
+            {/* Scaled & Translated Diagram Content Group (Never Clipped) */}
+            <g
+              data-diagram-content="true"
+              transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}
+              style={{
+                transformOrigin: '0 0',
+                transition: isPanningCanvas || draggingNodeId ? 'none' : 'transform 0.08s ease-out',
+              }}
+            >
+              {/* Swimlane Column Containers if detected */}
+              {flowData.lanes &&
+                flowData.lanes.map((lane, laneIdx) => (
+                  <g key={`lane-${laneIdx}`}>
+                    <rect
+                      x={40 + laneIdx * 250}
+                      y={20}
+                      width={230}
+                      height={460}
+                      rx={14}
+                      fill="#1E293B"
+                      fillOpacity={0.25}
+                      stroke="#334155"
+                      strokeDasharray="4 4"
+                    />
+                    <rect
+                      x={40 + laneIdx * 250}
+                      y={20}
+                      width={230}
+                      height={32}
+                      rx={14}
+                      fill="#0F172A"
+                      fillOpacity={0.6}
+                    />
+                    <text
+                      x={55 + laneIdx * 250}
+                      y={41}
+                      fill="#94A3B8"
+                      fontSize={10}
+                      fontWeight="bold"
+                      fontFamily="sans-serif"
+                      letterSpacing="1px"
+                    >
+                      {lane.toUpperCase()}
+                    </text>
+                  </g>
+                ))}
 
-            {/* Dynamic Connection Lines between movable nodes */}
-            {flowData.edges.map((edge, eIdx) => {
-              const sourceNode = flowData.nodes.find((n) => n.id === edge.from);
-              const targetNode = flowData.nodes.find((n) => n.id === edge.to);
-              if (!sourceNode || !targetNode) return null;
+              {/* Dynamic Connection Lines between movable nodes */}
+              {flowData.edges.map((edge, eIdx) => {
+                const sourceNode = flowData.nodes.find((n) => n.id === edge.from);
+                const targetNode = flowData.nodes.find((n) => n.id === edge.to);
+                if (!sourceNode || !targetNode) return null;
 
-              const nodeWidth = 160;
-              const nodeHeight = 56;
+                const nodeWidth = 160;
+                const nodeHeight = 56;
 
-              const startX = sourceNode.x + nodeWidth / 2;
-              const startY = sourceNode.y + nodeHeight / 2;
-              const endX = targetNode.x + nodeWidth / 2;
-              const endY = targetNode.y + nodeHeight / 2;
+                const startX = sourceNode.x + nodeWidth / 2;
+                const startY = sourceNode.y + nodeHeight / 2;
+                const endX = targetNode.x + nodeWidth / 2;
+                const endY = targetNode.y + nodeHeight / 2;
 
-              const midX = (startX + endX) / 2;
-              const midY = (startY + endY) / 2;
+                const midX = (startX + endX) / 2;
+                const midY = (startY + endY) / 2;
 
-              const pathD = `M ${startX} ${startY} Q ${midX} ${startY} ${endX} ${endY}`;
+                const pathD = `M ${startX} ${startY} Q ${midX} ${startY} ${endX} ${endY}`;
 
-              return (
-                <g key={`edge-${eIdx}`} className="pointer-events-none">
-                  <path
-                    d={pathD}
-                    fill="none"
-                    stroke="#818CF8"
-                    strokeWidth="2.5"
-                    strokeOpacity="0.8"
-                    markerEnd="url(#flow-arrow-head)"
-                  />
-                  {edge.label && (
-                    <g transform={`translate(${midX}, ${midY - 8})`}>
-                      <rect
-                        x="-30"
-                        y="-10"
-                        width="60"
-                        height="18"
-                        rx="4"
-                        fill="#0B0F19"
-                        stroke="#818CF8"
-                        strokeWidth="1"
-                      />
-                      <text
-                        textAnchor="middle"
-                        dy="3"
-                        fill="#E0E7FF"
-                        fontSize="9"
-                        fontFamily="sans-serif"
-                        fontWeight="bold"
-                      >
-                        {edge.label}
-                      </text>
-                    </g>
-                  )}
-                </g>
-              );
-            })}
+                return (
+                  <g key={`edge-${eIdx}`} className="pointer-events-none">
+                    <path
+                      d={pathD}
+                      fill="none"
+                      stroke="#818CF8"
+                      strokeWidth="2.5"
+                      strokeOpacity="0.8"
+                      markerEnd={`url(#${arrowMarkerId})`}
+                    />
+                    {edge.label && (
+                      <g transform={`translate(${midX}, ${midY - 8})`}>
+                        <rect
+                          x="-35"
+                          y="-10"
+                          width="70"
+                          height="18"
+                          rx="4"
+                          fill="#0B0F19"
+                          stroke="#818CF8"
+                          strokeWidth="1"
+                        />
+                        <text
+                          textAnchor="middle"
+                          dy="3"
+                          fill="#E0E7FF"
+                          fontSize="9"
+                          fontFamily="sans-serif"
+                          fontWeight="bold"
+                        >
+                          {edge.label}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
 
-            {/* Direct Movable / Draggable Node Elements */}
-            {flowData.nodes.map((node) => {
-              const styles = getNodeStyles(node.type);
-              const isDragging = draggingNodeId === node.id;
-              const isSelected = selectedNode?.id === node.id;
-              const isHovered = hoveredNode?.id === node.id;
+              {/* Direct Movable / Draggable Node Elements */}
+              {flowData.nodes.map((node) => {
+                const styles = getNodeStyles(node.type);
+                const isDragging = draggingNodeId === node.id;
+                const isSelected = selectedNode?.id === node.id;
+                const isHovered = hoveredNode?.id === node.id;
 
-              return (
-                <g
-                  key={node.id}
-                  transform={`translate(${node.x}, ${node.y})`}
-                  onPointerDown={(e) => handleNodePointerDown(node, e)}
-                  onMouseEnter={() => setHoveredNode(node)}
-                  onMouseLeave={() => setHoveredNode(null)}
-                  onDoubleClick={() => {
-                    setSelectedNode(node);
-                    setEditingNodeText(node.label);
-                    setIsEditingSelectedNode(true);
-                  }}
-                  className="cursor-grab active:cursor-grabbing transition-transform duration-75"
-                >
-                  {/* Element Outer Glow & Box Container */}
-                  <rect
-                    width={160}
-                    height={56}
-                    rx={node.type === 'decision' ? 4 : 12}
-                    fill={styles.bg}
-                    fillOpacity={isDragging || isSelected ? 0.95 : 0.8}
-                    stroke={isSelected || isDragging ? '#38BDF8' : styles.border}
-                    strokeWidth={isSelected || isDragging ? 2.5 : 1.5}
-                    style={{
-                      filter: isDragging
-                        ? `drop-shadow(0 10px 20px ${styles.glow})`
-                        : isHovered
-                        ? `drop-shadow(0 4px 12px ${styles.glow})`
-                        : 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))',
+                return (
+                  <g
+                    key={node.id}
+                    transform={`translate(${node.x}, ${node.y})`}
+                    onPointerDown={(e) => handleNodePointerDown(node, e)}
+                    onMouseEnter={() => setHoveredNode(node)}
+                    onMouseLeave={() => setHoveredNode(null)}
+                    onDoubleClick={() => {
+                      setSelectedNode(node);
+                      setEditingNodeText(node.label);
+                      setIsEditingSelectedNode(true);
                     }}
-                  />
-
-                  {/* Node Badge Tag */}
-                  <rect x={10} y={7} width={64} height={13} rx={3.5} fill="#000000" fillOpacity={0.4} />
-                  <text x={14} y={16.5} fill={styles.text} fontSize={7.5} fontWeight="bold" fontFamily="monospace">
-                    {styles.badge}
-                  </text>
-
-                  {/* Element Label */}
-                  <text
-                    x={80}
-                    y={36}
-                    textAnchor="middle"
-                    fill="#FFFFFF"
-                    fontSize={11.5}
-                    fontWeight="600"
-                    fontFamily="sans-serif"
-                    className="pointer-events-none select-none"
+                    className="cursor-grab active:cursor-grabbing transition-transform duration-75"
                   >
-                    {node.label.length > 20 ? node.label.slice(0, 18) + '…' : node.label}
-                  </text>
-                </g>
-              );
-            })}
+                    {/* Element Outer Glow & Box Container */}
+                    <rect
+                      width={160}
+                      height={56}
+                      rx={node.type === 'decision' ? 4 : 12}
+                      fill={styles.bg}
+                      fillOpacity={isDragging || isSelected ? 0.95 : 0.8}
+                      stroke={isSelected || isDragging ? '#38BDF8' : styles.border}
+                      strokeWidth={isSelected || isDragging ? 2.5 : 1.5}
+                      style={{
+                        filter: isDragging
+                          ? `drop-shadow(0 10px 20px ${styles.glow})`
+                          : isHovered
+                          ? `drop-shadow(0 4px 12px ${styles.glow})`
+                          : 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))',
+                      }}
+                    />
+
+                    {/* Node Badge Tag */}
+                    <rect x={10} y={7} width={64} height={13} rx={3.5} fill="#000000" fillOpacity={0.4} />
+                    <text x={14} y={16.5} fill={styles.text} fontSize={7.5} fontWeight="bold" fontFamily="monospace">
+                      {styles.badge}
+                    </text>
+
+                    {/* Element Label */}
+                    <text
+                      x={80}
+                      y={36}
+                      textAnchor="middle"
+                      fill="#FFFFFF"
+                      fontSize={11.5}
+                      fontWeight="600"
+                      fontFamily="sans-serif"
+                      className="pointer-events-none select-none"
+                    >
+                      {node.label.length > 20 ? node.label.slice(0, 18) + '…' : node.label}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
           </svg>
 
-          {/* Canvas Pan Hint Pill */}
-          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/60 border border-border/40 text-[10px] text-muted-foreground flex items-center gap-1 pointer-events-none backdrop-blur-sm">
-            <Move className="h-3 w-3 text-primary" />
-            <span className="hidden sm:inline">Drag background to pan canvas</span>
+          {/* Canvas Navigation Hint Pill */}
+          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/70 border border-border/40 text-[10px] text-muted-foreground flex items-center gap-1.5 pointer-events-none backdrop-blur-sm shadow-md">
+            <Move className="h-3 w-3 text-primary shrink-0" />
+            <span className="hidden sm:inline">Drag or scroll to pan canvas</span>
             <span className="sm:hidden">Drag to pan</span>
           </div>
 
@@ -961,7 +1110,7 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
                     Connections: <strong className="text-foreground">{flowData.edges.filter((e) => e.from === (hoveredNode || selectedNode)?.id || e.to === (hoveredNode || selectedNode)?.id).length} links</strong>
                   </div>
                   <div className="col-span-2 text-[9px] opacity-75">
-                    Drag elements or drag background canvas to explore
+                    Drag elements freely or pan/zoom background canvas to explore
                   </div>
                 </div>
               )}
@@ -990,3 +1139,4 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
     </div>
   );
 }
+

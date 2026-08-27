@@ -213,3 +213,18 @@ export async function deleteUserAccount(params?: { userId?: string; email?: stri
   });
 }
 
+export async function deleteUserByAdmin(userId: string): Promise<{ success: boolean; message: string }> {
+  return await apiFetch<{ success: boolean; message: string }>(`/admin/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getUserByUsername(username: string): Promise<DbUser | null> {
+  try {
+    return await apiFetch<DbUser>(`/users/${encodeURIComponent(username)}`);
+  } catch (err) {
+    console.error("Failed to get user by username/id:", err);
+    return null;
+  }
+}
+

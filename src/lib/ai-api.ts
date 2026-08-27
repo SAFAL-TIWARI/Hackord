@@ -12,6 +12,15 @@ export interface AiFileAttachment {
   author_id?: string;
 }
 
+export interface AiStudioImage {
+  id: string;
+  url: string;
+  prompt: string;
+  style?: string;
+  aspectRatio?: string;
+  createdAt?: string | Date;
+}
+
 export interface AiChatMessage {
   id: string;
   sender: 'user' | 'ai';
@@ -37,8 +46,21 @@ export interface AiConversation {
   pinned: boolean;
   activePlugin?: string | null;
   messages: AiChatMessage[];
+  aiStudio?: {
+    images: AiStudioImage[];
+  };
   createdAt?: string;
   updatedAt?: string;
+}
+
+/**
+ * Check if a file attachment has expired (> 24 hours old)
+ */
+export function isAiFileExpired(uploadedAt?: string | Date): boolean {
+  if (!uploadedAt) return false;
+  const time = new Date(uploadedAt).getTime();
+  if (isNaN(time)) return false;
+  return Date.now() - time > 24 * 60 * 60 * 1000;
 }
 
 /**
@@ -125,7 +147,28 @@ export async function deleteAiConversation(id: string): Promise<{ success: boole
 }
 
 /**
- * Upload single file (< 5MB) & deduplicate if already in MongoDB
+ * Save an AI Studio generated image to the conversation in MongoDB
+ */
+export async function saveAiStudioImage(
+  conversationId: string,
+  image: { url: string; prompt: string; style?: string; aspectRatio?: string }
+): Promise<{ success: boolean; image: AiStudioImage; conversation: AiConversation }> {
+  const res = await fetch(`${API_URL}/ai/conversations/${conversationId}/studio-images`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(image),
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || 'Failed to save studio image');
+  }
+
+  return await res.json();
+}
+
+/**
+ * Upload single file (< 5MB) & process text extraction
  */
 export async function uploadAiFile(params: {
   roomId: string;

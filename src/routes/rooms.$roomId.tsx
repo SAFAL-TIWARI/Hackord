@@ -28,9 +28,11 @@ import {
   isVideoFile,
   isPdfFile,
   isImageFile,
+  isAiFileExpired,
   type AiConversation,
   type AiChatMessage,
   type AiFileAttachment,
+  type AiStudioImage,
 } from "@/lib/ai-api";
 import { AiMessageRenderer } from "@/components/ai/AiMessageRenderer";
 import { AiFilesSidebar } from "@/components/ai/AiFilesSidebar";
@@ -355,7 +357,7 @@ function RoomPage() {
               <h1 className="mt-2 text-3xl font-semibold tracking-tight">{room.name}</h1>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{room.problem || room.description}</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <AddToCalendarMenu room={room} />
               {isOwnerOrAdmin ? (
                 <>
@@ -2847,7 +2849,13 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
               prev.map((c) => {
                 if (c.id === (targetChatId || selectedChatId) || (!targetChatId && prev[0]?.id === c.id)) {
                   const msgs = [...c.messages];
-                  const lastAiIndex = msgs.findLastIndex((m) => m.sender === "ai");
+                  let lastAiIndex = -1;
+                  for (let i = msgs.length - 1; i >= 0; i--) {
+                    if (msgs[i].sender === "ai") {
+                      lastAiIndex = i;
+                      break;
+                    }
+                  }
                   if (lastAiIndex !== -1) {
                     msgs[lastAiIndex] = {
                       ...msgs[lastAiIndex],
@@ -3087,7 +3095,6 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                 <Plus className="h-4 w-4 shrink-0 text-primary" />
                 <span>New Chat</span>
               </span>
-              <Sparkles className="h-3.5 w-3.5 text-primary/80" />
             </button>
 
             {/* Search Bar */}
@@ -3489,7 +3496,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                         </div>
 
                         {/* Attached File Chip on message (Clickable to open in new tab & inline media preview) */}
-                        {m.fileAttachment && (
+                        {m.fileAttachment && !isAiFileExpired(m.fileAttachment.uploadedAt) ? (
                           <div className="mb-2.5 space-y-2">
                             <div
                               onClick={() => openFileInNewTab(m.fileAttachment!)}
@@ -3526,22 +3533,13 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                                 )}
                               </div>
                             </div>
-
-                            {/* Inline Audio Player for Audio Attachments */}
-                            {/* {isAudioFile(m.fileAttachment) && m.fileAttachment.dataUrl && (
-                              <div className="rounded-xl overflow-hidden bg-black/40 border border-violet-500/30 p-2 shadow-inner">
-                                <audio controls className="w-full h-8" src={m.fileAttachment.dataUrl} />
-                              </div>
-                            )} */}
-
-                            {/* Inline Video Player for Video Attachments */}
-                            {/* {isVideoFile(m.fileAttachment) && m.fileAttachment.dataUrl && (
-                              <div className="rounded-xl overflow-hidden bg-black/60 border border-cyan-500/30 shadow-inner max-w-sm">
-                                <video controls playsInline className="w-full max-h-48 rounded-lg object-contain bg-black" src={m.fileAttachment.dataUrl} />
-                              </div>
-                            )} */}
                           </div>
-                        )}
+                        ) : m.fileAttachment && isAiFileExpired(m.fileAttachment.uploadedAt) ? (
+                          <div className={cn("mb-2 p-2 rounded-xl text-[10px] border flex items-center gap-1.5 opacity-70", isSelf ? "bg-white/10 border-white/20 text-white/80" : "bg-muted/20 border-border/40 text-muted-foreground")}>
+                            <Clock className="h-3 w-3 shrink-0" />
+                            <span className="truncate">File "{m.fileAttachment.name}" expired (24h limit).</span>
+                          </div>
+                        ) : null}
 
                         {/* Content Renderer */}
                         {isSelf ? (
@@ -3875,6 +3873,33 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
           isOpen={isMultimodalStudioOpen}
           onClose={() => setIsMultimodalStudioOpen(false)}
           initialTab={multimodalStudioTab}
+          conversationId={activeChat?.id || selectedChatId}
+          previousImages={activeChat?.aiStudio?.images || []}
+          onImageGenerated={(newImage: AiStudioImage) => {
+            const targetId = activeChat?.id || selectedChatId;
+            if (!targetId) return;
+            setChats((prev) => {
+              const updated = prev.map((c) => {
+                if (c.id === targetId) {
+                  const currentImgs = c.aiStudio?.images || [];
+                  const newImgs = [newImage, ...currentImgs.filter((img) => img.id !== newImage.id)];
+                  return {
+                    ...c,
+                    aiStudio: {
+                      ...c.aiStudio,
+                      images: newImgs,
+                    },
+                  };
+                }
+                return c;
+              });
+              const updatedConv = updated.find((c) => c.id === targetId);
+              if (updatedConv) {
+                aiChannelRef.current?.postMessage({ type: "AI_CONV_UPDATED", payload: updatedConv });
+              }
+              return updated;
+            });
+          }}
         />
       </div>
     </div>

@@ -26,6 +26,7 @@ import { Route as RoomsRouteImport } from './routes/rooms'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ProfileUsernameRouteImport } from './routes/profile.$username'
 import { Route as RoomsRoomIdRouteImport } from './routes/rooms.$roomId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -113,6 +114,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileUsernameRoute = ProfileUsernameRouteImport.update({
+  id: '/$username',
+  path: '/$username',
+  getParentRoute: () => ProfileRoute,
+} as any)
 const RoomsRoomIdRoute = RoomsRoomIdRouteImport.update({
   id: '/$roomId',
   path: '/$roomId',
@@ -131,12 +137,13 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/privacy': typeof PrivacyRoute
-  '/profile': typeof ProfileRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/profile-setup': typeof ProfileSetupRoute
   '/rooms': typeof RoomsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
+  '/profile/$username': typeof ProfileUsernameRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
 }
 export interface FileRoutesByTo {
@@ -151,12 +158,13 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/privacy': typeof PrivacyRoute
-  '/profile': typeof ProfileRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/profile-setup': typeof ProfileSetupRoute
   '/rooms': typeof RoomsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
+  '/profile/$username': typeof ProfileUsernameRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
 }
 export interface FileRoutesById {
@@ -172,12 +180,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/privacy': typeof PrivacyRoute
-  '/profile': typeof ProfileRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/profile-setup': typeof ProfileSetupRoute
   '/rooms': typeof RoomsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
+  '/profile/$username': typeof ProfileUsernameRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
 }
 export interface FileRouteTypes {
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/terms'
+    | '/profile/$username'
     | '/rooms/$roomId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/terms'
+    | '/profile/$username'
     | '/rooms/$roomId'
   id:
     | '__root__'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/terms'
+    | '/profile/$username'
     | '/rooms/$roomId'
   fileRoutesById: FileRoutesById
 }
@@ -255,7 +267,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   PrivacyRoute: typeof PrivacyRoute
-  ProfileRoute: typeof ProfileRoute
+  ProfileRoute: typeof ProfileRouteWithChildren
   ProfileSetupRoute: typeof ProfileSetupRoute
   RoomsRoute: typeof RoomsRouteWithChildren
   SettingsRoute: typeof SettingsRoute
@@ -384,6 +396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile/$username': {
+      id: '/profile/$username'
+      path: '/$username'
+      fullPath: '/profile/$username'
+      preLoaderRoute: typeof ProfileUsernameRouteImport
+      parentRoute: typeof ProfileRoute
+    }
     '/rooms/$roomId': {
       id: '/rooms/$roomId'
       path: '/$roomId'
@@ -393,6 +412,17 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface ProfileRouteChildren {
+  ProfileUsernameRoute: typeof ProfileUsernameRoute
+}
+
+const ProfileRouteChildren: ProfileRouteChildren = {
+  ProfileUsernameRoute: ProfileUsernameRoute,
+}
+
+const ProfileRouteWithChildren =
+  ProfileRoute._addFileChildren(ProfileRouteChildren)
 
 interface RoomsRouteChildren {
   RoomsRoomIdRoute: typeof RoomsRoomIdRoute
@@ -416,7 +446,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   PrivacyRoute: PrivacyRoute,
-  ProfileRoute: ProfileRoute,
+  ProfileRoute: ProfileRouteWithChildren,
   ProfileSetupRoute: ProfileSetupRoute,
   RoomsRoute: RoomsRouteWithChildren,
   SettingsRoute: SettingsRoute,
