@@ -74,7 +74,7 @@ export function HomeNavbar() {
         </div>
 
         <nav className="flex items-center gap-1.5 sm:gap-3 text-sm font-medium shrink-0">
-          <button
+          {/* <button
             onClick={handleEnableNotifications}
             className={cn(
               "relative p-1.5 sm:p-2 rounded-xl border transition-all duration-300 shrink-0",
@@ -88,7 +88,7 @@ export function HomeNavbar() {
             {notifGranted && (
               <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             )}
-          </button>
+          </button> */}
 
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
 

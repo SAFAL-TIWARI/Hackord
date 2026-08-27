@@ -63,10 +63,6 @@ export function HeroShowcase() {
             </div>
             <div>
               <div className="text-xs font-bold text-foreground">Live Team Huddle</div>
-              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Radio className="h-2.5 w-2.5 text-emerald-500 animate-pulse" />
-                Agora HD Audio/Video
-              </div>
             </div>
           </div>
           <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-[10px] font-semibold text-rose-400">
