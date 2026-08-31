@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QuickCreateRoomModal } from "@/components/QuickCreateRoomModal";
+import { ExploreAiAssistant } from "@/components/explore/ExploreAiAssistant";
 import { ALL_TAGS, type Hackathon } from "@/lib/hackathon-data";
 import { getHackathons, createHackathon, deleteHackathon, triggerHackathonScrape } from "@/lib/hackathons-api";
 import { useAuth } from "@/lib/auth";
@@ -324,19 +325,19 @@ function HackathonCard({
         </div>
 
         {/* Dates & Footer Actions */}
-        <div className="mt-5 border-t border-border/40 pt-3 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1 text-muted-foreground">
+        <div className="mt-5 border-t border-border/40 pt-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-center gap-1 text-muted-foreground shrink-0">
             <CalendarDays className="h-3.5 w-3.5" />
             <span>{formatDate(hackathon.registrationDeadline)}</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             {hackathon.platformUrl && (
               <a
                 href={hackathon.platformUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition hover:border-primary hover:text-foreground"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition hover:border-primary hover:text-foreground active:scale-[0.98]"
               >
                 <ExternalLink className="h-3 w-3" />
                 Details
@@ -344,7 +345,7 @@ function HackathonCard({
             )}
             <button
               onClick={() => onCreateRoom(hackathon)}
-              className="flex items-center gap-1 rounded-lg bg-gradient-brand px-3 py-1.5 text-xs font-semibold text-white shadow-glow transition hover:opacity-90"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1 rounded-lg bg-gradient-brand px-3 py-1.5 text-xs font-semibold text-white shadow-glow transition hover:opacity-90 active:scale-[0.98]"
             >
               <Zap className="h-3 w-3" />
               Create Room
@@ -395,11 +396,11 @@ function ExplorePage() {
     }
     return "All";
   });
-  const [viewMode, setViewMode] = useState<"grid" | "calendar">(() => {
+  const [viewMode, setViewMode] = useState<"grid" | "calendar" | "ai">(() => {
     if (typeof window !== "undefined") {
       const p = new URLSearchParams(window.location.search);
       const v = (p.get("view") || localStorage.getItem("explore_view")) as any;
-      if (["grid", "calendar"].includes(v)) return v;
+      if (["grid", "calendar", "ai"].includes(v)) return v;
     }
     return "grid";
   });
@@ -730,12 +731,12 @@ function ExplorePage() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {/* View toggles */}
-            <div className="flex rounded-lg border border-border overflow-hidden">
+            <div className="flex rounded-lg border border-border overflow-hidden bg-card/50">
               <button
                 onClick={() => setViewMode("grid")}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 text-xs transition",
-                  viewMode === "grid" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
+                  "flex items-center gap-1.5 px-3 py-2 text-xs transition font-medium",
+                  viewMode === "grid" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
@@ -744,12 +745,24 @@ function ExplorePage() {
               <button
                 onClick={() => setViewMode("calendar")}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 text-xs transition",
-                  viewMode === "calendar" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
+                  "flex items-center gap-1.5 px-3 py-2 text-xs transition font-medium",
+                  viewMode === "calendar" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Calendar className="h-3.5 w-3.5" />
                 Calendar
+              </button>
+              <button
+                onClick={() => setViewMode("ai")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-2 text-xs transition font-medium",
+                  viewMode === "ai"
+                    ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                )}
+              >
+                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                AI Search
               </button>
             </div>
 
@@ -939,13 +952,15 @@ function ExplorePage() {
           )}
         </div>
 
-        {/* Results Grid / Calendar */}
+        {/* Results Grid / Calendar / AI Assistant */}
         {loading ? (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="glass rounded-2xl p-5 h-64 animate-pulse bg-card/30" />
             ))}
           </div>
+        ) : viewMode === "ai" ? (
+          <ExploreAiAssistant onCreateRoom={openQuickCreate} availableHackathons={hackathons} />
         ) : viewMode === "calendar" ? (
           <CalendarView hackathons={filtered} onCreateRoom={openQuickCreate} />
         ) : (
