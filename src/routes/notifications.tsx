@@ -56,7 +56,7 @@ function NotificationsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Notifications</h1>

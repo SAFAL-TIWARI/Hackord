@@ -647,10 +647,6 @@ function ExplorePage() {
         <section className="glass-strong overflow-hidden rounded-2xl p-6 shadow-card sm:p-8">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="inline-flex items-center gap-2 self-start rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Live Hackathon Registry</span>
-              </div>
 
               {/* AUTO FEED / ADMIN ACTIONS (ADMIN ONLY) */}
               <div className="flex items-center gap-2 self-start sm:self-auto">

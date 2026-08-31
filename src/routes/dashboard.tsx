@@ -238,7 +238,7 @@ function DashboardPage() {
     return list;
   }, [rooms]);
 
-  if (authLoading) {
+  if (authLoading || !user) {
     return (
       <AppShell>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -247,8 +247,6 @@ function DashboardPage() {
       </AppShell>
     );
   }
-
-  if (!user) return null;
 
   const isRoomOwnerOrAdmin = (r: DbRoom) => {
     if (!user) return true;

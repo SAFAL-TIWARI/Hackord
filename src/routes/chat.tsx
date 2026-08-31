@@ -501,7 +501,7 @@ function ChatPage() {
     });
   };
 
-  if (authLoading) {
+  if (authLoading || !currentUser) {
     return (
       <AppShell>
         <div className="flex items-center justify-center min-h-[60vh]">

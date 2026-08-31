@@ -29,9 +29,11 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   // Redirect if already logged in
-  if (isAuthenticated) {
-    navigate({ to: "/dashboard" });
-  }
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate({ to: "/dashboard" });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -184,7 +184,7 @@ export async function getUserSettings(params?: { userId?: string; email?: string
         discoverable: true,
         allowInvites: true,
         allowDirectMessages: true,
-        showEmail: true,
+        showEmail: false,
         showOnlineStatus: true,
         activityStatus: true,
       },

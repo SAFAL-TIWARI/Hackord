@@ -25,6 +25,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { BrandLogo } from "./BrandLogo";
 import { haptic } from "@/lib/haptic";
 import { useState, useEffect, useRef, type ReactNode } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -235,10 +236,23 @@ export function AppShell({ children }: { children: ReactNode }) {
                   pathname === item.to ||
                   (item.to !== "/dashboard" && pathname.startsWith(item.to));
 
+                const handleNavClick = (e: React.MouseEvent) => {
+                  if (!user && (item.to === "/dashboard" || item.to === "/rooms" || item.to === "/profile" || item.to === "/settings" || item.to === "/chat")) {
+                    e.preventDefault();
+                    toast.error(
+                      item.to === "/dashboard"
+                        ? "Please sign in to access your dashboard"
+                        : `Please sign in to access ${item.label.toLowerCase()}`
+                    );
+                    navigate({ to: "/login" });
+                  }
+                };
+
                 const linkEl = (
                   <Link
                     key={item.to}
                     to={item.to}
+                    onClick={handleNavClick}
                     className={cn(
                       "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200",
                       collapsed ? "justify-center px-2" : "",
@@ -467,7 +481,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <div key={item.to} className="relative flex items-center justify-center w-15">
                   <Link
                     to={item.to}
-                    onClick={() => haptic(active ? "light" : "medium")}
+                    onClick={(e) => {
+                      if (!user && (item.to === "/dashboard" || item.to === "/rooms" || item.to === "/profile" || item.to === "/settings" || item.to === "/chat")) {
+                        e.preventDefault();
+                        toast.error(
+                          item.to === "/dashboard"
+                            ? "Please sign in to access your dashboard"
+                            : `Please sign in to access ${item.label.toLowerCase()}`
+                        );
+                        navigate({ to: "/login" });
+                        return;
+                      }
+                      haptic(active ? "light" : "medium");
+                    }}
                     className={cn(
                       "flex items-center justify-center transition-all duration-300 ease-out",
                       active

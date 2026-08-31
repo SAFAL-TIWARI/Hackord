@@ -350,7 +350,7 @@ function PublicUserProfilePage() {
     .toUpperCase();
 
   const showEmail =
-    isSelf || isAdmin || targetUser.privacySettings?.showEmail !== false;
+    isSelf || isAdmin || Boolean(targetUser.privacySettings?.showEmail);
 
   return (
     <AppShell>

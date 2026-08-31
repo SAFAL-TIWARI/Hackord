@@ -329,7 +329,7 @@ function AdminPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  if (authLoading) {
+  if (authLoading || !isAdmin) {
     return (
       <AppShell>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -338,8 +338,6 @@ function AdminPage() {
       </AppShell>
     );
   }
-
-  if (!isAdmin) return null;
 
   const statCards = stats
     ? [

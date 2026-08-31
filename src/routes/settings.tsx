@@ -40,7 +40,7 @@ function SettingsPage() {
     discoverable: true,
     allowInvites: true,
     allowDirectMessages: true,
-    showEmail: true,
+    showEmail: false,
     showOnlineStatus: true,
     activityStatus: true,
   });
@@ -66,7 +66,7 @@ function SettingsPage() {
             discoverable: data.privacySettings.discoverable !== false,
             allowInvites: data.privacySettings.allowInvites !== false,
             allowDirectMessages: data.privacySettings.allowDirectMessages !== false,
-            showEmail: data.privacySettings.showEmail !== false,
+            showEmail: Boolean(data.privacySettings.showEmail),
             showOnlineStatus: data.privacySettings.showOnlineStatus !== false && data.privacySettings.activityStatus !== false,
             activityStatus: data.privacySettings.activityStatus !== false && data.privacySettings.showOnlineStatus !== false,
           });
@@ -109,7 +109,7 @@ function SettingsPage() {
           discoverable: res.privacySettings.discoverable !== false,
           allowInvites: res.privacySettings.allowInvites !== false,
           allowDirectMessages: res.privacySettings.allowDirectMessages !== false,
-          showEmail: res.privacySettings.showEmail !== false,
+          showEmail: Boolean(res.privacySettings.showEmail),
           showOnlineStatus: res.privacySettings.showOnlineStatus !== false && res.privacySettings.activityStatus !== false,
           activityStatus: res.privacySettings.activityStatus !== false && res.privacySettings.showOnlineStatus !== false,
         }));
@@ -162,7 +162,7 @@ function SettingsPage() {
           </p>
         </div>
 
-        {loading || authLoading ? (
+        {loading || authLoading || !user ? (
           <div className="space-y-6">
             <div className="glass rounded-2xl p-6 shadow-card space-y-4">
               <div className="flex items-center gap-3 border-b border-border/50 pb-3">
