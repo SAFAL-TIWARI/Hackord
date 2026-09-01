@@ -178,7 +178,7 @@ export async function getUserSettings(params?: { userId?: string; email?: string
         deadlines: true,
         chatMessages: true,
         desktopNotifications: true,
-        reminders: false,
+        reminders: true,
       },
       privacySettings: {
         discoverable: true,

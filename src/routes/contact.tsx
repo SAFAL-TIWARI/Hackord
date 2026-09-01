@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { submitHostHackathonRequest, sendContactMessage } from "@/lib/hackathons-api";
 import { toast } from "sonner";
@@ -44,6 +45,7 @@ export const Route = createFileRoute("/contact")({
       },
     ],
   }),
+  pendingComponent: ContactSkeleton,
   component: ContactPage,
 });
 
@@ -177,13 +179,7 @@ function ContactPage() {
   };
 
   if (authLoading) {
-    return (
-      <AppShell>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-      </AppShell>
-    );
+    return <ContactSkeleton />;
   }
 
   if (!user) return null;
@@ -612,3 +608,95 @@ function ContactPage() {
     </AppShell>
   );
 }
+
+export function ContactSkeleton() {
+  return (
+    <AppShell>
+      <div className="mx-auto max-w-6xl space-y-12 py-4 animate-pulse">
+        {/* Hero Section Skeleton */}
+        <div className="glass-strong rounded-3xl p-8 sm:p-12 shadow-card text-center relative overflow-hidden space-y-4 max-w-3xl mx-auto">
+          <div className="flex justify-center">
+            <Skeleton className="h-7 w-64 rounded-full" />
+          </div>
+          <div className="flex justify-center">
+            <Skeleton className="h-10 sm:h-12 w-72 sm:w-96 rounded-xl" />
+          </div>
+          <div className="space-y-2 max-w-2xl mx-auto">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-4/5 mx-auto" />
+          </div>
+        </div>
+
+        {/* 3 Contact Info Cards Skeleton */}
+        <div className="grid gap-6 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="glass rounded-2xl p-6 shadow-card space-y-3 flex flex-col items-center text-center">
+              <Skeleton className="h-12 w-12 rounded-2xl" />
+              <Skeleton className="h-5 w-32 rounded-md" />
+              <Skeleton className="h-4 w-48 rounded-md" />
+              <Skeleton className="h-4 w-36 rounded-md" />
+            </div>
+          ))}
+        </div>
+
+        {/* Contact Message Form Skeleton */}
+        <div className="glass rounded-3xl p-6 sm:p-10 shadow-card space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-56 rounded-md" />
+              <Skeleton className="h-4 w-80 rounded-md" />
+            </div>
+            <Skeleton className="h-6 w-32 rounded-full" />
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-28 w-full rounded-lg" />
+          </div>
+          <Skeleton className="h-11 w-full rounded-xl" />
+        </div>
+
+        {/* Host Hackathon Section Skeleton */}
+        <div className="glass rounded-3xl p-6 sm:p-10 shadow-card space-y-6">
+          <div className="space-y-2 border-b border-border pb-6">
+            <Skeleton className="h-6 w-64 rounded-md" />
+            <Skeleton className="h-4 w-96 rounded-md" />
+          </div>
+          <div className="grid gap-5 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="space-y-1.5">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-24 w-full rounded-lg" />
+          </div>
+          <Skeleton className="h-11 w-full rounded-xl" />
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+

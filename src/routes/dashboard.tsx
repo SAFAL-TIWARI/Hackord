@@ -484,47 +484,48 @@ function DashboardPage() {
               </div>
             </section>
 
-            <div className="grid gap-6 lg:grid-cols-3 animate-fade-in animate-delay-200">
+            {/* Deadlines & Invitations Grid */}
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-3 animate-fade-in animate-delay-200 w-full min-w-0">
               {/* Deadlines Grouped by Room */}
-              <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">Upcoming deadlines</h2>
-                  <Badge variant="secondary">{realDeadlines.length} Total</Badge>
+              <section className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-card lg:col-span-2 min-w-0 w-full overflow-hidden">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <h2 className="text-base sm:text-lg font-semibold truncate">Upcoming deadlines</h2>
+                  <Badge variant="secondary" className="shrink-0">{realDeadlines.length} Total</Badge>
                 </div>
                 {roomGroupedDeadlines.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
                     No upcoming room deadlines 🎉
                   </div>
                 ) : (
-                  <div className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
+                  <div className="space-y-3.5 sm:space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar pr-0.5 sm:pr-1 min-w-0 w-full">
                     {roomGroupedDeadlines.map((group) => (
-                      <div key={group.roomId} className="rounded-xl border border-border/70 bg-card/40 p-3.5 space-y-2.5">
-                        <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                      <div key={group.roomId} className="rounded-xl border border-border/70 bg-card/40 p-3 sm:p-3.5 space-y-2.5 min-w-0 w-full overflow-hidden">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 border-b border-border/40 pb-2 min-w-0">
                           <Link
                             to="/rooms/$roomId"
                             params={{ roomId: group.roomId }}
-                            className="font-bold text-sm text-primary hover:underline flex items-center gap-1.5"
+                            className="font-bold text-xs sm:text-sm text-primary hover:underline flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden"
                           >
-                            <span>{group.roomName}</span>
-                            <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
+                            <span className="truncate">{group.roomName}</span>
+                            <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground shrink-0">
                               {group.hackathon}
                             </Badge>
                           </Link>
-                          <span className="text-[11px] font-semibold text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-full">
+                          <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-full self-start sm:self-auto shrink-0">
                             {group.deadlines.length} deadline{group.deadlines.length === 1 ? "" : "s"}
                           </span>
                         </div>
 
-                        <ul className="space-y-2">
+                        <ul className="space-y-2 min-w-0 w-full">
                           {group.deadlines.map((d, idx) => (
                             <li
                               key={d.title + idx}
-                              className="flex items-center justify-between rounded-lg border border-border/50 bg-background/50 p-2.5 text-xs"
+                              className="flex items-center justify-between gap-2 rounded-lg border border-border/50 bg-background/50 p-2 sm:p-2.5 text-xs min-w-0 w-full overflow-hidden"
                             >
-                              <div className="flex items-center gap-2.5">
+                              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
                                 <div
                                   className={
-                                    "grid h-7 w-7 place-items-center rounded-md " +
+                                    "grid h-6 w-6 sm:h-7 sm:w-7 place-items-center rounded-md shrink-0 " +
                                     (d.urgency === "danger"
                                       ? "bg-destructive/15 text-destructive"
                                       : d.urgency === "warning"
@@ -532,11 +533,11 @@ function DashboardPage() {
                                       : "bg-gradient-brand-soft text-primary")
                                   }
                                 >
-                                  <CalendarClock className="h-3.5 w-3.5" />
+                                  <CalendarClock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                                 </div>
-                                <span className="font-medium text-foreground">{d.title}</span>
+                                <span className="font-medium text-foreground truncate">{d.title}</span>
                               </div>
-                              <span className="text-muted-foreground font-mono">{d.date}</span>
+                              <span className="text-muted-foreground font-mono text-[10px] sm:text-xs shrink-0 whitespace-nowrap">{d.date}</span>
                             </li>
                           ))}
                         </ul>
@@ -547,10 +548,10 @@ function DashboardPage() {
               </section>
 
               {/* Invitations */}
-              <section className="glass rounded-2xl p-6 shadow-card">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">Pending invitations</h2>
-                  <Badge variant="secondary">{invitations.length}</Badge>
+              <section className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-card min-w-0 w-full overflow-hidden">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <h2 className="text-base sm:text-lg font-semibold truncate">Pending invitations</h2>
+                  <Badge variant="secondary" className="shrink-0">{invitations.length}</Badge>
                 </div>
                 {invitations.length === 0 ? (
                   <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-8 text-center">
@@ -558,35 +559,35 @@ function DashboardPage() {
                     <p className="text-xs text-muted-foreground mt-1">You're all caught up!</p>
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-0.5 sm:pr-1 min-w-0 w-full">
                     {invitations.map((i) => (
-                      <div key={i._id || i.id} className="rounded-xl border border-border/60 bg-card/50 p-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
+                      <div key={i._id || i.id} className="rounded-xl border border-border/60 bg-card/50 p-3 sm:p-4 min-w-0 w-full overflow-hidden">
+                        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                          <Avatar className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
                             <AvatarImage src={i.sender?.avatar} />
                             <AvatarFallback>{(i.sender?.name || "U")[0]}</AvatarFallback>
                           </Avatar>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{i.roomName}</p>
-                            <p className="truncate text-xs text-muted-foreground">{i.hackathon}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs sm:text-sm font-medium">{i.roomName}</p>
+                            <p className="truncate text-[11px] sm:text-xs text-muted-foreground">{i.hackathon}</p>
                           </div>
                         </div>
-                        <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">"{i.message}"</p>
+                        <p className="mt-2.5 line-clamp-2 text-xs sm:text-sm text-muted-foreground break-words">"{i.message}"</p>
                         <div className="mt-3 flex gap-2">
                           <Button
                             size="sm"
                             onClick={() => handleAcceptInvitation(i)}
-                            className="flex-1 bg-gradient-brand text-white shadow-glow hover:opacity-90"
+                            className="flex-1 bg-gradient-brand text-white shadow-glow hover:opacity-90 text-xs h-8"
                           >
-                            <Check className="h-3.5 w-3.5" /> Accept
+                            <Check className="h-3.5 w-3.5 mr-1" /> Accept
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleRejectInvitation(i)}
-                            className="flex-1 hover:bg-destructive/10 hover:text-destructive"
+                            className="flex-1 hover:bg-destructive/10 hover:text-destructive text-xs h-8"
                           >
-                            <X className="h-3.5 w-3.5" /> Reject
+                            <X className="h-3.5 w-3.5 mr-1" /> Reject
                           </Button>
                         </div>
                       </div>
@@ -596,32 +597,33 @@ function DashboardPage() {
               </section>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-3 animate-fade-in animate-delay-300">
+            {/* Live Activity, User Notes, Recent Notifications Grid */}
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-3 animate-fade-in animate-delay-300 w-full min-w-0">
               {/* Live Activity Stream */}
-              <section className="glass rounded-2xl p-6 shadow-card flex flex-col">
+              <section className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-card flex flex-col min-w-0 w-full overflow-hidden">
                 <div className="mb-4 flex items-center gap-2">
-                  <div className="relative flex h-2.5 w-2.5">
+                  <div className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                   </div>
-                  <h2 className="text-lg font-semibold">Live Activity</h2>
+                  <h2 className="text-base sm:text-lg font-semibold truncate">Live Activity</h2>
                 </div>
                 {realActivities.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
                     No recent room activity recorded
                   </div>
                 ) : (
-                  <ul className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                  <ul className="space-y-2.5 sm:space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-0.5 sm:pr-1 min-w-0 w-full">
                     {realActivities.map((a, i) => (
-                      <li key={a.id + i} className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/50 p-3">
-                        <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-brand-soft text-xs font-semibold text-primary shrink-0">
+                      <li key={a.id + i} className="flex items-start sm:items-center gap-2.5 sm:gap-3 rounded-xl border border-border/60 bg-card/50 p-2.5 sm:p-3 min-w-0 w-full overflow-hidden">
+                        <div className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-full bg-gradient-brand-soft text-xs font-semibold text-primary shrink-0 mt-0.5 sm:mt-0">
                           {a.who[0]}
                         </div>
-                        <div className="flex-1 text-sm min-w-0">
-                          <span className="font-medium">{a.who}</span>{" "}
-                          <span className="text-muted-foreground">{a.what}</span>
+                        <div className="flex-1 text-xs sm:text-sm min-w-0 break-words">
+                          <span className="font-semibold text-foreground">{a.who}</span>{" "}
+                          <span className="text-muted-foreground break-words">{a.what}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground shrink-0">{a.when}</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0 whitespace-nowrap pl-1">{a.when}</span>
                       </li>
                     ))}
                   </ul>
@@ -629,28 +631,28 @@ function DashboardPage() {
               </section>
 
               {/* User Notes (Persisted to Database) */}
-              <section className="glass rounded-2xl p-6 shadow-card flex flex-col">
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <StickyNote className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold">User Notes</h2>
+              <section className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-card flex flex-col min-w-0 w-full overflow-hidden">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <StickyNote className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+                    <h2 className="text-base sm:text-lg font-semibold truncate">User Notes</h2>
                   </div>
-                  <Badge variant="secondary">{dbNotes.length} saved</Badge>
+                  <Badge variant="secondary" className="shrink-0">{dbNotes.length} saved</Badge>
                 </div>
 
                 {/* Create Note Form */}
-                <form onSubmit={handleCreateNote} className="space-y-2 mb-4">
+                <form onSubmit={handleCreateNote} className="space-y-2 mb-4 min-w-0 w-full">
                   <Input
                     value={noteTitle}
                     onChange={(e) => setNoteTitle(e.target.value)}
                     placeholder="Note title (optional)..."
-                    className="text-xs bg-background/50 h-8"
+                    className="text-xs bg-background/50 h-8 w-full min-w-0"
                   />
                   <textarea
                     value={noteContent}
                     onChange={(e) => setNoteContent(e.target.value)}
                     placeholder="Jot down quick ideas, links, or tasks..."
-                    className="w-full h-20 resize-none rounded-xl bg-background/50 border border-border/60 p-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground"
+                    className="w-full min-w-0 h-20 resize-none rounded-xl bg-background/50 border border-border/60 p-2.5 sm:p-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground"
                   />
                   <Button
                     type="submit"
@@ -663,7 +665,7 @@ function DashboardPage() {
                 </form>
 
                 {/* Saved Notes List */}
-                <div className="flex-1 max-h-[220px] overflow-y-auto custom-scrollbar space-y-2.5 pr-1">
+                <div className="flex-1 max-h-[220px] overflow-y-auto custom-scrollbar space-y-2.5 pr-0.5 sm:pr-1 min-w-0 w-full">
                   {dbNotes.length === 0 ? (
                     <p className="py-6 text-center text-xs text-muted-foreground border border-dashed border-border/60 rounded-xl">
                       No saved notes yet. Create your first note above!
@@ -672,18 +674,18 @@ function DashboardPage() {
                     dbNotes.map((n) => {
                       const noteId = n._id || n.id || "";
                       return (
-                        <div key={noteId} className="group relative rounded-xl border border-border/60 bg-card/60 p-3 text-xs">
+                        <div key={noteId} className="group relative rounded-xl border border-border/60 bg-card/60 p-2.5 sm:p-3 text-xs min-w-0 w-full overflow-hidden">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="font-semibold text-foreground truncate">{n.title}</p>
+                            <p className="font-semibold text-foreground truncate min-w-0 flex-1">{n.title || "Untitled Note"}</p>
                             <button
                               onClick={() => handleDeleteNote(noteId)}
-                              className="opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-destructive shrink-0"
+                              className="opacity-80 sm:opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-destructive shrink-0 p-1 -mr-1 -mt-1 cursor-pointer"
                               title="Delete note"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
-                          <p className="mt-1 text-muted-foreground whitespace-pre-wrap line-clamp-3">{n.content}</p>
+                          <p className="mt-1 text-muted-foreground whitespace-pre-wrap break-words line-clamp-3">{n.content}</p>
                           <span className="mt-2 block text-[10px] text-muted-foreground/70">
                             {formatTimeAgo(n.createdAt)}
                           </span>
@@ -695,10 +697,10 @@ function DashboardPage() {
               </section>
 
               {/* Notifications */}
-              <section className="glass rounded-2xl p-6 shadow-card">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">Recent notifications</h2>
-                  <Link to="/notifications" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <section className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-card min-w-0 w-full overflow-hidden">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <h2 className="text-base sm:text-lg font-semibold truncate">Recent notifications</h2>
+                  <Link to="/notifications" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground shrink-0">
                     View all <ArrowUpRight className="h-3 w-3" />
                   </Link>
                 </div>
@@ -707,18 +709,18 @@ function DashboardPage() {
                     No recent notifications
                   </div>
                 ) : (
-                  <ul className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                  <ul className="space-y-2.5 sm:space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-0.5 sm:pr-1 min-w-0 w-full">
                     {realNotifications.slice(0, 5).map((n) => (
-                      <Link key={n.id} to={(n.link || "/notifications") as any} className="block">
-                        <li className="flex items-start gap-3 rounded-xl border border-border/60 bg-card/50 p-3 hover:bg-card/80 transition">
-                          <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-brand-soft text-primary shrink-0">
-                            <Bell className="h-4 w-4" />
+                      <Link key={n.id} to={(n.link || "/notifications") as any} className="block min-w-0 w-full">
+                        <li className="flex items-start gap-2.5 sm:gap-3 rounded-xl border border-border/60 bg-card/50 p-2.5 sm:p-3 hover:bg-card/80 transition min-w-0 w-full overflow-hidden">
+                          <div className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg bg-gradient-brand-soft text-primary shrink-0 mt-0.5">
+                            <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{n.title}</p>
-                            <p className="text-xs text-muted-foreground line-clamp-2">{n.detail}</p>
+                            <p className="text-xs sm:text-sm font-medium truncate">{n.title}</p>
+                            <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-2 break-words mt-0.5">{n.detail}</p>
                           </div>
-                          <span className="text-xs text-muted-foreground shrink-0">{n.time}</span>
+                          <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0 whitespace-nowrap pl-1">{n.time}</span>
                         </li>
                       </Link>
                     ))}
@@ -728,25 +730,25 @@ function DashboardPage() {
             </div>
 
             {/* My Rooms Section (Displayed in List Format at the bottom of Dashboard) */}
-            <section className="animate-fade-in animate-delay-400 glass rounded-3xl p-6 border border-border/70 shadow-card">
-              <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Layers3 className="h-5 w-5 text-primary" />
-                    <h2 className="text-xl font-semibold tracking-tight">My Workspace Rooms</h2>
-                    <Badge variant="secondary" className="ml-2">{rooms.length} Active</Badge>
+            <section className="animate-fade-in animate-delay-400 glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/70 shadow-card min-w-0 w-full overflow-hidden">
+              <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 min-w-0">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Layers3 className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+                    <h2 className="text-lg sm:text-xl font-semibold tracking-tight truncate">My Workspace Rooms</h2>
+                    <Badge variant="secondary" className="ml-1">{rooms.length} Active</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Manage your hackathon teams, member permissions, and project rooms.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                   {/* View Mode Switcher (List / Grid) */}
                   <div className="flex items-center rounded-xl bg-card border border-border p-1">
                     <button
                       onClick={() => setRoomsViewMode("list")}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition ${
+                      className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition ${
                         roomsViewMode === "list"
                           ? "bg-gradient-brand text-white shadow-sm"
                           : "text-muted-foreground hover:text-foreground"
@@ -756,7 +758,7 @@ function DashboardPage() {
                     </button>
                     <button
                       onClick={() => setRoomsViewMode("grid")}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition ${
+                      className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition ${
                         roomsViewMode === "grid"
                           ? "bg-gradient-brand text-white shadow-sm"
                           : "text-muted-foreground hover:text-foreground"
@@ -768,7 +770,7 @@ function DashboardPage() {
 
                   <Link
                     to="/rooms"
-                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline shrink-0"
                   >
                     All Rooms <ArrowUpRight className="h-3.5 w-3.5" />
                   </Link>
@@ -781,46 +783,46 @@ function DashboardPage() {
                 </div>
               ) : roomsViewMode === "list" ? (
                 /* Structured List Format for Dashboard Bottom Rooms */
-                <div className="space-y-3">
+                <div className="space-y-3 min-w-0 w-full">
                   {rooms.map((r) => (
                     <div
                       key={r.id}
-                      className="group flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-border/70 bg-card/60 p-4 transition-all duration-200 hover:border-primary/50 hover:bg-card/90 hover:shadow-lg"
+                      className="group flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 rounded-2xl border border-border/70 bg-card/60 p-3.5 sm:p-4 transition-all duration-200 hover:border-primary/50 hover:bg-card/90 hover:shadow-lg min-w-0 w-full overflow-hidden"
                     >
                       {/* Left info */}
-                      <div className="flex items-start gap-4 min-w-0 flex-1">
-                        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-brand-soft text-primary font-bold text-base shadow-sm">
+                      <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+                        <div className="grid h-10 w-10 sm:h-11 sm:w-11 shrink-0 place-items-center rounded-xl bg-gradient-brand-soft text-primary font-bold text-sm sm:text-base shadow-sm">
                           {r.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2.5 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Link
                               to="/rooms/$roomId"
                               params={{ roomId: r.id }}
-                              className="text-base font-semibold text-foreground group-hover:text-primary transition line-clamp-1"
+                              className="text-sm sm:text-base font-semibold text-foreground group-hover:text-primary transition line-clamp-1"
                             >
                               {r.name}
                             </Link>
                             <Badge variant="outline" className="text-[10px] uppercase font-semibold text-primary border-primary/30">
                               {r.status || "Active"}
                             </Badge>
-                            <span className="text-xs text-muted-foreground font-medium">
+                            <span className="text-xs text-muted-foreground font-medium truncate max-w-[150px]">
                               🏆 {r.hackathon}
                             </span>
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
+                          <p className="mt-1 text-xs text-muted-foreground line-clamp-1 break-words">
                             {r.problem || "Collaborative workspace for ideation, build, and presentation."}
                           </p>
                         </div>
                       </div>
 
                       {/* Right info & Actions */}
-                      <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
+                      <div className="flex items-center justify-between md:justify-end gap-3 sm:gap-6 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
                         {/* Members Stack */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
                           <div className="flex -space-x-2">
                             {(r.members || []).slice(0, 4).map((m) => (
-                              <Avatar key={m.user_id} className="h-7 w-7 border-2 border-background">
+                              <Avatar key={m.user_id} className="h-6 w-6 sm:h-7 sm:w-7 border-2 border-background">
                                 <AvatarImage src={m.user_avatar} />
                                 <AvatarFallback>{(m.user_name || "U")[0]}</AvatarFallback>
                               </Avatar>

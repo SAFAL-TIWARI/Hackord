@@ -61,7 +61,7 @@ function RemotePresenterPlayer({
     return () => {
       try {
         presenterUser?.videoTrack?.stop();
-      } catch {}
+      } catch { }
     };
   }, [presenterUser?.videoTrack]);
 
@@ -114,7 +114,7 @@ function RemoteUserTile({
     return () => {
       try {
         user.videoTrack?.stop();
-      } catch {}
+      } catch { }
     };
   }, [user.videoTrack, user.hasVideo, isVideoMuted]);
 
@@ -124,7 +124,7 @@ function RemoteUserTile({
     } else if (user.audioTrack && isAudioMuted) {
       try {
         user.audioTrack.stop();
-      } catch {}
+      } catch { }
     }
   }, [user.audioTrack, user.hasAudio, isAudioMuted]);
 
@@ -376,7 +376,7 @@ export function AgoraMeeting({
       updateRoom({
         roomId,
         data: { meeting_code: meetingCode },
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [roomId, meetingCode, existingMeetingCode]);
 
@@ -599,7 +599,7 @@ export function AgoraMeeting({
       isMounted = false;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current.close().catch(() => { });
         audioContextRef.current = null;
       }
     };
@@ -696,12 +696,12 @@ export function AgoraMeeting({
                   payload: infoPayload,
                 });
                 const uint8Array = new TextEncoder().encode(payload);
-                (client as any).sendStreamMessage(uint8Array).catch(() => {});
+                (client as any).sendStreamMessage(uint8Array).catch(() => { });
                 broadcastChannelRef.current?.postMessage({
                   type: "USER_INFO",
                   payload: infoPayload,
                 });
-              } catch {}
+              } catch { }
             }
           };
 
@@ -796,11 +796,11 @@ export function AgoraMeeting({
                 if (String(parsed.payload.targetUid) === String(client?.uid)) {
                   if (parsed.payload.action === "MUTE_MIC") {
                     setMicOn(false);
-                    localAudioTrackRef.current?.setEnabled(false).catch(() => {});
+                    localAudioTrackRef.current?.setEnabled(false).catch(() => { });
                     toast.warning("Host muted your microphone");
                   } else if (parsed.payload.action === "TURN_OFF_CAM") {
                     setCameraOn(false);
-                    localVideoTrackRef.current?.setEnabled(false).catch(() => {});
+                    localVideoTrackRef.current?.setEnabled(false).catch(() => { });
                     toast.warning("Host turned off your camera");
                   } else if (parsed.payload.action === "KICK") {
                     toast.error("You were removed from the meeting by the host");
@@ -901,7 +901,7 @@ export function AgoraMeeting({
           }
 
           if (!active) {
-            client.leave().catch(() => {});
+            client.leave().catch(() => { });
             return;
           }
 
@@ -909,7 +909,7 @@ export function AgoraMeeting({
           const capacityLimit = (roomMembersCount ?? 6) + 1;
           if (client.remoteUsers.length + 1 > capacityLimit) {
             toast.error(`Meeting is full! Maximum capacity is ${capacityLimit} participants.`);
-            await client.leave().catch(() => {});
+            await client.leave().catch(() => { });
             setJoined(false);
             return;
           }
@@ -1014,11 +1014,11 @@ export function AgoraMeeting({
         try {
           videoTrack.close();
           if (audioTrack) audioTrack.close();
-        } catch {}
+        } catch { }
         localScreenTrackRef.current = null;
       }
       if (agoraClientRef.current) {
-        agoraClientRef.current.leave().catch(() => {});
+        agoraClientRef.current.leave().catch(() => { });
         agoraClientRef.current = null;
       }
       if (mediaStreamRef.current) {
@@ -1114,8 +1114,8 @@ export function AgoraMeeting({
           payload: { uid: agoraClientRef.current.uid, raised: nextVal },
         });
         const uint8Array = new TextEncoder().encode(payload);
-        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => {});
-      } catch {}
+        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => { });
+      } catch { }
     }
     if (broadcastChannelRef.current) {
       broadcastChannelRef.current.postMessage({
@@ -1142,7 +1142,7 @@ export function AgoraMeeting({
           const tracks = [videoTrack];
           if (audioTrack) tracks.push(audioTrack);
           await agoraClientRef.current.unpublish(tracks);
-        } catch {}
+        } catch { }
       }
 
       videoTrack.close();
@@ -1170,8 +1170,8 @@ export function AgoraMeeting({
       try {
         const payload = JSON.stringify({ type: "SCREEN_SHARE_STATE", payload: { uid: agoraClientRef.current.uid, active: false } });
         const uint8Array = new TextEncoder().encode(payload);
-        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => {});
-      } catch {}
+        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => { });
+      } catch { }
     }
   };
 
@@ -1207,7 +1207,7 @@ export function AgoraMeeting({
         if (cameraOn && localVideoTrackRef.current && agoraClientRef.current) {
           try {
             await agoraClientRef.current.unpublish(localVideoTrackRef.current);
-          } catch {}
+          } catch { }
         }
 
         const tracksToPublish = [videoTrack];
@@ -1243,8 +1243,8 @@ export function AgoraMeeting({
           try {
             const payload = JSON.stringify({ type: "SCREEN_SHARE_STATE", payload: { uid: agoraClientRef.current.uid, active: true } });
             const uint8Array = new TextEncoder().encode(payload);
-            (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => {});
-          } catch {}
+            (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => { });
+          } catch { }
         }
       } catch (err) {
         console.error("[AgoraRTC] Screen sharing start error:", err);
@@ -1261,14 +1261,14 @@ export function AgoraMeeting({
       left: 20 + Math.random() * 60,
     };
     setReactions((prev) => [...prev, newRx]);
-    setShowReactionsMenu(false);
+    // Kept active: Reactions menu stays open until user clicks reaction button again
 
     if (agoraClientRef.current) {
       try {
         const payload = JSON.stringify({ type: "REACTION", payload: { emoji } });
         const uint8Array = new TextEncoder().encode(payload);
-        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => {});
-      } catch {}
+        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => { });
+      } catch { }
     }
 
     if (broadcastChannelRef.current) {
@@ -1332,8 +1332,8 @@ export function AgoraMeeting({
           payload: { targetUid: uid, action: "MUTE_MIC" },
         });
         const uint8Array = new TextEncoder().encode(payload);
-        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => {});
-      } catch {}
+        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => { });
+      } catch { }
     }
   };
 
@@ -1359,8 +1359,8 @@ export function AgoraMeeting({
           payload: { targetUid: uid, action: "TURN_OFF_CAM" },
         });
         const uint8Array = new TextEncoder().encode(payload);
-        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => {});
-      } catch {}
+        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => { });
+      } catch { }
     }
   };
 
@@ -1378,8 +1378,8 @@ export function AgoraMeeting({
           payload: { targetUid: uid, action: "KICK" },
         });
         const uint8Array = new TextEncoder().encode(payload);
-        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => {});
-      } catch {}
+        (agoraClientRef.current as any).sendStreamMessage(uint8Array).catch(() => { });
+      } catch { }
     }
   };
 
@@ -1426,7 +1426,7 @@ export function AgoraMeeting({
       sessionStorage.removeItem(sessionKey);
     }
     if (agoraClientRef.current) {
-      agoraClientRef.current.leave().catch(() => {});
+      agoraClientRef.current.leave().catch(() => { });
       agoraClientRef.current = null;
     }
     if (localScreenTrackRef.current) {
@@ -1441,7 +1441,7 @@ export function AgoraMeeting({
       try {
         videoTrack.close();
         if (audioTrack) audioTrack.close();
-      } catch {}
+      } catch { }
       localScreenTrackRef.current = null;
     }
     if (mediaStreamRef.current) {
@@ -1852,10 +1852,10 @@ export function AgoraMeeting({
                   layoutMode === "spotlight"
                     ? "grid grid-cols-1"
                     : remoteUsers.length === 0
-                    ? "grid grid-cols-1"
-                    : remoteUsers.length === 1
-                    ? "grid grid-cols-1 sm:grid-cols-2"
-                    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                      ? "grid grid-cols-1"
+                      : remoteUsers.length === 1
+                        ? "grid grid-cols-1 sm:grid-cols-2"
+                        : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
                 )}
               >
                 {/* Local User Video Tile */}
@@ -2067,15 +2067,15 @@ export function AgoraMeeting({
       </div>
 
       {/* ─── Bottom Toolbar Controls ─── */}
-      <div className="relative z-20 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border/60">
-        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground font-mono">
-          <span>{roomName}</span>
+      <div className="relative z-20 flex items-center justify-between gap-2 sm:gap-3 pt-3 border-t border-border/60 w-full max-w-full">
+        <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground font-mono truncate max-w-[140px]">
+          <span className="truncate">{roomName}</span>
         </div>
 
         {/* Inline Floating Reaction Bar Card */}
         {showReactionsMenu && (
           <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3.5 py-2 rounded-full bg-card/95 backdrop-blur border border-border shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-150">
-            {["👏", "👍", "❤️", "😂", "🎉", "😮"].map((emoji) => (
+            {["👍", "👎", "👏", "❤️", "😂", "🎉", "😮"].map((emoji) => (
               <button
                 key={emoji}
                 onClick={() => sendReaction(emoji)}
@@ -2089,7 +2089,7 @@ export function AgoraMeeting({
 
         {/* Inline Floating Three-Dots Menu Card */}
         {showThreeDotsMenu && (
-          <div className="absolute bottom-20 right-8 sm:right-100 z-50 w-56 rounded-2xl bg-card/95 backdrop-blur border border-border p-2 shadow-2xl space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-150 text-xs">
+          <div className="absolute bottom-20 right-4 sm:right-100 z-50 w-56 rounded-2xl bg-card/95 backdrop-blur border border-border p-2 shadow-2xl space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-150 text-xs">
             <button
               onClick={() => { setLayoutMode("tiled"); setShowThreeDotsMenu(false); }}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-muted text-foreground transition text-left"
@@ -2124,15 +2124,15 @@ export function AgoraMeeting({
           </div>
         )}
 
-        {/* Center Control Buttons */}
-        <div className="flex items-center gap-2.5 mx-auto sm:mx-0">
+        {/* Center Control Buttons - Horizontally Scrollable on Mobile to prevent clipping */}
+        <div className="flex-1 flex items-center justify-start sm:justify-center gap-2 sm:gap-2.5 overflow-x-auto pb-1.5 pt-0.5 px-1 sm:overflow-visible sm:pb-0 sm:pt-0 no-scrollbar touch-pan-x min-w-0">
           {/* Mic Button & Beat Meter */}
-          <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-full border border-border">
+          <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-full border border-border shrink-0">
             <Button
               type="button"
               variant={micOn ? "secondary" : "destructive"}
               onClick={toggleMic}
-              className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md"
+              className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md shrink-0"
               title={micOn ? "Mute Microphone" : "Unmute Microphone"}
             >
               {micOn ? <Mic className="h-4 w-4 sm:h-5 sm:w-5" /> : <MicOff className="h-4 w-4 sm:h-5 sm:w-5" />}
@@ -2151,7 +2151,7 @@ export function AgoraMeeting({
             type="button"
             variant={cameraOn ? "secondary" : "destructive"}
             onClick={toggleCamera}
-            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md"
+            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md shrink-0"
             title={cameraOn ? "Turn off camera" : "Turn on camera"}
           >
             {cameraOn ? <VideoIcon className="h-4 w-4 sm:h-5 sm:w-5" /> : <VideoOff className="h-4 w-4 sm:h-5 sm:w-5" />}
@@ -2162,7 +2162,7 @@ export function AgoraMeeting({
             type="button"
             variant={screenSharing ? "default" : "secondary"}
             onClick={toggleScreenShare}
-            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md"
+            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 transition-transform active:scale-95 shadow-md shrink-0"
             title="Present screen"
           >
             <MonitorUp className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2176,7 +2176,7 @@ export function AgoraMeeting({
               setShowReactionsMenu(!showReactionsMenu);
               if (showThreeDotsMenu) setShowThreeDotsMenu(false);
             }}
-            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md"
+            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md shrink-0"
             title="Send reaction"
           >
             <Smile className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2187,7 +2187,7 @@ export function AgoraMeeting({
             type="button"
             variant={handRaised ? "default" : "secondary"}
             onClick={toggleHandRaise}
-            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md"
+            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md shrink-0"
             title="Raise hand"
           >
             <Hand className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2201,7 +2201,7 @@ export function AgoraMeeting({
               setShowThreeDotsMenu(!showThreeDotsMenu);
               if (showReactionsMenu) setShowReactionsMenu(false);
             }}
-            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md"
+            className="rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 shadow-md shrink-0"
             title="More options"
           >
             <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2212,7 +2212,7 @@ export function AgoraMeeting({
             type="button"
             variant="destructive"
             onClick={handleLeaveCall}
-            className="rounded-full h-10 w-14 sm:h-11 sm:w-16 p-0 bg-red-600 hover:bg-red-700 shadow-lg text-white font-medium"
+            className="rounded-full h-10 w-14 sm:h-11 sm:w-16 p-0 bg-red-600 hover:bg-red-700 shadow-lg text-white font-medium shrink-0"
             title="Leave call"
           >
             <PhoneOff className="h-5 w-5" />
@@ -2220,7 +2220,7 @@ export function AgoraMeeting({
         </div>
 
         {/* Bottom Right: Chat Drawer Toggle */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             size="sm"
             variant={showChat ? "secondary" : "outline"}
@@ -2228,7 +2228,7 @@ export function AgoraMeeting({
               setShowChat(!showChat);
               if (showParticipants) setShowParticipants(false);
             }}
-            className="gap-1.5 h-9 rounded-full text-xs"
+            className="gap-1.5 h-9 rounded-full text-xs shrink-0"
           >
             <MessageSquare className="h-4 w-4" />
             <span className="hidden sm:inline">Chat</span>
@@ -2238,4 +2238,3 @@ export function AgoraMeeting({
     </div>
   );
 }
-  

@@ -3,6 +3,7 @@ import { MermaidDiagram } from './MermaidDiagram';
 import { PresentationViewer } from './PresentationViewer';
 import { InteractiveChart } from './InteractiveChart';
 import { AiGeneratedImageViewer } from './AiGeneratedImageViewer';
+import { AiCodeContainer } from './AiCodeContainer';
 import {
   Copy,
   Check,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { exportToPdf, exportToDocx, exportToCsv, exportToMarkdown } from '@/lib/document-exporter';
+import { cn } from '@/lib/utils';
 
 interface AiMessageRendererProps {
   text: string;
@@ -213,7 +215,7 @@ export function AiMessageRenderer({ text, plugin, isStreaming }: AiMessageRender
 
         if (block.type === 'code') {
           return (
-            <CodeBlock
+            <AiCodeContainer
               key={idx}
               language={block.language || 'text'}
               code={block.content}
@@ -235,12 +237,11 @@ export function AiMessageRenderer({ text, plugin, isStreaming }: AiMessageRender
 }
 
 /**
- * Check if text has slide deck structure
+ * Check if text has explicit slide deck structure
  */
 function isSlidePresentationDeck(text: string, plugin?: string | null): boolean {
   if (plugin === 'Generate PPT' || plugin === 'Pitch Generator' || plugin === 'ppt') return true;
   if (text.includes('marp: true')) return true;
-  if (text.includes('# Slide 1') && (text.includes('# Slide 2') || text.includes('---'))) return true;
   if (text.includes('<!-- slide -->') || text.includes('<!-- _class:')) return true;
   return false;
 }
@@ -251,40 +252,61 @@ interface MessageBlock {
   content: string;
 }
 
-function parseMessageBlocks(text: string): MessageBlock[] {
+function parseMessageBlocks(rawText: string): MessageBlock[] {
+  if (!rawText) return [];
+  const text = rawText.replace(/\r\n/g, '\n');
   const blocks: MessageBlock[] = [];
-  const codeRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+
+  // Match code fences: ``` or ~~~ (3+ backticks or tildes), with optional language, up to matching fence or end of text
+  const codeBlockRegex = /(?:^|\n)[ \t]*(```+|~~~+)([^\n]*)\n([\s\S]*?)(?:\n[ \t]*\1[ \t]*(?:\n|$)|$)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = codeRegex.exec(text)) !== null) {
-    const textBefore = text.slice(lastIndex, match.index);
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    const fullMatch = match[0];
+    const matchIndex = match.index + (fullMatch.startsWith('\n') ? 1 : 0);
+    const textBefore = text.slice(lastIndex, matchIndex);
+
     if (textBefore.trim()) {
       blocks.push({ type: 'text', content: textBefore });
     }
 
-    const language = (match[1] || '').trim().toLowerCase();
-    const content = match[2].trim();
+    const fenceInfo = (match[2] || '').trim().toLowerCase();
+    const language = fenceInfo.split(/[\s,:]+/)[0] || '';
+    let content = match[3] || '';
+
+    // Strip dangling trailing fence if matched until end of text (e.g. streaming)
+    content = content.replace(/\n[ \t]*(?:```+|~~~+)[ \t]*$/, '');
 
     if (language === 'mermaid') {
-      blocks.push({ type: 'mermaid', content });
+      blocks.push({ type: 'mermaid', content: content.trim() });
     } else if (
       language === 'chart' ||
       language === 'json-chart' ||
       language === 'chart-json' ||
       isJsonChartContent(language, content)
     ) {
-      blocks.push({ type: 'chart', content });
+      blocks.push({ type: 'chart', content: content.trim() });
     } else {
-      blocks.push({ type: 'code', language, content });
+      blocks.push({ type: 'code', language, content: content.trimEnd() });
     }
 
-    lastIndex = match.index + match[0].length;
+    lastIndex = match.index + fullMatch.length;
   }
 
   const remainingText = text.slice(lastIndex);
   if (remainingText.trim() || blocks.length === 0) {
-    blocks.push({ type: 'text', content: remainingText });
+    const trimmed = remainingText.trim();
+    // Auto-detect if raw un-fenced HTML document was provided as the primary message
+    if (
+      blocks.length === 0 &&
+      (/^\s*<!DOCTYPE\s+html>/i.test(trimmed) ||
+        (/^\s*<html[\s>]/i.test(trimmed) && /<\/html>\s*$/i.test(trimmed)))
+    ) {
+      blocks.push({ type: 'code', language: 'html', content: trimmed });
+    } else if (trimmed || blocks.length === 0) {
+      blocks.push({ type: 'text', content: remainingText });
+    }
   }
 
   return blocks;
@@ -327,144 +349,230 @@ function isJsonChartContent(language: string, content: string): boolean {
   return false;
 }
 
-function CodeBlock({ language, code }: { language: string; code: string }) {
-  const [copied, setCopied] = useState(false);
+interface TableData {
+  headers: string[];
+  alignments: ('left' | 'center' | 'right')[];
+  rows: string[][];
+}
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    toast.success('Code copied to clipboard!');
-    setTimeout(() => setCopied(false), 2000);
+function parseMarkdownTable(lines: string[]): TableData | null {
+  if (lines.length < 2) return null;
+
+  const cleanRow = (rowStr: string) => {
+    let raw = rowStr.trim();
+    if (raw.startsWith('|')) raw = raw.slice(1);
+    if (raw.endsWith('|')) raw = raw.slice(0, -1);
+    return raw.split('|').map((cell) => cell.trim());
   };
 
-  return (
-    <div className="my-2.5 rounded-xl border border-border/80 bg-slate-950/90 dark:bg-black/95 overflow-hidden shadow-sm">
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/50 bg-muted/20 text-[11px] text-muted-foreground font-mono">
-        <span className="flex items-center gap-1.5 text-foreground/80 font-semibold">
-          <Terminal className="h-3.5 w-3.5 text-primary" />
-          {language || 'code'}
-        </span>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-background/80 text-muted-foreground hover:text-foreground transition text-[10px]"
-        >
-          {copied ? (
-            <>
-              <Check className="h-3 w-3 text-emerald-400" /> Copied
-            </>
-          ) : (
-            <>
-              <Copy className="h-3 w-3" /> Copy
-            </>
-          )}
-        </button>
-      </div>
-      <pre className="p-3.5 text-xs font-mono overflow-x-auto text-emerald-300 dark:text-emerald-300 leading-normal custom-scrollbar">
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
+  const headers = cleanRow(lines[0]);
+  const separatorLine = lines[1];
+  const sepCells = cleanRow(separatorLine);
+
+  if (!sepCells.some((c) => c.includes('-'))) return null;
+
+  const alignments: ('left' | 'center' | 'right')[] = sepCells.map((cell) => {
+    const trimmed = cell.trim();
+    if (trimmed.startsWith(':') && trimmed.endsWith(':')) return 'center';
+    if (trimmed.endsWith(':')) return 'right';
+    return 'left';
+  });
+
+  const rows: string[][] = [];
+  for (let i = 2; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const rowCells = cleanRow(line);
+    while (rowCells.length < headers.length) {
+      rowCells.push('');
+    }
+    rows.push(rowCells.slice(0, headers.length));
+  }
+
+  return { headers, alignments, rows };
 }
 
 function MarkdownText({ content }: { content: string }) {
-  const lines = content.split('\n');
+  const lines = content.split(/\r?\n/);
+  const elements: React.ReactNode[] = [];
+  let i = 0;
 
-  return (
-    <div className="space-y-1.5">
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          return <div key={idx} className="h-1" />;
-        }
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
 
-        // Headers
-        if (line.startsWith('### ')) {
-          return (
-            <h4 key={idx} className="text-xs sm:text-sm font-bold text-foreground mt-2 mb-1 flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              {renderFormattedInline(line.replace(/^###\s+/, ''))}
-            </h4>
-          );
-        }
-        if (line.startsWith('## ')) {
-          return (
-            <h3 key={idx} className="text-sm sm:text-base font-bold text-foreground mt-3 mb-1 border-b border-border/40 pb-1">
-              {renderFormattedInline(line.replace(/^##\s+/, ''))}
-            </h3>
-          );
-        }
-        if (line.startsWith('# ')) {
-          return (
-            <h2 key={idx} className="text-base sm:text-lg font-bold text-foreground mt-3 mb-1.5 text-primary">
-              {renderFormattedInline(line.replace(/^#\s+/, ''))}
-            </h2>
-          );
-        }
+    if (!trimmed) {
+      elements.push(<div key={`empty-${i}`} className="h-1.5" />);
+      i++;
+      continue;
+    }
 
-        // Bullet point
-        if (trimmed.match(/^[-*•]\s+/)) {
-          return (
-            <div key={idx} className="flex items-start gap-2 pl-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary/70 mt-1.5 shrink-0" />
-              <div className="flex-1 text-foreground/90">{renderFormattedInline(trimmed.replace(/^[-*•]\s+/, ''))}</div>
-            </div>
-          );
-        }
-
-        // Numbered list
-        const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
-        if (numMatch) {
-          return (
-            <div key={idx} className="flex items-start gap-2 pl-2">
-              <span className="font-mono text-primary font-bold text-[11px] mt-0.5 shrink-0">{numMatch[1]}.</span>
-              <div className="flex-1 text-foreground/90">{renderFormattedInline(numMatch[2])}</div>
-            </div>
-          );
-        }
-
-        // Blockquote
-        if (trimmed.startsWith('>')) {
-          return (
-            <blockquote key={idx} className="border-l-2 border-primary/60 pl-3 italic text-muted-foreground my-1 bg-muted/10 py-1 rounded-r-lg">
-              {renderFormattedInline(trimmed.replace(/^>\s*/, ''))}
-            </blockquote>
-          );
-        }
-
-        // Table row
-        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-          if (trimmed.includes('---')) {
-            return null;
-          }
-          const cells = trimmed.split('|').slice(1, -1).map((c) => c.trim());
-          return (
-            <div key={idx} className="overflow-x-auto my-1">
-              <div className="flex items-center gap-2 py-1 px-2 rounded bg-muted/20 border border-border/40 font-mono text-[11px]">
-                {cells.map((cell, cIdx) => (
-                  <div key={cIdx} className="flex-1 min-w-[80px]">
-                    {renderFormattedInline(cell)}
-                  </div>
+    // Markdown Table
+    if (
+      trimmed.startsWith('|') &&
+      trimmed.endsWith('|') &&
+      i + 1 < lines.length &&
+      lines[i + 1].trim().startsWith('|') &&
+      lines[i + 1].includes('-')
+    ) {
+      const tableLines: string[] = [line];
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim().startsWith('|') && lines[j].trim().endsWith('|')) {
+        tableLines.push(lines[j]);
+        j++;
+      }
+      const tableData = parseMarkdownTable(tableLines);
+      if (tableData) {
+        elements.push(
+          <div
+            key={`table-${i}`}
+            className="my-3.5 overflow-x-auto rounded-xl border border-border/80 bg-card/70 shadow-sm backdrop-blur-sm"
+          >
+            <table className="w-full text-left text-xs border-collapse min-w-[520px]">
+              <thead>
+                <tr className="border-b border-border/80 bg-primary/10 text-primary font-bold">
+                  {tableData.headers.map((h, hIdx) => (
+                    <th
+                      key={hIdx}
+                      className={cn(
+                        "px-3.5 py-2.5 font-bold text-[11px] sm:text-xs uppercase tracking-wider text-primary border-r border-border/40 last:border-0",
+                        tableData.alignments[hIdx] === 'center' && 'text-center',
+                        tableData.alignments[hIdx] === 'right' && 'text-right'
+                      )}
+                    >
+                      {renderFormattedInline(h)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {tableData.rows.map((row, rIdx) => (
+                  <tr
+                    key={rIdx}
+                    className="hover:bg-primary/5 transition-colors duration-150 group"
+                  >
+                    {row.map((cell, cIdx) => (
+                      <td
+                        key={cIdx}
+                        className={cn(
+                          "px-3.5 py-2.5 text-xs text-foreground/90 leading-relaxed border-r border-border/20 last:border-0 font-normal",
+                          tableData.alignments[cIdx] === 'center' && 'text-center',
+                          tableData.alignments[cIdx] === 'right' && 'text-right'
+                        )}
+                      >
+                        {renderFormattedInline(cell)}
+                      </td>
+                    ))}
+                  </tr>
                 ))}
-              </div>
-            </div>
-          );
-        }
-
-        // Regular paragraph
-        return (
-          <p key={idx} className="text-foreground/90">
-            {renderFormattedInline(line)}
-          </p>
+              </tbody>
+            </table>
+          </div>
         );
-      })}
-    </div>
-  );
+        i = j;
+        continue;
+      }
+    }
+
+    // Horizontal Rule
+    if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+      elements.push(<hr key={`hr-${i}`} className="my-3.5 border-border/50" />);
+      i++;
+      continue;
+    }
+
+    // Headers
+    if (trimmed.startsWith('#### ')) {
+      elements.push(
+        <h5 key={`h4-${i}`} className="text-xs font-bold text-foreground mt-2.5 mb-1 text-primary">
+          {renderFormattedInline(trimmed.replace(/^####\s+/, ''))}
+        </h5>
+      );
+      i++;
+      continue;
+    }
+    if (trimmed.startsWith('### ')) {
+      elements.push(
+        <h4 key={`h3-${i}`} className="text-xs sm:text-sm font-bold text-foreground mt-3 mb-1 flex items-center gap-1.5 text-primary">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+          {renderFormattedInline(trimmed.replace(/^###\s+/, ''))}
+        </h4>
+      );
+      i++;
+      continue;
+    }
+    if (trimmed.startsWith('## ')) {
+      elements.push(
+        <h3 key={`h2-${i}`} className="text-sm sm:text-base font-bold text-foreground mt-3.5 mb-1 border-b border-border/40 pb-1">
+          {renderFormattedInline(trimmed.replace(/^##\s+/, ''))}
+        </h3>
+      );
+      i++;
+      continue;
+    }
+    if (trimmed.startsWith('# ')) {
+      elements.push(
+        <h2 key={`h1-${i}`} className="text-base sm:text-lg font-bold text-foreground mt-4 mb-1.5 text-primary">
+          {renderFormattedInline(trimmed.replace(/^#\s+/, ''))}
+        </h2>
+      );
+      i++;
+      continue;
+    }
+
+    // Bullet point
+    if (trimmed.match(/^[-*•]\s+/)) {
+      elements.push(
+        <div key={`li-${i}`} className="flex items-start gap-2 pl-1 my-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary/70 mt-1.5 shrink-0" />
+          <div className="flex-1 text-foreground/90">{renderFormattedInline(trimmed.replace(/^[-*•]\s+/, ''))}</div>
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    // Numbered list
+    const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+    if (numMatch) {
+      elements.push(
+        <div key={`nli-${i}`} className="flex items-start gap-2 pl-1 my-1">
+          <span className="font-mono text-primary font-bold text-[11px] mt-0.5 shrink-0">{numMatch[1]}.</span>
+          <div className="flex-1 text-foreground/90">{renderFormattedInline(numMatch[2])}</div>
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    // Blockquote
+    if (trimmed.startsWith('>')) {
+      elements.push(
+        <blockquote key={`bq-${i}`} className="border-l-2 border-primary/60 pl-3 py-1 italic text-muted-foreground my-1 bg-muted/10 rounded-r-lg">
+          {renderFormattedInline(trimmed.replace(/^>\s*/, ''))}
+        </blockquote>
+      );
+      i++;
+      continue;
+    }
+
+    // Regular paragraph
+    elements.push(
+      <p key={`p-${i}`} className="my-1 text-foreground/90 leading-relaxed">
+        {renderFormattedInline(line)}
+      </p>
+    );
+    i++;
+  }
+
+  return <div className="space-y-0.5">{elements}</div>;
 }
 
 function renderFormattedInline(text: string): React.ReactNode {
+  if (!text) return text;
+
   const parts: React.ReactNode[] = [];
-  const regex = /(\*\*[^*]+\*\*|`[^`]+`|https?:\/\/[^\s)]+)/g;
+  const regex = /(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|https?:\/\/[^\s)]+)/g;
   let lastIdx = 0;
   let match: RegExpExecArray | null;
 
@@ -474,7 +582,24 @@ function renderFormattedInline(text: string): React.ReactNode {
     }
 
     const token = match[0];
-    if (token.startsWith('**') && token.endsWith('**')) {
+    if (token.startsWith('[') && token.includes('](')) {
+      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        parts.push(
+          <a
+            key={`a-${match.index}`}
+            href={linkMatch[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline font-medium inline-flex items-center gap-0.5"
+          >
+            {linkMatch[1]}
+          </a>
+        );
+      } else {
+        parts.push(token);
+      }
+    } else if (token.startsWith('**') && token.endsWith('**')) {
       parts.push(
         <strong key={match.index} className="font-semibold text-foreground">
           {token.slice(2, -2)}
@@ -485,6 +610,12 @@ function renderFormattedInline(text: string): React.ReactNode {
         <code key={match.index} className="px-1.5 py-0.5 rounded bg-muted/50 font-mono text-[11px] text-cyan-600 dark:text-cyan-400 border border-border/40 font-medium">
           {token.slice(1, -1)}
         </code>
+      );
+    } else if (token.startsWith('*') && token.endsWith('*')) {
+      parts.push(
+        <em key={`em-${match.index}`} className="italic text-foreground/90">
+          {token.slice(1, -1)}
+        </em>
       );
     } else if (token.startsWith('http://') || token.startsWith('https://')) {
       parts.push(

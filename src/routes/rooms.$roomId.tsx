@@ -61,7 +61,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import {
   getRoom, getMessages, getMessagesSince, sendMessage, updateRoom, deleteRoom, leaveRoom,
-  addFileResource, addTask, updateTaskStatus, addProjectLink, addMemberToRoom, removeMemberFromRoom, getLoggedInUser,
+  addFileResource, addTask, updateTaskStatus, deleteTask, addProjectLink, addMemberToRoom, removeMemberFromRoom, getLoggedInUser,
   updateMessage, deleteMessage,
   type DbRoom, type DbMember, type DbMessage, type DbFileResource, type DbTask, type DbActivity,
 } from "@/lib/rooms-api";
@@ -431,7 +431,7 @@ function RoomPage() {
           {tab === "github" && <GithubTab room={room} onRoomUpdate={refreshRoom} isOwnerOrAdmin={isOwnerOrAdmin} />}
           {tab === "files" && <FilesTab room={room} onRoomUpdate={refreshRoom} userName={currentUserName} />}
           {tab === "timeline" && <TimelineTab room={room} />}
-          {tab === "tasks" && <TasksTab room={room} onRoomUpdate={refreshRoom} userName={currentUserName} />}
+          {tab === "tasks" && <TasksTab room={room} onRoomUpdate={refreshRoom} userName={currentUserName} isOwnerOrAdmin={isOwnerOrAdmin} />}
           {/* Keep Meetings tab always mounted so active calls stay connected in background */}
           <div className={cn(tab !== "meetings" && "hidden")}>
             <MeetingsTab
@@ -2103,12 +2103,13 @@ function TimelineTab({ room }: { room: DbRoom }) {
 }
 
 /* ------------------------ Tasks ------------------------ */
-function TasksTab({ room, onRoomUpdate, userName }: { room: DbRoom; onRoomUpdate: () => void; userName: string }) {
+function TasksTab({ room, onRoomUpdate, userName, isOwnerOrAdmin = false }: { room: DbRoom; onRoomUpdate: () => void; userName: string; isOwnerOrAdmin?: boolean }) {
   const [tasks, setTasks] = useState<DbTask[]>(room.tasks || []);
   const [newTitle, setNewTitle] = useState("");
   const [newAssignee, setNewAssignee] = useState(userName);
   const [newPriority, setNewPriority] = useState<"Low" | "Medium" | "High">("Medium");
   const [showAdd, setShowAdd] = useState(false);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     setTasks(room.tasks || []);
@@ -2148,6 +2149,22 @@ function TasksTab({ room, onRoomUpdate, userName }: { room: DbRoom; onRoomUpdate
       console.warn("Task update error", err);
       toast.success(`Task moved to ${nextStatus}`);
       onRoomUpdate();
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string, taskTitle: string) => {
+    try {
+      setDeletingTaskId(taskId);
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      await deleteTask({ roomId: room.id, taskId });
+      toast.success(`Task "${taskTitle}" deleted`);
+      onRoomUpdate();
+    } catch (err) {
+      console.error("Delete task error", err);
+      toast.error("Failed to delete task");
+      onRoomUpdate();
+    } finally {
+      setDeletingTaskId(null);
     }
   };
 
@@ -2208,10 +2225,28 @@ function TasksTab({ room, onRoomUpdate, userName }: { room: DbRoom; onRoomUpdate
             </div>
             <div className="space-y-2">
               {tasks.filter((t) => t.status === col).map((t) => (
-                <div key={t.id} className="rounded-xl border border-border/60 bg-card/50 p-3">
-                  <p className="text-sm font-medium">{t.title}</p>
+                <div key={t.id} className="group relative rounded-xl border border-border/60 bg-card/50 p-3 hover:border-border transition-all duration-150">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium leading-snug break-words flex-1">{t.title}</p>
+                    {isOwnerOrAdmin && (
+                      <button
+                        type="button"
+                        disabled={deletingTaskId === t.id}
+                        onClick={() => handleDeleteTask(t.id, t.title)}
+                        className="text-muted-foreground/60 hover:text-destructive opacity-80 group-hover:opacity-100 transition-all p-1 -mt-1 -mr-1 rounded-md hover:bg-destructive/10 cursor-pointer disabled:pointer-events-none"
+                        title="Delete task"
+                        aria-label={`Delete task ${t.title}`}
+                      >
+                        {deletingTaskId === t.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-destructive" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{t.assignee}</span>
+                    <span className="truncate max-w-[120px]">{t.assignee}</span>
                     <span>{t.deadline || "Upcoming"}</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between">
@@ -2438,20 +2473,27 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
   const pinnedChats = useMemo(() => filteredChats.filter((c) => c.pinned), [filteredChats]);
   const recentChats = useMemo(() => filteredChats.filter((c) => !c.pinned), [filteredChats]);
 
+  // Real-time tick to refresh file expiration state every 5 seconds
+  const [expiryTick, setExpiryTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setExpiryTick((t) => t + 1), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Total files & artifacts count for header badge
   const totalRoomFilesCount = useMemo(() => {
     let count = 0;
     const seen = new Set<string>();
     for (const c of chats) {
       for (const m of c.messages) {
-        if (m.fileAttachment?.name && !seen.has(m.fileAttachment.name)) {
+        if (m.fileAttachment?.name && !isAiFileExpired(m.fileAttachment.uploadedAt) && !seen.has(m.fileAttachment.name)) {
           seen.add(m.fileAttachment.name);
           count++;
         }
       }
     }
     return count;
-  }, [chats]);
+  }, [chats, expiryTick]);
 
   // Group messages by date with formatted headers (Today, Yesterday, Date)
   const groupedMessageItems = useMemo(() => {
@@ -3429,7 +3471,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
               </div>
             ) : (
               /* ACTIVE CHAT MESSAGES THREAD (WITH DATE DIVIDERS) */
-              <div className="space-y-4 max-w-4xl mx-auto">
+              <div className="space-y-4 w-full max-w-full md:px-2 lg:px-3 mx-auto">
                 {groupedMessageItems.map((item, idx) => {
                   if (item.type === 'date') {
                     return (
@@ -3448,7 +3490,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                     <div
                       key={m.id}
                       className={cn(
-                        "flex items-start gap-2 max-w-[90%] sm:max-w-[82%] group relative min-w-0",
+                        "flex items-start gap-2 max-w-[90%] sm:max-w-[85%] md:max-w-[90%] lg:max-w-[94%] xl:max-w-[96%] group relative min-w-0",
                         isSelf ? "ml-auto flex-row-reverse" : "mr-auto"
                       )}
                     >
@@ -3534,11 +3576,6 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                               </div>
                             </div>
                           </div>
-                        ) : m.fileAttachment && isAiFileExpired(m.fileAttachment.uploadedAt) ? (
-                          <div className={cn("mb-2 p-2 rounded-xl text-[10px] border flex items-center gap-1.5 opacity-70", isSelf ? "bg-white/10 border-white/20 text-white/80" : "bg-muted/20 border-border/40 text-muted-foreground")}>
-                            <Clock className="h-3 w-3 shrink-0" />
-                            <span className="truncate">File "{m.fileAttachment.name}" expired (24h limit).</span>
-                          </div>
                         ) : null}
 
                         {/* Content Renderer */}
@@ -3607,7 +3644,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
 
                 {/* Initial Generating / Thinking Indicator when streaming begins and no tokens yet */}
                 {isGenerating && (!activeChat?.messages.length || (activeChat.messages[activeChat.messages.length - 1]?.sender === 'user' || activeChat.messages[activeChat.messages.length - 1]?.text === '')) && (
-                  <div className="flex items-start gap-2 mr-auto max-w-[80%] animate-fade-in">
+                  <div className="flex items-start gap-2 mr-auto max-w-[85%] md:max-w-[90%] lg:max-w-[94%] animate-fade-in">
                     <Avatar className="h-8 w-8 shrink-0 border border-primary/30 shadow-sm mt-1">
                       <AvatarFallback className="bg-primary/20 text-[10px] font-bold text-primary">
                         AI

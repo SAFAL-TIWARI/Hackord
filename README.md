@@ -15,7 +15,7 @@
 
 ## ⚡ Overview
 
-**Hackord Frontend** is a high-performance, modern web application crafted for hackathon participants and builders. It provides an intuitive platform to discover hackathons, assemble developer teams, manage dedicated project "Rooms", track live deadlines, and collaborate seamlessly.
+**Hackord** is a high-performance, modern web application crafted for hackathon participants and builders. It provides an intuitive platform to discover hackathons, assemble developer teams, manage dedicated project "Rooms", track live deadlines, and collaborate seamlessly.
 
 Built with a futuristic glassmorphic UI, responsive navigation, dark/light theme options, and real-time state synchronization.
 

@@ -123,6 +123,7 @@ The `AuthProvider` context manages authenticated state across the application:
 
 ### 🤖 AI Workspace Subsystem (`src/components/ai/` & `AITab`)
 - `AiMessageRenderer.tsx`: Renders rich AI responses with markdown syntax highlighting, streaming cursor indicator (`isStreaming`), embedded Mermaid flowcharts, interactive Recharts JSON cards, presentation slide decks with quick export toolbar (PDF, Word, CSV, Marp MD, and voice audio readout).
+- `AiCodeContainer.tsx`: ChatGPT/Claude-inspired rich interactive code container with language headers, instant copy-to-clipboard, file download, full-screen toggle, editable code buffer with line numbering, and instant real-time live HTML/CSS preview switch with desktop/tablet/mobile device emulation and sandbox isolation.
 - `AITab` in `rooms.$roomId.tsx`: Real-time SSE word-by-word/line-by-line streaming AI response generation, dynamic "Stop Response" button (replacing Send button during generation with square stop icon), Edit prompt button for user's latest and past messages with inline prompt regeneration, full MongoDB persistence, and multi-tab BroadcastChannel sync.
 - `AiGeneratedImageViewer.tsx`: High-resolution visual output renderer for Google Imagen 3 image generation with one-click PNG download, aspect ratio support, fullscreen lightbox preview, and zero unwanted text clutter.
 - `AiMultimodalStudio.tsx`: Free multimodal studio for Google Imagen 3 image generation with aspect ratio presets, Web Speech API audio voice synthesis (TTS), and Markdown-to-PPT/document converter.

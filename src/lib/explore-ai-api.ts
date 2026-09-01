@@ -7,6 +7,7 @@ export interface ExploreAiMessage {
   text: string;
   timestamp: string;
   date: string;
+  isEdited?: boolean;
   hackathons?: Hackathon[];
   createdAt?: string;
 }
@@ -42,15 +43,16 @@ export async function getExploreConversation(): Promise<ExploreAiConversation | 
 }
 
 /**
- * Send a chat prompt to the Explore AI assistant
+ * Send a chat prompt to the Explore AI assistant (supports editing previous prompt)
  */
 export async function sendExploreChatMessage(
   prompt: string,
+  editMessageId?: string,
   signal?: AbortSignal
 ): Promise<ExploreAiChatResponse> {
   return await apiFetch<ExploreAiChatResponse>("/explore-ai/chat", {
     method: "POST",
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, editMessageId }),
     signal,
   });
 }

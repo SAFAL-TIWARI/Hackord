@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Sparkles,
@@ -21,6 +21,7 @@ import {
   Check,
   Compass,
   Square,
+  Edit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ import {
 } from "@/lib/explore-ai-api";
 import type { Hackathon } from "@/lib/hackathon-data";
 import { formatDateWord } from "@/lib/date-utils";
+import { AiCodeContainer } from "@/components/ai/AiCodeContainer";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -108,158 +110,328 @@ function groupMessagesByDate(messages: ExploreAiMessage[]) {
   return grouped;
 }
 
-// ─── Simple Smart Markdown Renderer ──────────────────────────────────────────
+// ─── Smart Markdown & Table Renderer ──────────────────────────────────────────
+
+interface TableData {
+  headers: string[];
+  alignments: ("left" | "center" | "right")[];
+  rows: string[][];
+}
+
+function parseMarkdownTable(lines: string[]): TableData | null {
+  if (lines.length < 2) return null;
+
+  const cleanRow = (rowStr: string) => {
+    let raw = rowStr.trim();
+    if (raw.startsWith("|")) raw = raw.slice(1);
+    if (raw.endsWith("|")) raw = raw.slice(0, -1);
+    return raw.split("|").map((cell) => cell.trim());
+  };
+
+  const headers = cleanRow(lines[0]);
+  const separatorLine = lines[1];
+  const sepCells = cleanRow(separatorLine);
+
+  if (!sepCells.some((c) => c.includes("-"))) return null;
+
+  const alignments: ("left" | "center" | "right")[] = sepCells.map((cell) => {
+    const trimmed = cell.trim();
+    if (trimmed.startsWith(":") && trimmed.endsWith(":")) return "center";
+    if (trimmed.endsWith(":")) return "right";
+    return "left";
+  });
+
+  const rows: string[][] = [];
+  for (let i = 2; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const rowCells = cleanRow(line);
+    while (rowCells.length < headers.length) {
+      rowCells.push("");
+    }
+    rows.push(rowCells.slice(0, headers.length));
+  }
+
+  return { headers, alignments, rows };
+}
 
 function RenderAiMarkdown({ text }: { text: string }) {
   if (!text) return null;
 
-  const lines = text.split("\n");
+  const lines = text.split(/\r?\n/);
   const elements: React.ReactNode[] = [];
-  let inCodeBlock = false;
-  let codeBlockBuffer: string[] = [];
+  let i = 0;
 
-  lines.forEach((line, idx) => {
-    if (line.startsWith("```")) {
-      if (inCodeBlock) {
-        elements.push(
-          <pre
-            key={`cb-${idx}`}
-            className="my-2 p-3 bg-zinc-950/90 rounded-lg border border-border/60 text-emerald-400 font-mono text-[11px] overflow-x-auto"
-          >
-            <code>{codeBlockBuffer.join("\n")}</code>
-          </pre>
-        );
-        codeBlockBuffer = [];
-        inCodeBlock = false;
-      } else {
-        inCodeBlock = true;
-      }
-      return;
-    }
-
-    if (inCodeBlock) {
-      codeBlockBuffer.push(line);
-      return;
-    }
-
+  while (i < lines.length) {
+    const line = lines[i];
     const trimmed = line.trim();
 
-    if (!trimmed) {
-      elements.push(<div key={`empty-${idx}`} className="h-2" />);
-      return;
+    // 1. Code block
+    if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) {
+      const codeFence = trimmed.slice(0, 3);
+      const codeLanguage = trimmed.replace(/^[~`]{3,}/, "").trim() || "text";
+      const codeBlockBuffer: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith(codeFence)) {
+        codeBlockBuffer.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++; // consume closing fence
+      elements.push(
+        <AiCodeContainer
+          key={`cb-${i}`}
+          language={codeLanguage}
+          code={codeBlockBuffer.join("\n")}
+        />
+      );
+      continue;
     }
 
-    // Headers
-    if (line.startsWith("### ")) {
+    // 2. Empty line
+    if (!trimmed) {
+      elements.push(<div key={`empty-${i}`} className="h-2" />);
+      i++;
+      continue;
+    }
+
+    // 3. Markdown Table (starts with | and followed by separator row)
+    if (
+      trimmed.startsWith("|") &&
+      trimmed.endsWith("|") &&
+      i + 1 < lines.length &&
+      lines[i + 1].trim().startsWith("|") &&
+      lines[i + 1].includes("-")
+    ) {
+      const tableLines: string[] = [line];
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim().startsWith("|") && lines[j].trim().endsWith("|")) {
+        tableLines.push(lines[j]);
+        j++;
+      }
+      const tableData = parseMarkdownTable(tableLines);
+      if (tableData) {
+        elements.push(
+          <div
+            key={`table-${i}`}
+            className="my-3.5 overflow-x-auto rounded-xl border border-border/80 bg-card/70 shadow-sm backdrop-blur-sm"
+          >
+            <table className="w-full text-left text-xs border-collapse min-w-[520px]">
+              <thead>
+                <tr className="border-b border-border/80 bg-primary/10 text-primary font-bold">
+                  {tableData.headers.map((h, hIdx) => (
+                    <th
+                      key={hIdx}
+                      className={cn(
+                        "px-3.5 py-2.5 font-bold text-[11px] sm:text-xs uppercase tracking-wider text-primary border-r border-border/40 last:border-0",
+                        tableData.alignments[hIdx] === "center" && "text-center",
+                        tableData.alignments[hIdx] === "right" && "text-right"
+                      )}
+                    >
+                      {formatInline(h)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {tableData.rows.map((row, rIdx) => (
+                  <tr
+                    key={rIdx}
+                    className="hover:bg-primary/5 transition-colors duration-150 group"
+                  >
+                    {row.map((cell, cIdx) => (
+                      <td
+                        key={cIdx}
+                        className={cn(
+                          "px-3.5 py-2.5 text-xs text-foreground/90 leading-relaxed border-r border-border/20 last:border-0 font-normal",
+                          tableData.alignments[cIdx] === "center" && "text-center",
+                          tableData.alignments[cIdx] === "right" && "text-right"
+                        )}
+                      >
+                        {formatInline(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        i = j;
+        continue;
+      }
+    }
+
+    // 4. Horizontal Rules
+    if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
+      elements.push(<hr key={`hr-${i}`} className="my-3.5 border-border/50" />);
+      i++;
+      continue;
+    }
+
+    // 5. Headers
+    if (trimmed.startsWith("#### ")) {
       elements.push(
-        <h4 key={`h3-${idx}`} className="font-bold text-foreground text-xs mt-3 mb-1 text-primary">
-          {formatInline(line.replace(/^###\s+/, ""))}
+        <h5 key={`h4-${i}`} className="font-bold text-foreground text-xs mt-2.5 mb-1 text-primary">
+          {formatInline(trimmed.replace(/^####\s+/, ""))}
+        </h5>
+      );
+      i++;
+      continue;
+    }
+    if (trimmed.startsWith("### ")) {
+      elements.push(
+        <h4 key={`h3-${i}`} className="font-bold text-foreground text-xs sm:text-sm mt-3 mb-1 text-primary flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+          {formatInline(trimmed.replace(/^###\s+/, ""))}
         </h4>
       );
-      return;
+      i++;
+      continue;
     }
-    if (line.startsWith("## ")) {
+    if (trimmed.startsWith("## ")) {
       elements.push(
-        <h3 key={`h2-${idx}`} className="font-bold text-foreground text-sm mt-3.5 mb-1.5 border-b border-border/30 pb-1">
-          {formatInline(line.replace(/^##\s+/, ""))}
+        <h3 key={`h2-${i}`} className="font-bold text-foreground text-sm sm:text-base mt-3.5 mb-1.5 border-b border-border/30 pb-1">
+          {formatInline(trimmed.replace(/^##\s+/, ""))}
         </h3>
       );
-      return;
+      i++;
+      continue;
     }
-    if (line.startsWith("# ")) {
+    if (trimmed.startsWith("# ")) {
       elements.push(
-        <h2 key={`h1-${idx}`} className="font-bold text-foreground text-base mt-4 mb-2">
-          {formatInline(line.replace(/^#\s+/, ""))}
+        <h2 key={`h1-${i}`} className="font-bold text-foreground text-base sm:text-lg mt-4 mb-2 text-primary">
+          {formatInline(trimmed.replace(/^#\s+/, ""))}
         </h2>
       );
-      return;
+      i++;
+      continue;
     }
 
-    // Bullet points
-    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+    // 6. Blockquote
+    if (trimmed.startsWith(">")) {
       elements.push(
-        <div key={`li-${idx}`} className="flex items-start gap-2 my-1 text-muted-foreground">
+        <blockquote
+          key={`bq-${i}`}
+          className="border-l-2 border-primary/60 pl-3 py-1 my-1.5 italic text-muted-foreground bg-muted/10 rounded-r-lg"
+        >
+          {formatInline(trimmed.replace(/^>\s*/, ""))}
+        </blockquote>
+      );
+      i++;
+      continue;
+    }
+
+    // 7. Bullet points
+    if (trimmed.match(/^[-*•]\s+/)) {
+      elements.push(
+        <div key={`li-${i}`} className="flex items-start gap-2 my-1 text-muted-foreground pl-1">
           <span className="text-primary mt-1 text-[10px]">•</span>
-          <span className="flex-1 text-foreground/90">{formatInline(trimmed.replace(/^[-*]\s+/, ""))}</span>
+          <span className="flex-1 text-foreground/90">{formatInline(trimmed.replace(/^[-*•]\s+/, ""))}</span>
         </div>
       );
-      return;
+      i++;
+      continue;
     }
 
-    // Numbered list
-    if (/^\d+\.\s+/.test(trimmed)) {
-      const num = trimmed.match(/^(\d+)\.\s+/)?.[1] || "•";
+    // 8. Numbered list
+    const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+    if (numMatch) {
       elements.push(
-        <div key={`nli-${idx}`} className="flex items-start gap-2 my-1 text-muted-foreground">
-          <span className="text-primary font-mono text-[10px] mt-0.5">{num}.</span>
-          <span className="flex-1 text-foreground/90">{formatInline(trimmed.replace(/^\d+\.\s+/, ""))}</span>
+        <div key={`nli-${i}`} className="flex items-start gap-2 my-1 text-muted-foreground pl-1">
+          <span className="text-primary font-mono text-[10px] mt-0.5">{numMatch[1]}.</span>
+          <span className="flex-1 text-foreground/90">{formatInline(numMatch[2])}</span>
         </div>
       );
-      return;
+      i++;
+      continue;
     }
 
-    // Regular paragraph
+    // 9. Regular paragraph
     elements.push(
-      <p key={`p-${idx}`} className="my-1.5 leading-relaxed text-foreground/90">
+      <p key={`p-${i}`} className="my-1.5 leading-relaxed text-foreground/90">
         {formatInline(line)}
       </p>
     );
-  });
+    i++;
+  }
 
   return <div className="space-y-0.5">{elements}</div>;
 }
 
 function formatInline(text: string): React.ReactNode {
-  const parts: React.ReactNode[] = [];
-  const boldRegex = /\*\*(.*?)\*\*/g;
-  let lastIdx = 0;
-  let match;
+  if (!text) return text;
 
-  while ((match = boldRegex.exec(text)) !== null) {
+  const tokens: React.ReactNode[] = [];
+  const regex = /(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|https?:\/\/[^\s)]+)/g;
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIdx) {
-      parts.push(parseCodeInline(text.substring(lastIdx, match.index)));
+      tokens.push(text.substring(lastIdx, match.index));
     }
-    parts.push(
-      <strong key={`b-${match.index}`} className="font-semibold text-foreground">
-        {match[1]}
-      </strong>
-    );
-    lastIdx = boldRegex.lastIndex;
+
+    const token = match[0];
+    if (token.startsWith("[") && token.includes("](")) {
+      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        tokens.push(
+          <a
+            key={`a-${match.index}`}
+            href={linkMatch[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline font-medium inline-flex items-center gap-0.5"
+          >
+            {linkMatch[1]}
+          </a>
+        );
+      } else {
+        tokens.push(token);
+      }
+    } else if (token.startsWith("**") && token.endsWith("**")) {
+      tokens.push(
+        <strong key={`b-${match.index}`} className="font-semibold text-foreground">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else if (token.startsWith("`") && token.endsWith("`")) {
+      tokens.push(
+        <code
+          key={`c-${match.index}`}
+          className="px-1.5 py-0.5 rounded bg-muted/60 text-primary font-mono text-[11px] border border-border/50"
+        >
+          {token.slice(1, -1)}
+        </code>
+      );
+    } else if (token.startsWith("*") && token.endsWith("*")) {
+      tokens.push(
+        <em key={`em-${match.index}`} className="italic text-foreground/90">
+          {token.slice(1, -1)}
+        </em>
+      );
+    } else if (token.startsWith("http://") || token.startsWith("https://")) {
+      tokens.push(
+        <a
+          key={`u-${match.index}`}
+          href={token}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:opacity-80 break-all"
+        >
+          {token}
+        </a>
+      );
+    }
+
+    lastIdx = match.index + token.length;
   }
 
   if (lastIdx < text.length) {
-    parts.push(parseCodeInline(text.substring(lastIdx)));
+    tokens.push(text.substring(lastIdx));
   }
 
-  return parts.length > 0 ? parts : text;
-}
-
-function parseCodeInline(text: string): React.ReactNode {
-  const parts: React.ReactNode[] = [];
-  const codeRegex = /`([^`]+)`/g;
-  let lastIdx = 0;
-  let match;
-
-  while ((match = codeRegex.exec(text)) !== null) {
-    if (match.index > lastIdx) {
-      parts.push(text.substring(lastIdx, match.index));
-    }
-    parts.push(
-      <code
-        key={`c-${match.index}`}
-        className="px-1.5 py-0.5 rounded bg-muted/60 text-primary font-mono text-[11px] border border-border/50"
-      >
-        {match[1]}
-      </code>
-    );
-    lastIdx = codeRegex.lastIndex;
-  }
-
-  if (lastIdx < text.length) {
-    parts.push(text.substring(lastIdx));
-  }
-
-  return parts.length > 0 ? parts : text;
+  return tokens.length > 0 ? tokens : text;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -272,6 +444,17 @@ export function ExploreAiAssistant({ onCreateRoom }: ExploreAiAssistantProps) {
   const [initialLoading, setInitialLoading] = useState(true);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [editingUserMessage, setEditingUserMessage] = useState<ExploreAiMessage | null>(null);
+
+  // Find ID of the latest user prompt message so Edit button only shows on latest prompt
+  const latestUserMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].sender === "user") {
+        return messages[i].id;
+      }
+    }
+    return null;
+  }, [messages]);
 
   // Speech Recognition state (matching rooms.$roomId.tsx implementation)
   const [isRecording, setIsRecording] = useState(false);
@@ -403,6 +586,20 @@ export function ExploreAiAssistant({ onCreateRoom }: ExploreAiAssistantProps) {
     }
   };
 
+  // Start editing a previous user prompt
+  const handleStartEditPrompt = (msg: ExploreAiMessage) => {
+    setEditingUserMessage(msg);
+    setInputPrompt(msg.text);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  const handleCancelEditPrompt = () => {
+    setEditingUserMessage(null);
+    setInputPrompt("");
+  };
+
   // Stop Response Generator
   const handleStopResponse = () => {
     if (abortControllerRef.current) {
@@ -413,7 +610,7 @@ export function ExploreAiAssistant({ onCreateRoom }: ExploreAiAssistantProps) {
     toast.info("AI generation stopped.");
   };
 
-  // Submit Prompt
+  // Submit Prompt (handles new prompt or editing previous prompt)
   const handleSendPrompt = async (promptToSend?: string) => {
     const text = (promptToSend || inputPrompt).trim();
     if (!text || loading) return;
@@ -430,24 +627,37 @@ export function ExploreAiAssistant({ onCreateRoom }: ExploreAiAssistantProps) {
       setIsRecording(false);
     }
 
+    const editingMsg = editingUserMessage;
     setInputPrompt("");
+    setEditingUserMessage(null);
 
     const tempUserMsg: ExploreAiMessage = {
-      id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: editingMsg ? editingMsg.id : `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       sender: "user",
       text: text,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       date: new Date().toISOString().split("T")[0],
+      isEdited: Boolean(editingMsg),
     };
 
-    setMessages((prev) => [...prev, tempUserMsg]);
+    if (editingMsg) {
+      setMessages((prev) => {
+        const editIdx = prev.findIndex((m) => m.id === editingMsg.id);
+        if (editIdx !== -1) {
+          return [...prev.slice(0, editIdx), tempUserMsg];
+        }
+        return [...prev, tempUserMsg];
+      });
+    } else {
+      setMessages((prev) => [...prev, tempUserMsg]);
+    }
     setLoading(true);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
-      const result = await sendExploreChatMessage(text, controller.signal);
+      const result = await sendExploreChatMessage(text, editingMsg ? editingMsg.id : undefined, controller.signal);
       if (result && result.conversation && result.conversation.messages) {
         setMessages(result.conversation.messages);
       } else if (result && result.aiMessage) {
@@ -622,7 +832,7 @@ export function ExploreAiAssistant({ onCreateRoom }: ExploreAiAssistantProps) {
           </div>
         ) : (
           /* Grouped Messages */
-          <div className="space-y-5 max-w-4xl mx-auto">
+          <div className="space-y-5 w-full max-w-full md:px-2 lg:px-3 mx-auto">
             {groupedItems.map((item, idx) => {
               if (item.type === "date") {
                 return (
@@ -641,7 +851,7 @@ export function ExploreAiAssistant({ onCreateRoom }: ExploreAiAssistantProps) {
                 <div
                   key={msg.id}
                   className={cn(
-                    "flex items-start gap-3 max-w-[95%] sm:max-w-[85%] group",
+                    "flex items-start gap-3 max-w-[95%] sm:max-w-[88%] md:max-w-[90%] lg:max-w-[94%] xl:max-w-[96%] group",
                     isUser ? "ml-auto flex-row-reverse" : "mr-auto"
                   )}
                 >
@@ -678,27 +888,60 @@ export function ExploreAiAssistant({ onCreateRoom }: ExploreAiAssistantProps) {
                       <div className="flex items-center gap-2 text-[10px] opacity-80">
                         {msg.date && <span className="hidden sm:inline">{msg.date}</span>}
                         <span>{msg.timestamp}</span>
-                        <button
-                          onClick={() => copyToClipboard(msg.text, msg.id)}
-                          className={cn(
-                            "p-1 rounded transition flex items-center gap-1",
-                            isUser ? "hover:bg-white/20 text-white" : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
-                          )}
-                          title={isUser ? "Copy prompt" : "Copy response"}
-                        >
-                          {copiedId === msg.id ? (
-                            <Check className={cn("h-3 w-3", isUser ? "text-white" : "text-emerald-400")} />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </button>
+                        {!isUser && (
+                          <button
+                            onClick={() => copyToClipboard(msg.text, msg.id)}
+                            className="p-1 rounded transition flex items-center gap-1 hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                            title="Copy response"
+                          >
+                            {copiedId === msg.id ? (
+                              <Check className="h-3 w-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
 
                     {/* Content */}
-                    <div className={cn("text-xs leading-relaxed", isUser ? "text-white/95 whitespace-pre-wrap" : "text-foreground")}>
+                    <div className={cn("text-xs leading-relaxed", isUser ? "text-white/95 whitespace-pre-wrap font-medium" : "text-foreground")}>
                       {isUser ? msg.text : <RenderAiMarkdown text={msg.text} />}
                     </div>
+
+                    {/* User Prompt Footer: (edited) tag, Edit Prompt (for latest message only), and Copy */}
+                    {isUser && (
+                      <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t border-white/20 mt-2">
+                        {msg.isEdited && (
+                          <span className="text-[10px] text-white/70 italic mr-auto font-normal">
+                            (edited)
+                          </span>
+                        )}
+                        {latestUserMessageId === msg.id && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditPrompt(msg)}
+                            className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-lg bg-white/20 text-white hover:bg-white/30 border border-white/30 transition-all shadow-sm"
+                            title="Edit your latest prompt message"
+                          >
+                            <Edit className="h-2.5 w-2.5" />
+                            <span>Edit prompt</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(msg.text, msg.id)}
+                          className="flex items-center gap-1 text-[10px] text-white/80 hover:text-white px-1.5 py-0.5 rounded hover:bg-white/15 transition"
+                          title="Copy prompt text"
+                        >
+                          {copiedId === msg.id ? (
+                            <Check className="h-2.5 w-2.5 text-white" />
+                          ) : (
+                            <Copy className="h-2.5 w-2.5" />
+                          )}
+                        </button>
+                      </div>
+                    )}
                     {/* Structured Hackathon Result Cards */}
                     {msg.hackathons && msg.hackathons.length > 0 && (
                       <div className="mt-4 pt-3 border-t border-border/40 space-y-3">
@@ -834,6 +1077,25 @@ export function ExploreAiAssistant({ onCreateRoom }: ExploreAiAssistantProps) {
           </div>
         )}
       </div>
+
+      {/* ─── Editing Prompt Banner ─── */}
+      {editingUserMessage && (
+        <div className="flex items-center justify-between border-t border-b border-primary/30 bg-primary/10 px-4 py-2 text-xs backdrop-blur-sm animate-fade-in shrink-0">
+          <div className="flex items-center gap-2 text-foreground truncate min-w-0">
+            <Edit className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="font-bold text-primary">Editing prompt:</span>
+            <span className="truncate italic text-muted-foreground">"{editingUserMessage.text}"</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleCancelEditPrompt}
+            className="text-muted-foreground hover:text-foreground text-xs font-semibold px-2 py-0.5 rounded hover:bg-primary/20 transition shrink-0 ml-2"
+            title="Cancel editing"
+          >
+            ✕ Cancel
+          </button>
+        </div>
+      )}
 
       {/* ─── Bottom Input Bar (Aligned Row) ─── */}
       <form

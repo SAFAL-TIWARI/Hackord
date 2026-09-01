@@ -53,14 +53,16 @@ export interface AiConversation {
   updatedAt?: string;
 }
 
+export const AI_FILE_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24 Hours (86,400,000 ms)
+
 /**
  * Check if a file attachment has expired (> 24 hours old)
  */
 export function isAiFileExpired(uploadedAt?: string | Date): boolean {
-  if (!uploadedAt) return false;
+  if (!uploadedAt) return true;
   const time = new Date(uploadedAt).getTime();
-  if (isNaN(time)) return false;
-  return Date.now() - time > 24 * 60 * 60 * 1000;
+  if (isNaN(time)) return true;
+  return Date.now() - time > AI_FILE_EXPIRATION_MS;
 }
 
 /**
@@ -292,15 +294,25 @@ export function createMediaBlobUrl(dataUrl: string, fallbackMime: string): strin
   }
 }
 
+// In-memory cache for fetched AI file attachments (0ms latency on repeated previews/downloads)
+const aiFileMemoryCache = new Map<string, AiFileAttachment>();
+
 /**
- * Fetch a single file from MongoDB by ID (retrieves full dataUrl on demand)
+ * Fetch a single file from MongoDB by ID (retrieves full dataUrl on demand with client-side caching)
  */
 export async function fetchAiFileById(id: string): Promise<AiFileAttachment | null> {
   if (!id) return null;
+  if (aiFileMemoryCache.has(id)) {
+    return aiFileMemoryCache.get(id)!;
+  }
   try {
     const res = await fetch(`${API_URL}/ai/files/${id}`);
     if (!res.ok) return null;
-    return await res.json();
+    const data: AiFileAttachment = await res.json();
+    if (data && data.dataUrl) {
+      aiFileMemoryCache.set(id, data);
+    }
+    return data;
   } catch (err) {
     console.error('[ai-api] fetchAiFileById error:', err);
     return null;

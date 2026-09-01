@@ -1,5 +1,6 @@
 import React from "react";
 import { ExternalLink, Mail, Phone } from "lucide-react";
+import { AiCodeContainer } from "@/components/ai/AiCodeContainer";
 
 interface RenderSmartTextProps {
   text: string;
@@ -18,29 +19,34 @@ interface RenderSmartTextProps {
 export function RenderSmartText({ text, className = "", onMentionClick }: RenderSmartTextProps) {
   if (!text) return null;
 
-  // 1. Process code blocks with triple backticks first: ```code```
-  const codeBlockRegex = /```([\s\S]*?)```/g;
+  // 1. Process code blocks with triple backticks first: ```[lang]\ncode```
+  const codeBlockRegex = /(?:^|\n)[ \t]*(```+|~~~+)([^\n]*)\n([\s\S]*?)(?:\n[ \t]*\1[ \t]*(?:\n|$)|$)/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = codeBlockRegex.exec(text)) !== null) {
-    const textBefore = text.slice(lastIndex, match.index);
+    const fullMatch = match[0];
+    const matchIndex = match.index + (fullMatch.startsWith('\n') ? 1 : 0);
+    const textBefore = text.slice(lastIndex, matchIndex);
     if (textBefore) {
       parts.push(parseInlineTokens(textBefore, onMentionClick, `inline-before-${match.index}`));
     }
 
-    const codeContent = match[1].trim();
+    const fenceInfo = (match[2] || '').trim().toLowerCase();
+    const language = fenceInfo.split(/[\s,:]+/)[0] || 'text';
+    let codeContent = match[3] || '';
+    codeContent = codeContent.replace(/\n[ \t]*(?:```+|~~~+)[ \t]*$/, '');
+
     parts.push(
-      <div key={`codeblock-${match.index}`} className="my-2 overflow-x-auto rounded-xl border border-zinc-700/60 bg-zinc-950/80 p-3 text-xs font-mono text-emerald-400 shadow-inner">
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5 mb-2 text-[10px] uppercase tracking-wider text-zinc-500 select-none">
-          <span>Code Snippet</span>
-        </div>
-        <pre className="whitespace-pre-wrap break-words">{codeContent}</pre>
-      </div>
+      <AiCodeContainer
+        key={`codeblock-${match.index}`}
+        language={language}
+        code={codeContent.trimEnd()}
+      />
     );
 
-    lastIndex = codeBlockRegex.lastIndex;
+    lastIndex = match.index + fullMatch.length;
   }
 
   const remainingText = text.slice(lastIndex);

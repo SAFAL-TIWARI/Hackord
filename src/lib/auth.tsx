@@ -70,6 +70,20 @@ function removeToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+export function clearAllLocalUserData() {
+  if (typeof window === "undefined") return;
+  try {
+    const theme = localStorage.getItem("hackord_theme");
+    localStorage.clear();
+    sessionStorage.clear();
+    if (theme) {
+      localStorage.setItem("hackord_theme", theme);
+    }
+  } catch (e) {
+    console.warn("[clearAllLocalUserData] Failed to clear storage:", e);
+  }
+}
+
 // ─── Provider ───────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -221,10 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    removeToken();
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("hackord_user");
-    }
+    clearAllLocalUserData();
     setUser(null);
   };
 

@@ -34,7 +34,7 @@ function SettingsPage() {
     deadlines: true,
     chatMessages: true,
     desktopNotifications: true,
-    reminders: false,
+    reminders: true,
   });
   const [privacyPrefs, setPrivacyPrefs] = useState({
     discoverable: true,
@@ -78,7 +78,7 @@ function SettingsPage() {
             deadlines: data.notificationPreferences.deadlines !== false,
             chatMessages: data.notificationPreferences.chatMessages !== false,
             desktopNotifications: data.notificationPreferences.desktopNotifications !== false,
-            reminders: Boolean(data.notificationPreferences.reminders),
+            reminders: data.notificationPreferences.reminders !== false,
           });
         }
       } catch (err) {
@@ -141,9 +141,9 @@ function SettingsPage() {
     setDeleting(true);
     try {
       await deleteUserAccount({ userId: user?._id, email: user?.email });
-      toast.success("Your account has been permanently deleted from database.");
+      toast.success("Your account and all associated rooms, resources, and settings have been permanently deleted.");
       logout();
-      navigate({ to: "/auth" as any });
+      navigate({ to: "/signup" as any });
     } catch (err: any) {
       toast.error(err.message || "Failed to delete account");
     } finally {
@@ -388,7 +388,7 @@ function SettingsPage() {
                 <div>
                   <p className="text-sm font-semibold">Delete account</p>
                   <p className="text-xs text-muted-foreground">
-                    Permanently delete your user account, profile, notes, and pending invitations from database.
+                    Permanently delete your account, created rooms, messages, AI conversations, notes, submissions, and workspace settings from the database.
                   </p>
                 </div>
                 <Button
@@ -421,7 +421,7 @@ function SettingsPage() {
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Are you sure you want to delete your account <strong>({user?.email || "your account"})</strong>?
-                This action cannot be undone. All user data will be removed from MongoDB.
+                This action cannot be undone. All your profile information, created rooms, messages, AI data, personal notes, and workspace settings will be permanently wiped from our servers.
               </p>
               <div className="flex justify-end gap-3 pt-3 border-t border-border/50">
                 <Button variant="outline" size="sm" onClick={() => setShowDeleteModal(false)} disabled={deleting}>
