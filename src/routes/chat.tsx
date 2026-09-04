@@ -13,7 +13,6 @@ import {
   Trash2,
   CornerDownRight,
   Shield,
-  Sparkles,
   Play,
   Pause,
   X,
@@ -886,7 +885,7 @@ function ChatPage() {
               ) : filteredActiveMessages.length === 0 ? (
                 <div className="py-16 text-center space-y-2 max-w-sm mx-auto">
                   <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center mx-auto shadow-sm">
-                    <Sparkles className="h-5 w-5" />
+                    <MessageSquare className="h-5 w-5" />
                   </div>
                   <h4 className="font-semibold text-sm">No messages yet</h4>
                   <p className="text-xs text-muted-foreground">

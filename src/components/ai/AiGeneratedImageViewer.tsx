@@ -5,7 +5,6 @@ import {
   Minimize2,
   Copy,
   Check,
-  Sparkles,
   ExternalLink,
   ZoomIn,
   RefreshCw,
@@ -67,7 +66,7 @@ export function AiGeneratedImageViewer({
       <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border/60 bg-muted/20 text-xs flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <div className="p-1 rounded-lg bg-gradient-brand text-white shadow-sm">
-            <Sparkles className="h-3.5 w-3.5" />
+            <ImageIcon className="h-3.5 w-3.5" />
           </div>
           <div>
             <span className="font-bold text-[11px] uppercase tracking-wider text-foreground">

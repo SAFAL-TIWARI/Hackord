@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Code, Bot, Zap, Shield, Sparkles } from "lucide-react";
+import { Users, Code, Bot, Bell, Shield, BrainCircuit } from "lucide-react";
 
 const quotes = [
   { title: "Everything you need to", highlight: "win.", sub: "Professional grade tools wrapped in a beautiful interface." },
@@ -41,10 +41,10 @@ export function FeaturesBento() {
               key={i}
               className={`absolute inset-x-0 top-0 transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] ${stateClass}`}
             >
-              <h2 className="text-4xl font-bold tracking-tight sm:text-6xl">
+              <h2 className="text-4xl font-bold tracking-tight sm:text-6xl text-white">
                 {q.title} <span className="animate-text-shimmer">{q.highlight}</span>
               </h2>
-              <p className="mt-4 text-lg text-muted-foreground transition-opacity duration-1000">{q.sub}</p>
+              <p className="mt-4 text-lg text-slate-300 transition-opacity duration-1000">{q.sub}</p>
             </div>
           );
         })}
@@ -79,11 +79,11 @@ export function FeaturesBento() {
           </div>
         </div>
 
-        {/* Feature 2: Smart AI Notifications */}
+        {/* Feature 2: Smart Notifications */}
         <div className="group relative col-span-1 overflow-hidden rounded-3xl border border-border bg-card/85 dark:bg-card/45 backdrop-blur-2xl p-8 shadow-card transition-all duration-300 hover:border-foreground/25 hover:shadow-spatial hover:-translate-y-1">
           <div className="relative z-10 flex flex-col h-full">
             <div className="inline-flex rounded-xl bg-primary/10 text-primary mb-6 border border-border w-fit p-3">
-              <Zap className="h-6 w-6" />
+              <Bell className="h-6 w-6" />
             </div>
             <h3 className="text-2xl font-bold text-foreground">Smart Notifications</h3>
             <p className="mt-4 text-muted-foreground">AI filters out the noise. Get pinged only when builds fail, PRs merge, or deadlines approach.</p>
@@ -123,7 +123,7 @@ export function FeaturesBento() {
         <div className="group relative col-span-1 sm:col-span-2 overflow-hidden rounded-3xl border border-border bg-card/85 dark:bg-card/45 backdrop-blur-2xl p-8 shadow-card transition-all duration-300 hover:border-foreground/25 hover:shadow-spatial hover:-translate-y-1">
           <div className="relative z-10 flex flex-col h-full">
             <div className="inline-flex rounded-xl bg-primary/10 text-primary mb-6 border border-border w-fit p-3">
-              <Sparkles className="h-6 w-6" />
+              <BrainCircuit className="h-6 w-6" />
             </div>
             <h3 className="text-2xl sm:text-3xl font-bold text-foreground">AI Project Insights</h3>
             <p className="mt-4 text-muted-foreground max-w-md">Your AI copilot automatically generates documentation, analyzes PRs, and builds pitch decks from your README.</p>

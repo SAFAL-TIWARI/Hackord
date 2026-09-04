@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { updateRoom, getAgoraToken, getLoggedInUser, getRoom } from "@/lib/rooms-api";
-import { Mic, MicOff, Video, VideoIcon, VideoOff, MonitorUp, Smile, Hand, MoreVertical, PhoneOff, MessageSquare, Users, Copy, Check, Info, Maximize2, Minimize2, PictureInPicture, ShieldAlert, Sparkles, LayoutGrid, UserCheck, Send, X, Pin, PinOff, UserX, VolumeX, CameraOff, Shield } from "lucide-react";
+import { Mic, MicOff, Video, VideoIcon, VideoOff, MonitorUp, Smile, Hand, MoreVertical, PhoneOff, MessageSquare, Users, Copy, Check, Info, Maximize2, Minimize2, PictureInPicture, ShieldAlert, Focus, LayoutGrid, UserCheck, Send, X, Pin, PinOff, UserX, VolumeX, CameraOff, Shield } from "lucide-react";
 
 interface MeetingMessage {
   id: string;
@@ -1597,7 +1597,7 @@ export function AgoraMeeting({
               variant="outline"
               className="border-primary text-primary hover:bg-primary/10 px-6 h-11 rounded-full font-medium gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Sparkles className="h-4 w-4" /> Create Instant Meeting
+              <Users className="h-4 w-4" /> Create Instant Meeting
             </Button>
           )}
         </div>
@@ -2100,7 +2100,7 @@ export function AgoraMeeting({
               onClick={() => { setLayoutMode("spotlight"); setShowThreeDotsMenu(false); }}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-muted text-foreground transition text-left"
             >
-              <Sparkles className="h-4 w-4 text-amber-400" /> Spotlight view
+              <Focus className="h-4 w-4 text-amber-400" /> Spotlight view
             </button>
             <button
               onClick={() => { setLayoutMode("sidebar"); setShowThreeDotsMenu(false); }}

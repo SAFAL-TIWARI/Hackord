@@ -28,8 +28,13 @@ function TermsOfServicePage() {
 
   useEffect(() => {
     if (typeof document !== "undefined") {
-      if (theme === "light") document.documentElement.classList.add("light");
-      else document.documentElement.classList.remove("light");
+      if (theme === "light") {
+        document.documentElement.classList.add("light");
+        document.documentElement.classList.remove("dark");
+      } else {
+        document.documentElement.classList.remove("light");
+        document.documentElement.classList.add("dark");
+      }
     }
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("hackord_theme", theme);

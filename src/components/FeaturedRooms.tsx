@@ -25,8 +25,8 @@ export function FeaturedRooms() {
             <Layers3 className="h-3.5 w-3.5" />
             <span>Active Platform Workspaces</span>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight sm:text-4xl">Featured Hackathon Rooms</h2>
-          <p className="text-sm text-muted-foreground mt-1">Join an active project team or create your own room in seconds.</p>
+          <h2 className="text-2xl font-bold tracking-tight sm:text-4xl text-white">Featured Hackathon Rooms</h2>
+          <p className="text-sm text-slate-300 mt-1">Join an active project team or create your own room in seconds.</p>
         </div>
         <Link
           to="/dashboard"

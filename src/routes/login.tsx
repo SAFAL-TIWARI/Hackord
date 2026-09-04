@@ -405,8 +405,10 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
   useEffect(() => {
     if (theme === "light") {
       document.documentElement.classList.add("light");
+      document.documentElement.classList.remove("dark");
     } else {
       document.documentElement.classList.remove("light");
+      document.documentElement.classList.add("dark");
     }
     localStorage.setItem("hackord_theme", theme);
   }, [theme]);

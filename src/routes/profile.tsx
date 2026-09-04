@@ -12,7 +12,7 @@ import {
   Trash2,
   Check,
   Mail,
-  Sparkles,
+  Code2,
   Loader2,
   X,
   Users,
@@ -326,7 +326,7 @@ function ProfilePage() {
           <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2 space-y-6">
             <div>
               <h2 className="mb-3 text-lg font-semibold flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" /> Skills
+                <Code2 className="h-4 w-4 text-primary" /> Skills
               </h2>
               <div className="flex flex-wrap gap-2">
                 {profile.skills.length > 0 ? (

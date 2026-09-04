@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, MessageSquare, Bot, Plus, FolderOpen } from "lucide-react";
+import { BrainCircuit, MessageSquare, Bot, Plus, FolderOpen } from "lucide-react";
 
 export function AiWorkspaceSkeleton() {
   return (
@@ -9,7 +9,7 @@ export function AiWorkspaceSkeleton() {
         {/* Header */}
         <div className="flex items-center justify-between mb-3 w-full">
           <div className="flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-primary/40 animate-pulse" />
+            <BrainCircuit className="h-3.5 w-3.5 text-primary/40 animate-pulse" />
             <Skeleton className="h-3 w-24" />
           </div>
           <Skeleton className="h-4 w-4 rounded-md hidden md:block" />

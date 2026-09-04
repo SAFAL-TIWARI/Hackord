@@ -6,7 +6,6 @@ import {
   Download,
   CalendarCheck,
   CheckCircle2,
-  Sparkles,
   ChevronDown,
   Clock,
 } from "lucide-react";
@@ -150,9 +149,7 @@ export function AddToCalendarMenu({
             onClick={handleAddFullSchedule}
             className="flex items-start gap-2.5 p-2 rounded-lg cursor-pointer transition-colors focus:bg-primary/10 group"
           >
-            <div className="mt-0.5 p-1 rounded-md bg-primary/15 text-primary group-hover:scale-105 transition-transform">
-              <Sparkles className="h-4 w-4" />
-            </div>
+            
             <div className="flex-1">
               <div className="text-xs font-semibold text-foreground flex items-center justify-between">
                 <span>Add Full Hackathon Event</span>

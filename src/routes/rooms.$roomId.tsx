@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   Users, MessageSquare, Bot, Github, FileIcon, CalendarDays, CalendarPlus, Video,
   Crown, ExternalLink, Search, Send, Paperclip, Smile, Pin, Plus, Edit,
-  FileText, Image as ImageIcon, Film, Music, Archive, Sparkles, GitBranch,
+  FileText, Image as ImageIcon, Film, Music, Archive, LayoutDashboard, BrainCircuit, Blocks, GitBranch,
   GitPullRequest, CircleDot, Check, Clock, Play, Link as LinkIcon, Trash2, Lock, ShieldAlert, LogOut,
   Star, GitFork, RefreshCw, Unlink, AlertCircle, GitCommit,
   Linkedin, Globe, Trophy, GraduationCap,
@@ -97,7 +97,7 @@ export const Route = createFileRoute("/rooms/$roomId")({
 type Tab = "overview" | "members" | "chat" | "ai" | "github" | "files" | "timeline" | "meetings" | "tasks";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { key: "overview", label: "Overview", icon: Sparkles },
+  { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "members", label: "Members", icon: Users },
   { key: "chat", label: "Chat", icon: MessageSquare },
   { key: "ai", label: "AI Workspace", icon: Bot },
@@ -3114,7 +3114,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
             {/* Sidebar Header & Collapse Toggle */}
             <div className="flex items-center justify-between mb-3 w-full">
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <BrainCircuit className="h-3.5 w-3.5 text-primary" />
                 AI Workspaces
               </h3>
               <button
@@ -3363,7 +3363,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-primary/40 bg-primary/15 hover:bg-primary/25 text-primary text-xs font-semibold transition shadow-sm"
                 title="Free Multimodal Studio (Image Generation, PDF/DOCX/CSV Exporter, Voice TTS, PPT)"
               >
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <BrainCircuit className="h-3.5 w-3.5 text-primary" />
                 <span className="hidden sm:inline">AI Studio</span>
               </button>
 
@@ -3419,7 +3419,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
               <div className="space-y-6 max-w-4xl mx-auto py-2">
                 <div className="glass rounded-2xl p-6 border border-border bg-card/30 text-center space-y-4 shadow-sm">
                   <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-gradient-brand-soft shadow-md">
-                    <Sparkles className="h-6 w-6 text-primary" />
+                    <BrainCircuit className="h-6 w-6 text-primary" />
                   </div>
                   <div className="space-y-2">
                     <h2 className="text-xl sm:text-2xl font-bold bg-gradient-brand bg-clip-text text-transparent">
@@ -3454,7 +3454,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-2 font-semibold text-xs text-foreground group-hover:text-primary transition">
-                            <Sparkles className="h-3.5 w-3.5 text-primary" />
+                            <Blocks className="h-3.5 w-3.5 text-primary" />
                             <span>@{tool.title}</span>
                           </div>
                           <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
@@ -3719,7 +3719,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                           : "hover:bg-accent"
                       )}
                     >
-                      <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <Blocks className="h-3.5 w-3.5 text-primary shrink-0" />
                       <div>
                         <div className="font-medium">@{tool.title}</div>
                         <div className="text-[10px] text-muted-foreground line-clamp-1">{tool.desc}</div>
@@ -3736,7 +3736,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                 {/* Active Plugin Tag Pill (Only 1 active at a time) */}
                 {selectedPlugin && (
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-primary/15 border border-primary/30 text-primary text-xs font-semibold shadow-sm animate-fade-in">
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <Blocks className="h-3.5 w-3.5" />
                     <span>@{selectedPlugin}</span>
                     <button
                       type="button"
@@ -3823,7 +3823,7 @@ function AITab({ room, user }: { room: DbRoom; user?: any }) {
                     <span>Attach media / doc (&lt;5MB)</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setShowPluginPicker(true)} className="cursor-pointer">
-                    <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                    <Blocks className="mr-2 h-4 w-4 text-primary" />
                     <span>Browse all plugins</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleCreateNewChat()} className="cursor-pointer">

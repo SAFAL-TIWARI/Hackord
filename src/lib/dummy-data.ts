@@ -63,7 +63,7 @@ export const AI_TOOLS = [
   { key: "stack", title: "Tech Stack", desc: "Get an opinionated stack for your build.", icon: "Layers" },
   { key: "tasks", title: "Task Breakdown", desc: "Turn goals into actionable sprint tickets.", icon: "ListChecks" },
   { key: "biz", title: "Business Model", desc: "Explore monetization, revenue models, and GTM.", icon: "Briefcase" },
-  { key: "pitch", title: "Pitch Generator", desc: "Craft a winning judge-facing hackathon pitch.", icon: "Sparkles" },
+  { key: "pitch", title: "Pitch Generator", desc: "Craft a winning judge-facing hackathon pitch.", icon: "Megaphone" },
   { key: "demo", title: "Demo Script", desc: "Storyboard a 3-minute interactive product demo.", icon: "Clapperboard" },
   { key: "elevator", title: "Elevator Pitch", desc: "60-second pitch, ready to memorize.", icon: "Rocket" },
 ] as const;

@@ -19,7 +19,6 @@ import {
   Globe,
   UserPlus,
   Briefcase,
-  Sparkles,
   Check,
   Building2,
   ExternalLink,
@@ -206,7 +205,7 @@ export function UserProfileModal({
                 </Badge>
                 {userProp.experience && (
                   <Badge className="bg-primary/15 text-primary border-primary/30 text-xs">
-                    <Sparkles className="mr-1 h-3 w-3 inline" />
+                    <Briefcase className="mr-1 h-3 w-3 inline" />
                     {userProp.experience}
                   </Badge>
                 )}

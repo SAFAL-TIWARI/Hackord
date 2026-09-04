@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Sparkles,
+  BrainCircuit,
+  ImagePlus,
   Image as ImageIcon,
   Volume2,
   FileText,
@@ -234,7 +235,7 @@ export function AiMultimodalStudio({
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-muted/15">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-gradient-brand text-white shadow-glow">
-              <Sparkles className="h-5 w-5" />
+              <BrainCircuit className="h-5 w-5" />
             </div>
             <div>
               <h2 className="font-bold text-base sm:text-lg text-foreground flex items-center gap-2">
@@ -385,7 +386,7 @@ export function AiMultimodalStudio({
                   disabled={isGeneratingImage || !imagePrompt.trim()}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-brand text-white font-semibold text-xs sm:text-sm shadow-glow hover:opacity-95 disabled:opacity-50 transition"
                 >
-                  <Sparkles className="h-4 w-4" />
+                  <ImagePlus className="h-4 w-4" />
                   <span>{isGeneratingImage ? 'Generating Image...' : 'Generate Image'}</span>
                 </button>
               </div>

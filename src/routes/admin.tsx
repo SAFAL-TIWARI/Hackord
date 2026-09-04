@@ -9,7 +9,7 @@ import {
   MapPin,
   Mail,
   Clock,
-  Sparkles,
+  Code2,
   Layers3,
   ExternalLink,
   Crown,
@@ -465,7 +465,7 @@ function AdminPage() {
                 </Badge>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Automated & manual scrapers store 200-OK validated hackathons into server file (`scraped_hackathons.json`). Click below to grant permission and merge to Explore page DB.
+                Automated & manual scrapers store validated hackathons into server file. Click below to grant permission and merge to Explore page DB.
               </p>
             </div>
 
@@ -495,9 +495,7 @@ function AdminPage() {
           {/* Stored File Summary */}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground bg-card/40 p-3 rounded-xl border border-border/40">
             <div className="flex items-center gap-4">
-              <span>
-                <strong>Stored File:</strong> `data/scraped_hackathons.json`
-              </span>
+              
               <span>
                 <strong>Total Valid Items:</strong>{" "}
                 <span className="text-primary font-bold">{scrapedStatus?.totalCount || 0}</span>
@@ -509,9 +507,6 @@ function AdminPage() {
                   : "Never"}
               </span>
             </div>
-            <span className="text-[10px] text-green-400 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20 font-medium">
-              ✓ 200-OK URL Verified (Zero 404 links)
-            </span>
           </div>
 
           {/* Pending Scraped Preview Cards */}
@@ -538,7 +533,6 @@ function AdminPage() {
                             <Badge variant="outline" className="text-[9px] font-bold text-white bg-black/60 border-white/20 backdrop-blur-md">
                               {h.platform || "Platform"}
                             </Badge>
-                            <span className="text-[9px] text-emerald-400 font-bold bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-md">✓ 200 OK</span>
                           </div>
                         </div>
 
@@ -1140,7 +1134,7 @@ function AdminPage() {
               <div className="glass rounded-2xl p-6 shadow-card">
                 <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
                   <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" /> Top Skills
+                    <Code2 className="h-4 w-4 text-primary" /> Top Skills
                   </h2>
                   <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20">
                     {stats.topSkills.length} {stats.topSkills.length === 1 ? "Skill" : "Skills"}

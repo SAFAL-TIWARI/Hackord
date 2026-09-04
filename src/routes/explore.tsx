@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Search,
-  Sparkles,
+  BrainCircuit,
   Bookmark,
   BookmarkCheck,
   Share2,
@@ -303,7 +303,7 @@ function HackathonCard({
           </h3>
           {hackathon.createdAt && (Date.now() - new Date(hackathon.createdAt).getTime() < 7 * 86400000) && (
             <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full border border-amber-400/30">
-              <Sparkles className="h-2.5 w-2.5" /> New
+              <Zap className="h-2.5 w-2.5" /> New
             </span>
           )}
         </div>
@@ -757,7 +757,7 @@ function ExplorePage() {
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                 )}
               >
-                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                <BrainCircuit className="h-3.5 w-3.5 text-amber-400" />
                 AI Search
               </button>
             </div>

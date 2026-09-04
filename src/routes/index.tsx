@@ -1,6 +1,6 @@
 import React, { Suspense } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
+import { Compass } from "lucide-react";
 import { AnimatedRole } from "@/components/AnimatedRole";
 import { FeaturedRooms } from "@/components/FeaturedRooms";
 import { FeaturesBento } from "@/components/FeaturesBento";
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   return (
-    <div className="relative min-h-screen bg-background lg:bg-[#060813] text-foreground flex flex-col justify-between">
+    <div className="relative min-h-screen bg-[#060813] text-foreground flex flex-col justify-between">
       {/* Desktop-only Cinematic Background Scroll Reveal Effect */}
       <ScrollSequence frameCount={204} />
 
@@ -41,41 +41,40 @@ function Landing() {
 
       {/* Hero Section */}
       <section className="relative  max-w-8xl px-6 pt-24 sm:pt-32 pb-20 sm:pb-24 overflow-hidden lg:overflow-visible">
-        <Suspense fallback={<div className="absolute inset-0 bg-background" />}>
+        <Suspense fallback={<div className="absolute inset-0 bg-transparent" />}>
           <HeroBackground />
         </Suspense>
 
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center relative z-10">
           <div className="text-left">
-            <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 text-xs text-muted-foreground animate-fade-in">
-              <Sparkles className="h-3 w-3 text-primary" />
+            <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 text-xs text-black-200 animate-fade-in">
               <span>The Intelligence Engine for Hackathons & Developers</span>
             </div>
 
-            <h1 className="mt-6 sm:mt-8 text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight animate-fade-in animate-delay-100">
+            <h1 className="mt-6 sm:mt-8 text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white animate-fade-in animate-delay-100">
               Ship faster <br />
-              <span className="text-foreground drop-shadow-sm">
+              <span className="text-white drop-shadow-sm">
                 with <AnimatedRole roles={["AI.", "Confidence.", "Hackord."]} />
               </span>
             </h1>
 
-            <p className="mt-6 sm:mt-8 max-w-xl text-base sm:text-xl text-muted-foreground leading-relaxed animate-fade-in animate-delay-200">
-              <strong className="text-foreground font-semibold">Hackord</strong> is the private workspace platform for elite hackathon teams. Host HD audio/video meetings, manage tasks, track live GitHub repositories, and collaborate in real-time.
+            <p className="mt-6 sm:mt-8 max-w-xl text-base sm:text-xl text-slate-300 leading-relaxed animate-fade-in animate-delay-200">
+              <strong className="text-white font-semibold">Hackord</strong> is the private workspace platform for elite hackathon teams. Host HD audio/video meetings, manage tasks, track live GitHub repositories, and collaborate in real-time.
             </p>
 
             <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-4 animate-fade-in animate-delay-300">
               <Link
                 to="/signup"
-                className="group relative rounded-xl px-8 py-3 text-center font-semibold text-background transition-all hover:scale-105 active:scale-95 shadow-card"
+                className="group relative rounded-xl px-8 py-3 text-center font-semibold text-slate-950 transition-all hover:scale-105 active:scale-95 shadow-card"
               >
-                <div className="absolute inset-0 rounded-xl bg-foreground group-hover:bg-foreground/90 transition-colors" />
+                <div className="absolute inset-0 rounded-xl bg-white group-hover:bg-white/90 transition-colors" />
                 <span className="relative">Create a workspace</span>
               </Link>
               <Link
                 to="/explore"
-                className="rounded-xl bg-card/85 dark:bg-card/45 backdrop-blur-2xl border border-border px-8 py-3 text-center font-semibold text-foreground transition hover:bg-card hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-card"
+                className="rounded-xl bg-white/10 dark:bg-card/45 backdrop-blur-2xl border border-white/20 dark:border-border px-8 py-3 text-center font-semibold text-white dark:text-foreground transition hover:bg-white/20 dark:hover:bg-card hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-card"
               >
-                <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                <Compass className="h-4 w-4 text-primary" />
                 Explore hackathons
               </Link>
             </div>

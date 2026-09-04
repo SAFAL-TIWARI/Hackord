@@ -40,7 +40,6 @@ import {
   FileSpreadsheet,
   FileCode,
   Image as ImageIcon,
-  Sparkles,
   RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';

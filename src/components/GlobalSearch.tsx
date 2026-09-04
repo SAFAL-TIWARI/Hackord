@@ -13,7 +13,6 @@ import {
   Globe,
   UserCheck,
   Trophy,
-  Sparkles,
   Copy,
   MessageSquare,
 } from "lucide-react";

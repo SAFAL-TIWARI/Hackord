@@ -9,7 +9,7 @@ import {
   RotateCcw,
   Code,
   Eye,
-  Sparkles,
+  Workflow,
   Edit2,
   Plus,
   Play,
@@ -1052,7 +1052,7 @@ export function InteractiveFlowchart({ chart }: { chart: string }) {
             <div className="absolute bottom-3 left-3 bg-popover dark:bg-slate-950/95 text-popover-foreground border border-border/80 rounded-2xl p-3 shadow-2xl backdrop-blur-xl max-w-sm z-30 pointer-events-auto text-xs space-y-1.5 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between border-b border-border/40 pb-1.5">
                 <div className="flex items-center gap-1.5 font-bold text-foreground">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  <Workflow className="h-3.5 w-3.5 text-primary" />
                   <span>{(hoveredNode || selectedNode)?.label}</span>
                 </div>
                 <button

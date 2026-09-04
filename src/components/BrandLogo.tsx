@@ -47,7 +47,7 @@ export function BrandLogo({ className, iconOnly = false, size = "md" }: BrandLog
       {/* Static Text */}
       {!iconOnly && (
         <div className="flex items-center gap-1.5">
-          <span className={cn("font-extrabold tracking-tight text-foreground", textSizes[size])}>
+          <span className={cn("font-extrabold tracking-tight dark:text-white text-black", textSizes[size])}>
             Hackord
           </span>
         </div>

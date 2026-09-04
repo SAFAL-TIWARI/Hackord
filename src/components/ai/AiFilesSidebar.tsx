@@ -7,7 +7,7 @@ import {
   ExternalLink,
   X,
   FileCode,
-  Sparkles,
+  Layers,
   Paperclip,
   Music,
   Film,
@@ -229,7 +229,7 @@ export function AiFilesSidebar({
           {/* Header */}
           <div className="flex items-center justify-between shrink-0 mb-2">
             <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="h-3 w-3 text-primary" />
+              <Layers className="h-3 w-3 text-primary" />
               Artifacts
             </h4>
             <span className="text-[10px] rounded-full bg-primary/10 text-primary px-2 py-0.5 font-semibold">
@@ -241,7 +241,7 @@ export function AiFilesSidebar({
           <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-2 pr-1">
             {artifacts.length === 0 ? (
               <div className="p-3 rounded-xl border border-dashed border-border/70 text-center text-muted-foreground text-[11px] space-y-1 my-auto">
-                <Sparkles className="h-4 w-4 text-primary mx-auto" />
+                <Layers className="h-4 w-4 text-primary mx-auto" />
                 <p>No generated artifacts yet.</p>
                 <p className="text-[10px] text-muted-foreground/75">
                   Generate PPTs, diagrams, or READMEs to see them here.

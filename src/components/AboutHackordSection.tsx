@@ -10,7 +10,6 @@ import {
   GitPullRequest,
   CheckCircle2,
   Clock,
-  Sparkles,
   ChevronRight,
   Mic,
   MicOff,
@@ -111,11 +110,11 @@ export function AboutHackordSection() {
           <ShieldCheck className="h-4 w-4 shrink-0" />
           <span>Purpose & Core Architecture</span>
         </div>
-        <h2 className="text-2.5xl sm:text-5xl font-bold tracking-tight text-foreground">
+        <h2 className="text-2.5xl sm:text-5xl font-bold tracking-tight text-white">
           What is <span className="text-gradient-brand">Hackord</span>?
         </h2>
-        <p className="text-xs sm:text-lg text-muted-foreground leading-relaxed">
-          <strong className="text-foreground">Hackord</strong> is an all-in-one developer workspace and collaboration platform built for hackathon participants, software engineers, and project teams to build and ship software together.
+        <p className="text-xs sm:text-lg text-slate-300 leading-relaxed">
+          <strong className="text-white">Hackord</strong> is an all-in-one developer workspace and collaboration platform built for hackathon participants, software engineers, and project teams to build and ship software together.
         </p>
       </div>
 
@@ -161,7 +160,6 @@ export function AboutHackordSection() {
                 </span>
               </div>
               <div className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full bg-primary/10 px-2.5 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium text-primary border border-border shrink-0">
-                <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 <span>{activeFeature.stats}</span>
               </div>
             </div>

@@ -9,7 +9,8 @@ import {
   MapPin,
   Pencil,
   Mail,
-  Sparkles,
+  Briefcase,
+  Code2,
   Loader2,
   Lock,
   ShieldAlert,
@@ -401,7 +402,7 @@ function PublicUserProfilePage() {
                 )}
                 {targetUser.experience && (
                   <Badge variant="secondary" className="text-xs">
-                    <Sparkles className="mr-1 h-3 w-3 inline text-primary" />
+                    <Briefcase className="mr-1 h-3 w-3 inline text-primary" />
                     {targetUser.experience}
                   </Badge>
                 )}
@@ -492,7 +493,7 @@ function PublicUserProfilePage() {
             {/* Skills */}
             <div>
               <h2 className="mb-3 text-lg font-semibold flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" /> Skills & Expertise
+                <Code2 className="h-4 w-4 text-primary" /> Skills & Expertise
               </h2>
               <div className="flex flex-wrap gap-2">
                 {targetUser.skills && targetUser.skills.length > 0 ? (

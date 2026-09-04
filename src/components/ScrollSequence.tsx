@@ -250,14 +250,11 @@ export function ScrollSequence({ frameCount = 204, className = "" }: ScrollSeque
         }}
       />
 
-      {/* Light Mode: Frosted Spatial Veil to ensure crystal-clear text readability without losing the animation */}
-      <div className="absolute inset-0 pointer-events-none bg-[#ebf3ff]/75 dark:bg-transparent backdrop-blur-[3px] dark:backdrop-blur-none transition-all duration-500" />
+      {/* Deep Obsidian Radial Vignette for Content Readability */}
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_0%,rgba(6,8,19,0.5)_50%,rgba(6,8,19,0.85)_100%)] transition-opacity duration-500" />
 
-      {/* Dark Mode: Deep Obsidian Radial Vignette for Content Readability */}
-      <div className="absolute inset-0 pointer-events-none opacity-0 dark:opacity-100 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(6,8,19,0.5)_50%,rgba(6,8,19,0.85)_100%)] transition-opacity duration-500" />
-
-      {/* Dark Mode: Ambient Base Dimming */}
-      <div className="absolute inset-0 pointer-events-none opacity-0 dark:opacity-40 bg-[#060813] transition-opacity duration-500" />
+      {/* Ambient Base Dimming */}
+      <div className="absolute inset-0 pointer-events-none opacity-40 bg-[#060813] transition-opacity duration-500" />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  Sparkles,
+  BrainCircuit,
+  Globe,
   Bot,
   Send,
   Mic,
@@ -708,7 +709,7 @@ export function ExploreAiAssistant({ onCreateRoom }: ExploreAiAssistantProps) {
 
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-              <Sparkles className="h-3.5 w-3.5" />
+              <BrainCircuit className="h-3.5 w-3.5" />
               AI Hackathon & Event Search
             </div>
             <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -722,7 +723,7 @@ export function ExploreAiAssistant({ onCreateRoom }: ExploreAiAssistantProps) {
           {/* Feature Highlights */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left pt-2">
             <div className="flex items-start gap-2.5 p-3 rounded-xl bg-card/60 border border-border/50">
-              <Sparkles className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              <Globe className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
               <div className="text-xs">
                 <span className="font-semibold text-foreground">Global & India Search:</span>
                 <span className="text-muted-foreground block">Explore Devfolio, Devpost, Unstop, & MLH events.</span>

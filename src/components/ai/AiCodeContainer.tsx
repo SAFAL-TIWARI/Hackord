@@ -15,7 +15,6 @@ import {
   Minimize2,
   Terminal,
   FileCode,
-  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 

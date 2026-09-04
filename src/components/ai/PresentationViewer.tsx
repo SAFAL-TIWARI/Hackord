@@ -10,7 +10,7 @@ import {
   Check,
   Maximize2,
   Minimize2,
-  Sparkles,
+  StickyNote,
   LayoutGrid,
   FileCode,
   Edit3,
@@ -526,7 +526,7 @@ color: #f8fafc
               {currentSlide.speakerNotes && (
                 <div className="rounded-xl border border-border/50 bg-primary/5 p-3 text-[11px] text-muted-foreground/90 space-y-1 mt-4">
                   <div className="font-semibold text-primary flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> Speaker Notes
+                    <StickyNote className="h-3 w-3" /> Speaker Notes
                   </div>
                   <p className="italic">{currentSlide.speakerNotes}</p>
                 </div>
