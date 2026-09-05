@@ -436,9 +436,12 @@ function ExplorePage() {
   const handleTriggerScrape = async () => {
     setSyncingScraper(true);
     try {
-      const res = await triggerHackathonScrape();
+      const res = await triggerHackathonScrape({ autoFeed: true });
       await loadData();
-      toast.success(res.message || "Scraped valid hackathons to JSON file! Admin approval required on Admin Panel to feed DB.");
+      toast.success(
+        res.message ||
+          "Scraped and fed latest hackathons from MLH, Luma, Devfolio, Devpost, Unstop & GDG into Explorer!"
+      );
     } catch (err: any) {
       toast.error(err.message || "Failed to trigger auto-feeding scraper");
     } finally {
@@ -672,7 +675,7 @@ function ExplorePage() {
                       ) : (
                         <Bot className="mr-1.5 h-4 w-4 text-primary" />
                       )}
-                      {syncingScraper ? "Scraping to File..." : "AI Auto-Feed"}
+                      {syncingScraper ? "Scraping & Feeding..." : "AI Auto-Feed"}
                     </Button>
                   </>
                 )}

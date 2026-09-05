@@ -43,6 +43,7 @@ import {
   triggerHackathonScrape,
   feedScrapedHackathonsToDb,
   rejectScrapedHackathon,
+  deleteAllScrapedHackathons,
   getHostRequests,
   approveHostRequest,
   deleteHostRequest,
@@ -52,6 +53,17 @@ import {
   type HostRequestSubmission,
   type ContactMessageItem,
 } from "@/lib/hackathons-api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { formatDateNumeric, formatDateTime } from "@/lib/date-utils";
 import { toast } from "sonner";
 
@@ -212,8 +224,8 @@ function AdminPage() {
   const handleTriggerScrape = async () => {
     setScraping(true);
     try {
-      const res = await triggerHackathonScrape();
-      toast.success(res.message || "Scraping complete! Data stored in JSON file.");
+      const res = await triggerHackathonScrape({ autoFeed: false });
+      toast.success(res.message || "Scraping complete! Data saved to staging file.");
       if (res.fileStatus) {
         setScrapedStatus(res.fileStatus);
       } else {
@@ -246,6 +258,29 @@ function AdminPage() {
   };
 
   const [rejectingScrapedId, setRejectingScrapedId] = useState<string | null>(null);
+  const [deletingAllScraped, setDeletingAllScraped] = useState(false);
+
+  const handleDeleteAllScraped = async () => {
+    if (!scrapedStatus || scrapedStatus.totalCount === 0) {
+      toast.error("No scraped data to delete");
+      return;
+    }
+    setDeletingAllScraped(true);
+    try {
+      const res = await deleteAllScrapedHackathons();
+      toast.success(res.message || "All scraped hackathons deleted successfully.");
+      if (res.fileStatus) {
+        setScrapedStatus(res.fileStatus);
+      } else {
+        const updatedStatus = await getScrapedFileStatus();
+        setScrapedStatus(updatedStatus);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete scraped hackathons");
+    } finally {
+      setDeletingAllScraped(false);
+    }
+  };
 
   const handleRejectScrapedHackathon = async (id: string, name?: string) => {
     if (!id) return;
@@ -489,6 +524,40 @@ function AdminPage() {
                 <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                 {feedingDb ? "Feeding to DB..." : `Feed / Merge ${scrapedStatus?.totalCount || 0} Hackathons to DB`}
               </Button>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={deletingAllScraped || !scrapedStatus?.totalCount}
+                    className="h-8 w-8 p-0 border-destructive/30 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive transition"
+                    title="Delete all scraped hackathons"
+                    aria-label="Delete all scraped hackathons"
+                  >
+                    <Trash2 className={`h-4 w-4 ${deletingAllScraped ? "animate-pulse text-destructive" : ""}`} />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                      <Trash2 className="h-5 w-5" /> Delete All Scraped Hackathons?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently clear all <strong>{scrapedStatus?.totalCount || 0}</strong> scraped hackathons from the file storage staging. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteAllScraped}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
 

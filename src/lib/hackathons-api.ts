@@ -55,17 +55,30 @@ export async function deleteHackathon(id: string): Promise<void> {
   });
 }
 
-export async function triggerHackathonScrape(): Promise<{
+export async function triggerHackathonScrape(options?: {
+  autoFeed?: boolean;
+}): Promise<{
   success: boolean;
   message: string;
   fileStatus?: ScrapedFileStatus;
+  merged?: {
+    insertedCount: number;
+    updatedCount: number;
+    totalProcessed: number;
+  };
 }> {
   return await apiFetch<{
     success: boolean;
     message: string;
     fileStatus?: ScrapedFileStatus;
+    merged?: {
+      insertedCount: number;
+      updatedCount: number;
+      totalProcessed: number;
+    };
   }>("/admin/trigger-scrape", {
     method: "POST",
+    body: JSON.stringify({ autoFeed: options?.autoFeed ?? false }),
   });
 }
 
@@ -97,6 +110,20 @@ export async function rejectScrapedHackathon(id: string): Promise<{
     message: string;
     fileStatus?: ScrapedFileStatus;
   }>(`/admin/scraped-hackathons/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function deleteAllScrapedHackathons(): Promise<{
+  success: boolean;
+  message: string;
+  fileStatus?: ScrapedFileStatus;
+}> {
+  return await apiFetch<{
+    success: boolean;
+    message: string;
+    fileStatus?: ScrapedFileStatus;
+  }>("/admin/scraped-hackathons", {
     method: "DELETE",
   });
 }
