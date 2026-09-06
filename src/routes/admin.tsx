@@ -247,9 +247,19 @@ function AdminPage() {
     setFeedingDb(true);
     try {
       const res = await feedScrapedHackathonsToDb();
-      toast.success(res.message || "Scraped hackathons successfully merged into DB!");
-      const updatedStatus = await getScrapedFileStatus();
-      setScrapedStatus(updatedStatus);
+      if (res.gitStatus?.success) {
+        toast.success(`Merged to DB & synced to GitHub (${res.gitStatus.method})!`);
+      } else if (res.gitStatus?.note) {
+        toast.success(`Merged to DB! ${res.gitStatus.note}`);
+      } else {
+        toast.success(res.message || "Scraped hackathons successfully merged into DB!");
+      }
+      setScrapedStatus({
+        exists: true,
+        totalCount: 0,
+        updatedAt: new Date().toISOString(),
+        hackathons: [],
+      });
     } catch (err: any) {
       toast.error(err.message || "Failed to feed scraped data to DB");
     } finally {
@@ -266,17 +276,24 @@ function AdminPage() {
       return;
     }
     setDeletingAllScraped(true);
+    // Optimistically clear the UI immediately
+    setScrapedStatus({
+      exists: true,
+      totalCount: 0,
+      updatedAt: new Date().toISOString(),
+      hackathons: [],
+    });
     try {
       const res = await deleteAllScrapedHackathons();
       toast.success(res.message || "All scraped hackathons deleted successfully.");
       if (res.fileStatus) {
         setScrapedStatus(res.fileStatus);
-      } else {
-        const updatedStatus = await getScrapedFileStatus();
-        setScrapedStatus(updatedStatus);
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to delete scraped hackathons");
+      // Revert if error
+      const refreshed = await getScrapedFileStatus();
+      setScrapedStatus(refreshed);
     } finally {
       setDeletingAllScraped(false);
     }
@@ -285,17 +302,29 @@ function AdminPage() {
   const handleRejectScrapedHackathon = async (id: string, name?: string) => {
     if (!id) return;
     setRejectingScrapedId(id);
+    // Optimistically remove card from state
+    setScrapedStatus((prev) =>
+      prev
+        ? {
+            ...prev,
+            totalCount: Math.max(0, prev.totalCount - 1),
+            hackathons: prev.hackathons.filter(
+              (h) => (h as any)._id !== id && (h as any).id !== id && h.platformUrl !== id
+            ),
+          }
+        : prev
+    );
     try {
       const res = await rejectScrapedHackathon(id);
-      toast.success(res.message || `Scraped hackathon "${name || "item"}" rejected & removed from file`);
+      toast.success(res.message || `Scraped hackathon "${name || "item"}" rejected & removed`);
       if (res.fileStatus) {
         setScrapedStatus(res.fileStatus);
-      } else {
-        const updatedStatus = await getScrapedFileStatus();
-        setScrapedStatus(updatedStatus);
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to reject scraped hackathon");
+      // Revert if error
+      const refreshed = await getScrapedFileStatus();
+      setScrapedStatus(refreshed);
     } finally {
       setRejectingScrapedId(null);
     }
@@ -513,7 +542,7 @@ function AdminPage() {
                 className="text-xs border-primary/30 hover:border-primary text-primary"
               >
                 <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${scraping ? "animate-spin" : ""}`} />
-                {scraping ? "Scraping Platforms..." : "Run Scraper Now (Save to File)"}
+                {scraping ? "Scraping Platforms..." : "Run Scraper"}
               </Button>
               <Button
                 disabled={feedingDb || !scrapedStatus?.totalCount}
@@ -522,7 +551,7 @@ function AdminPage() {
                 className="bg-gradient-brand text-white shadow-glow hover:opacity-90 text-xs"
               >
                 <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                {feedingDb ? "Feeding to DB..." : `Feed / Merge ${scrapedStatus?.totalCount || 0} Hackathons to DB`}
+                {feedingDb ? "Feeding to DB..." : `Feed ${scrapedStatus?.totalCount || 0} Hackathons`}
               </Button>
 
               <AlertDialog>
@@ -586,7 +615,7 @@ function AdminPage() {
               </h3>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
                 {scrapedStatus.hackathons.map((h, idx) => {
-                  const itemId = (h as any).id || h.platformUrl || `scraped-${idx}`;
+                  const itemId = (h as any)._id || (h as any).id || h.platformUrl || `scraped-${idx}`;
                   return (
                     <div key={itemId} className="rounded-xl border border-border/60 bg-card/60 p-3.5 space-y-2 text-xs flex flex-col justify-between overflow-hidden">
                       <div>

@@ -86,15 +86,26 @@ export async function getScrapedFileStatus(): Promise<ScrapedFileStatus> {
   return await apiFetch<ScrapedFileStatus>("/admin/scraped-file-status");
 }
 
+export type GitSyncStatus = {
+  success: boolean;
+  method?: string;
+  commitSha?: string;
+  commitUrl?: string;
+  note?: string;
+  error?: string;
+};
+
 export async function feedScrapedHackathonsToDb(): Promise<{
   success: boolean;
   message: string;
   hackathonsCount: number;
+  gitStatus?: GitSyncStatus;
 }> {
   return await apiFetch<{
     success: boolean;
     message: string;
     hackathonsCount: number;
+    gitStatus?: GitSyncStatus;
   }>("/admin/feed-scraped-hackathons", {
     method: "POST",
   });
@@ -109,8 +120,9 @@ export async function rejectScrapedHackathon(id: string): Promise<{
     success: boolean;
     message: string;
     fileStatus?: ScrapedFileStatus;
-  }>(`/admin/scraped-hackathons/${encodeURIComponent(id)}`, {
-    method: "DELETE",
+  }>("/admin/scraped-hackathons/reject", {
+    method: "POST",
+    body: JSON.stringify({ id }),
   });
 }
 
