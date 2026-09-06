@@ -4084,19 +4084,7 @@ function GithubTab({
                 <h2 className="text-lg sm:text-xl font-bold tracking-tight truncate max-w-full">
                   {data?.repoInfo.full_name || parsedCurrent?.fullRepoName || "Repository"}
                 </h2>
-                {data?.isRateLimited ? (
-                  <Badge variant="outline" className="gap-1.5 bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px] sm:text-[11px] font-medium">
-                    <Clock className="h-3 w-3 text-amber-400" /> Cached (API Paused)
-                  </Badge>
-                ) : data ? (
-                  <Badge variant="outline" className="gap-1.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] sm:text-[11px] font-medium">
-                    <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-500 animate-pulse" /> Live Synced
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-muted-foreground text-[10px] sm:text-[11px]">
-                    Not connected
-                  </Badge>
-                )}
+               
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1 max-w-xl">
                 {data?.repoInfo.description || (parsedCurrent ? `Live repository stats for ${parsedCurrent.fullRepoName}` : "Connect a GitHub repository to track real-time commits, open PRs, issues, and team contributors.")}
