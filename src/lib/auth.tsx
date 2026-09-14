@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { apiFetch, ApiError } from "./api";
+import type { CustomSocialLink } from "./socialLinkDetector";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -25,10 +26,17 @@ export type AuthUser = {
   skills: string[];
   github: string;
   linkedin: string;
+  discord?: string;
   portfolio: string;
+  customLinks?: CustomSocialLink[];
   completedHackathons: { name: string; result: string }[];
   createdAt: string;
   updatedAt: string;
+  googleId?: string;
+  githubId?: string;
+  discordId?: string;
+  microsoftId?: string;
+  redditId?: string;
 };
 
 type AuthContextType = {
@@ -40,6 +48,9 @@ type AuthContextType = {
   signup: (name: string, email: string, password: string) => Promise<void>;
   googleLogin: (credential: string) => Promise<{ isNewUser?: boolean }>;
   githubLogin: (code: string) => Promise<{ isNewUser?: boolean }>;
+  discordLogin: (code: string, redirectUri: string) => Promise<{ isNewUser?: boolean }>;
+  microsoftLogin: (code: string, redirectUri: string) => Promise<{ isNewUser?: boolean }>;
+  redditLogin: (code: string, redirectUri: string) => Promise<{ isNewUser?: boolean }>;
   requestOtp: (email: string) => Promise<{ success: boolean; message: string }>;
   verifyOtp: (email: string, otp: string) => Promise<{ isNewUser?: boolean }>;
   signupRequestOtp: (name: string, email: string, password: string) => Promise<{ success: boolean; message: string }>;
@@ -174,6 +185,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { isNewUser: data.isNewUser };
   };
 
+  const discordLogin = async (code: string, redirectUri: string): Promise<{ isNewUser?: boolean }> => {
+    const data = await apiFetch<{ token: string; user: AuthUser; isNewUser?: boolean }>("/auth/discord", {
+      method: "POST",
+      body: JSON.stringify({ code, redirectUri }),
+    });
+    setToken(data.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hackord_user", JSON.stringify(data.user));
+    }
+    setUser(data.user);
+    return { isNewUser: data.isNewUser };
+  };
+
+  const microsoftLogin = async (code: string, redirectUri: string): Promise<{ isNewUser?: boolean }> => {
+    const data = await apiFetch<{ token: string; user: AuthUser; isNewUser?: boolean }>("/auth/microsoft", {
+      method: "POST",
+      body: JSON.stringify({ code, redirectUri }),
+    });
+    setToken(data.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hackord_user", JSON.stringify(data.user));
+    }
+    setUser(data.user);
+    return { isNewUser: data.isNewUser };
+  };
+
+  const redditLogin = async (code: string, redirectUri: string): Promise<{ isNewUser?: boolean }> => {
+    const data = await apiFetch<{ token: string; user: AuthUser; isNewUser?: boolean }>("/auth/reddit", {
+      method: "POST",
+      body: JSON.stringify({ code, redirectUri }),
+    });
+    setToken(data.token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hackord_user", JSON.stringify(data.user));
+    }
+    setUser(data.user);
+    return { isNewUser: data.isNewUser };
+  };
+
   const requestOtp = async (email: string) => {
     return await apiFetch<{ success: boolean; message: string }>("/auth/request-otp", {
       method: "POST",
@@ -258,6 +308,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         googleLogin,
         githubLogin,
+        discordLogin,
+        microsoftLogin,
+        redditLogin,
         requestOtp,
         verifyOtp,
         signupRequestOtp,

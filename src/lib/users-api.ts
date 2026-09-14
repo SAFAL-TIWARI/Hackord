@@ -1,4 +1,5 @@
 import { apiFetch } from "./api";
+import type { CustomSocialLink } from "./socialLinkDetector";
 
 export type DbUser = {
   _id: string;
@@ -14,7 +15,9 @@ export type DbUser = {
   skills: string[];
   github?: string;
   linkedin?: string;
+  discord?: string;
   portfolio?: string;
+  customLinks?: CustomSocialLink[];
   completedHackathons?: {
     name?: string;
     result?: string;

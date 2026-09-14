@@ -9,6 +9,9 @@ import { useAuth } from "@/lib/auth";
 import { AuthShell } from "./login";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { GitHubAuthButton } from "@/components/GitHubAuthButton";
+import { DiscordAuthButton } from "@/components/DiscordAuthButton";
+import { MicrosoftAuthButton } from "@/components/MicrosoftAuthButton";
+// import { RedditAuthButton } from "@/components/RedditAuthButton";
 import {
   InputOTP,
   InputOTPGroup,
@@ -274,9 +277,12 @@ function SignupPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
         <GoogleAuthButton mode="signup" />
         <GitHubAuthButton mode="signup" />
+        <DiscordAuthButton mode="signup" />
+        <MicrosoftAuthButton mode="signup" />
+        {/* <RedditAuthButton mode="signup" /> */}
       </div>
 
       <p className="mt-5 text-center text-sm text-muted-foreground">

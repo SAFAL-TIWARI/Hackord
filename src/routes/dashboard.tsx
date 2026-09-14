@@ -442,12 +442,6 @@ function DashboardPage() {
                     <div className={`mt-3 text-3xl font-semibold ${s.pulse && s.value > 0 ? "text-emerald-400" : ""}`}>
                       {s.value}
                     </div>
-                    {s.pulse && s.value > 0 && (
-                      <p className="mt-1 text-xs text-emerald-400/70 flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-                        Live
-                      </p>
-                    )}
                   </SpotlightCard>
                 ))}
               </div>

@@ -86,7 +86,7 @@ export function GoogleAuthButton({ mode = "login" }: GoogleAuthButtonProps) {
         toast.success("Welcome to Hackord! Let's complete your profile.");
         navigate({ to: "/profile-setup" });
       } else {
-        toast.success("Successfully logged in with Google!");
+        toast.success("Successfully logged in with Google! Profile details synced.");
         navigate({ to: "/dashboard" });
       }
     } catch (err: any) {

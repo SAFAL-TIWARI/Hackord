@@ -9,6 +9,9 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { GitHubAuthButton } from "@/components/GitHubAuthButton";
+import { DiscordAuthButton } from "@/components/DiscordAuthButton";
+import { MicrosoftAuthButton } from "@/components/MicrosoftAuthButton";
+// import { RedditAuthButton } from "@/components/RedditAuthButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   InputOTP,
@@ -513,9 +516,12 @@ function LoginPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
         <GoogleAuthButton mode="login" />
         <GitHubAuthButton mode="login" />
+        <DiscordAuthButton mode="login" />
+        <MicrosoftAuthButton mode="login" />
+        {/* <RedditAuthButton mode="login" /> */}
       </div>
 
       <p className="mt-5 text-center text-sm text-muted-foreground">

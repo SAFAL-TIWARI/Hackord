@@ -16,7 +16,9 @@ import {
   Loader2,
   X,
   Users,
+  ExternalLink,
 } from "lucide-react";
+import { detectSocialPlatform, type CustomSocialLink } from "@/lib/socialLinkDetector";
 import { AppShell } from "@/components/AppShell";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +58,9 @@ export type UserProfile = {
   skills: string[];
   github: string;
   linkedin: string;
+  discord?: string;
   portfolio: string;
+  customLinks?: CustomSocialLink[];
   bio: string;
   experience: "Beginner" | "Intermediate" | "Advanced";
   completedHackathons: { name: string; result: string }[];
@@ -90,7 +94,9 @@ function ProfilePage() {
         skills: [],
         github: "",
         linkedin: "",
+        discord: "",
         portfolio: "",
+        customLinks: [],
         bio: "",
         experience: "Beginner",
         completedHackathons: [],
@@ -108,7 +114,9 @@ function ProfilePage() {
       skills: user.skills || [],
       github: user.github || "",
       linkedin: user.linkedin || "",
+      discord: (user as any).discord || "",
       portfolio: user.portfolio || "",
+      customLinks: (user as any).customLinks || [],
       bio: user.bio || "",
       experience: (user.experience as any) || "Beginner",
       completedHackathons: user.completedHackathons || [],
@@ -179,7 +187,9 @@ function ProfilePage() {
         skills: editForm.skills,
         github: editForm.github,
         linkedin: editForm.linkedin,
+        discord: editForm.discord || "",
         portfolio: editForm.portfolio,
+        customLinks: editForm.customLinks || [],
         completedHackathons: editForm.completedHackathons,
       });
       setEditOpen(false);
@@ -193,11 +203,42 @@ function ProfilePage() {
 
   const toggleSkill = (skill: string) => {
     setEditForm((prev) => {
-      const skills = prev.skills.includes(skill)
-        ? prev.skills.filter((s) => s !== skill)
-        : [...prev.skills, skill];
-      return { ...prev, skills };
+      const exists = prev.skills.includes(skill);
+      return {
+        ...prev,
+        skills: exists ? prev.skills.filter((s) => s !== skill) : [...prev.skills, skill],
+      };
     });
+  };
+
+  const addCustomLink = () => {
+    setEditForm((prev) => ({
+      ...prev,
+      customLinks: [...(prev.customLinks || []), { platform: "", title: "", url: "" }],
+    }));
+  };
+
+  const updateCustomLink = (index: number, field: "url" | "title", value: string) => {
+    setEditForm((prev) => {
+      const links = [...(prev.customLinks || [])];
+      const current = { ...links[index], [field]: value };
+      if (field === "url" && !current.title) {
+        const detected = detectSocialPlatform(value);
+        if (value.trim()) {
+          current.platform = detected.platform;
+          current.title = detected.title;
+        }
+      }
+      links[index] = current;
+      return { ...prev, customLinks: links };
+    });
+  };
+
+  const removeCustomLink = (index: number) => {
+    setEditForm((prev) => ({
+      ...prev,
+      customLinks: (prev.customLinks || []).filter((_, i) => i !== index),
+    }));
   };
 
   const addHackathon = () => {
@@ -219,54 +260,6 @@ function ProfilePage() {
       completedHackathons: prev.completedHackathons.filter((_, i) => i !== index),
     }));
   };
-
-  if (authLoading) {
-    return (
-      <AppShell>
-        <div className="mx-auto max-w-5xl space-y-6">
-          <section className="glass-strong overflow-hidden rounded-2xl p-6 shadow-card sm:p-8 space-y-4">
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-              <Skeleton className="h-24 w-24 rounded-full shrink-0" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-7 w-48" />
-                <Skeleton className="h-4 w-32" />
-                <div className="mt-3 flex gap-3">
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-4 w-32" />
-                </div>
-              </div>
-              <Skeleton className="h-10 w-28 rounded-lg" />
-            </div>
-            <Skeleton className="h-4 w-full max-w-2xl" />
-          </section>
-          <div className="grid gap-6 lg:grid-cols-3">
-            <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2 space-y-6">
-              <div className="space-y-3">
-                <Skeleton className="h-5 w-24" />
-                <div className="flex gap-2">
-                  <Skeleton className="h-6 w-16 rounded-full" />
-                  <Skeleton className="h-6 w-20 rounded-full" />
-                  <Skeleton className="h-6 w-24 rounded-full" />
-                </div>
-              </div>
-              <div className="space-y-3">
-                <Skeleton className="h-5 w-32" />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Skeleton className="h-20 rounded-xl" />
-                  <Skeleton className="h-20 rounded-xl" />
-                </div>
-              </div>
-            </section>
-            <section className="glass rounded-2xl p-6 shadow-card space-y-4">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-4 w-36" />
-            </section>
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
 
   const avatarSrc = profile.avatar || `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(profile.name)}`;
   const initials = profile.name
@@ -395,8 +388,21 @@ function ProfilePage() {
           </section>
 
           <section className="glass rounded-2xl p-6 shadow-card space-y-4">
-            <h2 className="text-lg font-semibold">Social & Links</h2>
-            <ul className="space-y-3.5 text-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Social & Links</h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleOpenEdit}
+                className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary cursor-pointer"
+                title="Add / Edit Links"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add</span>
+              </Button>
+            </div>
+            <ul className="space-y-3.5 text-sm max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
               {profile.github ? (
                 <li>
                   <a
@@ -429,6 +435,28 @@ function ProfilePage() {
                   <Linkedin className="h-4 w-4" /> LinkedIn not added
                 </li>
               )}
+              {profile.discord ? (
+                <li>
+                  <a
+                    className="inline-flex items-center gap-2.5 hover:text-foreground text-muted-foreground transition"
+                    href={profile.discord.startsWith("http") ? profile.discord : `https://discord.com/users/${profile.discord}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <svg className="h-4 w-4 text-[#5865F2] fill-current" viewBox="0 0 24 24">
+                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+                    </svg>
+                    Discord Profile
+                  </a>
+                </li>
+              ) : (
+                <li className="text-xs text-muted-foreground flex items-center gap-2">
+                  <svg className="h-4 w-4 fill-current opacity-60" viewBox="0 0 24 24">
+                    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+                  </svg>
+                  Discord not added
+                </li>
+              )}
               {profile.portfolio ? (
                 <li>
                   <a
@@ -445,6 +473,28 @@ function ProfilePage() {
                   <Globe className="h-4 w-4" /> Portfolio not added
                 </li>
               )}
+
+              {/* Additional Auto-Detected Custom Links */}
+              {profile.customLinks && profile.customLinks.map((item, idx) => {
+                if (!item.url) return null;
+                const detected = detectSocialPlatform(item.url);
+                const displayTitle = item.title?.trim() || detected.title;
+                const formattedUrl = item.url.startsWith("http") ? item.url : `https://${item.url}`;
+                return (
+                  <li key={idx}>
+                    <a
+                      className="inline-flex items-center gap-2.5 hover:text-foreground text-muted-foreground transition group"
+                      href={formattedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {detected.renderIcon("h-4 w-4 group-hover:scale-110 transition-transform")}
+                      <span className="truncate max-w-[170px]">{displayTitle}</span>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto opacity-70 group-hover:opacity-100 transition-opacity" />
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         </div>
@@ -581,6 +631,13 @@ function ProfilePage() {
                   placeholder="https://linkedin.com/in/you"
                 />
               </Field>
+              <Field label="Discord Profile / Tag">
+                <Input
+                  value={editForm.discord || ""}
+                  onChange={(e) => setEditForm({ ...editForm, discord: e.target.value })}
+                  placeholder="https://discord.com/users/your-id or username"
+                />
+              </Field>
               <Field label="Portfolio URL">
                 <Input
                   value={editForm.portfolio}
@@ -588,6 +645,79 @@ function ProfilePage() {
                   placeholder="https://you.dev"
                 />
               </Field>
+            </div>
+
+            {/* Additional Custom Social & Media Links */}
+            <div className="space-y-3 pt-2 border-t border-border/40">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5 text-primary" /> Additional Links & Platforms
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Add YouTube, LeetCode, Unstop, HackerRank, Devpost, Devfolio, Luma, X, Instagram & more.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={addCustomLink}
+                  className="h-7 text-xs gap-1.5 cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Link</span>
+                </Button>
+              </div>
+
+              {(!editForm.customLinks || editForm.customLinks.length === 0) ? null : (
+                <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1.5 custom-scrollbar">
+                  {editForm.customLinks.map((item, idx) => {
+                    const detected = detectSocialPlatform(item.url);
+                    return (
+                      <div
+                        key={idx}
+                        className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 rounded-xl border border-border/60 bg-card/50 p-2.5"
+                      >
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className={`flex h-8 w-8 items-center justify-center rounded-lg border ${detected.borderColor} ${detected.bgColor}`}>
+                            {detected.renderIcon("h-4 w-4")}
+                          </div>
+                          <span className="text-xs font-medium text-muted-foreground sm:hidden">
+                            {detected.title}
+                          </span>
+                        </div>
+
+                        <div className="flex-1 w-full sm:w-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Input
+                            placeholder="https://youtube.com/@channel or url"
+                            value={item.url}
+                            onChange={(e) => updateCustomLink(idx, "url", e.target.value)}
+                            className="text-xs h-8"
+                          />
+                          <Input
+                            placeholder={detected.title}
+                            value={item.title || ""}
+                            onChange={(e) => updateCustomLink(idx, "title", e.target.value)}
+                            className="text-xs h-8"
+                          />
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeCustomLink(idx)}
+                          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive cursor-pointer ml-auto sm:ml-0"
+                          title="Remove Link"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Completed Hackathons Manager */}

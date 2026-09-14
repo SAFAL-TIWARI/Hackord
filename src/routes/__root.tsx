@@ -13,6 +13,7 @@ import { AuthProvider } from "@/lib/auth";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import { Loader2 } from "lucide-react";
 
 import { NotFoundPage } from "@/components/NotFoundPage";
 
@@ -230,9 +231,51 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const [mounted, setMounted] = useState(false);
 
+  // Detect immediately if this window is an OAuth popup callback
+  const [isOAuthPopup] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const isOpener = !!window.opener;
+    const hasCode = new URLSearchParams(window.location.search).has("code");
+    return isOpener && hasCode;
+  });
+
   useEffect(() => {
     setMounted(true);
-  }, []);
+
+    // If opened inside an OAuth popup window, notify opener and close
+    if (isOAuthPopup) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get("code");
+        const state = urlParams.get("state");
+        if (code && window.opener) {
+          window.opener.postMessage(
+            { type: "HACKORD_OAUTH_CALLBACK", code, state },
+            window.location.origin
+          );
+          setTimeout(() => {
+            try {
+              window.close();
+            } catch (e) {}
+          }, 150);
+        }
+      } catch (e) {
+        console.error("[OAuthPopup] Error communicating with opener:", e);
+      }
+    }
+  }, [isOAuthPopup]);
+
+  // Isolate popup window: do not mount app routes or buttons to prevent duplicate code exchange
+  if (isOAuthPopup) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background text-foreground">
+        <div className="text-center space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-sm font-medium text-muted-foreground">Completing sign in...</p>
+        </div>
+      </div>
+    );
+  }
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
