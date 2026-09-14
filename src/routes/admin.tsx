@@ -631,6 +631,20 @@ function AdminPage() {
                             <Badge variant="outline" className="text-[9px] font-bold text-white bg-black/60 border-white/20 backdrop-blur-md">
                               {h.platform || "Platform"}
                             </Badge>
+                            {h.level && (
+                              <Badge
+                                variant="outline"
+                                className={`text-[9px] font-bold backdrop-blur-md ${
+                                  h.level === "State"
+                                    ? "bg-amber-500/80 text-amber-100 border-amber-400/40"
+                                    : h.level === "National"
+                                    ? "bg-emerald-500/80 text-emerald-100 border-emerald-400/40"
+                                    : "bg-blue-500/80 text-blue-100 border-blue-400/40"
+                                }`}
+                              >
+                                {h.level}
+                              </Badge>
+                            )}
                           </div>
                         </div>
 
