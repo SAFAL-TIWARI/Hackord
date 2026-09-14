@@ -220,6 +220,7 @@ function HackathonCard({
   isAdmin?: boolean;
   onDelete?: (id: string, name: string) => void;
 }) {
+  const [imgError, setImgError] = useState(false);
   const regDays = daysUntil(hackathon.registrationDeadline);
   const isMini =
     hackathon.hackathonType === "Mini Hackathon" ||
@@ -232,13 +233,24 @@ function HackathonCard({
   return (
     <div className="group glass rounded-2xl shadow-card flex flex-col overflow-hidden transition hover:-translate-y-0.5">
       {/* Banner */}
-      <div className="relative h-36 overflow-hidden bg-gradient-to-br from-primary/20 to-purple-900/40">
-        <img
-          src={hackathon.banner || "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&q=80"}
-          alt={hackathon.name}
-          className="h-full w-full object-cover opacity-70 transition group-hover:opacity-90 group-hover:scale-105"
-          loading="lazy"
-        />
+      <div className="relative h-36 overflow-hidden bg-gradient-to-br from-primary/20 via-purple-950/40 to-black/60">
+        {hackathon.banner && !imgError ? (
+          <img
+            src={hackathon.banner}
+            alt={hackathon.name}
+            className="h-full w-full object-cover opacity-95 transition-transform duration-300 group-hover:opacity-100 group-hover:scale-105"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/30 via-indigo-900/30 to-purple-950/50 p-4">
+            <span className="text-xs font-semibold text-primary/80 uppercase tracking-wider text-center line-clamp-2">
+              {hackathon.name}
+            </span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-black/50 pointer-events-none" />
         <div className="absolute inset-0 flex items-start justify-between p-3">
           <div className="flex flex-wrap items-center gap-1.5">
             {isMini && (
