@@ -68,6 +68,11 @@ export type DbRoom = {
   max_size: number;
   status: "Active" | "Planning" | "Submission";
   progress: number;
+  hackathon_type?: "Hackathon" | "Mini Hackathon";
+  duration?: string;
+  venue?: string;
+  schedule?: string;
+  submission_checklist?: string[];
   deadline_registration: string;
   deadline_ppt: string;
   deadline_prototype: string;
@@ -210,6 +215,11 @@ export async function createRoom(params: {
   data: {
     id?: string;
     hackathon: string;
+    hackathonType?: "Hackathon" | "Mini Hackathon";
+    duration?: string;
+    venue?: string;
+    schedule?: string;
+    submissionChecklist?: string[];
     name: string;
     problem?: string;
     description?: string;
@@ -639,6 +649,17 @@ function createRoomLocally(data: any): DbRoom {
     max_size: data.maxSize || 6,
     status: "Planning",
     progress: 0,
+    hackathon_type: data.hackathonType || data.hackathon_type || "Hackathon",
+    duration: data.duration || "",
+    venue: data.venue || "",
+    schedule: data.schedule || "",
+    submission_checklist: Array.isArray(data.submissionChecklist)
+      ? data.submissionChecklist
+      : Array.isArray(data.submission_checklist)
+      ? data.submission_checklist
+      : typeof data.submissionChecklist === "string"
+      ? data.submissionChecklist.split("\n").map((s: string) => s.trim()).filter(Boolean)
+      : [],
     deadline_registration: data.deadlineRegistration || "",
     deadline_ppt: data.deadlinePpt || "",
     deadline_prototype: data.deadlinePrototype || "",

@@ -20,6 +20,10 @@ import {
   LifeBuoy,
   MessageCircle,
   Code2,
+  Zap,
+  Clock,
+  ListChecks,
+  Sparkles,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
@@ -32,6 +36,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { submitHostHackathonRequest, sendContactMessage } from "@/lib/hackathons-api";
 import { toast } from "sonner";
+import {
+  DEFAULT_MINI_HACKATHON_SCHEDULE,
+  DEFAULT_MINI_HACKATHON_CHECKLIST,
+  SINGLE_MINI_HACKATHON_PRESET,
+} from "@/lib/mini-hackathon-presets";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -79,6 +88,11 @@ function ContactPage() {
     banner: "",
     prizePool: "₹1 Lakh Cash & Prizes",
     prizePoolUSD: "1200",
+    hackathonType: "Hackathon" as "Hackathon" | "Mini Hackathon",
+    duration: "6 hours",
+    venue: "DevHub Tech Park, Bengaluru",
+    schedule: DEFAULT_MINI_HACKATHON_SCHEDULE,
+    submissionChecklist: DEFAULT_MINI_HACKATHON_CHECKLIST,
     mode: "Online" as "Online" | "Offline" | "Hybrid",
     level: "National" as "State" | "National" | "Global",
     registrationDeadline: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
@@ -91,6 +105,30 @@ function ContactPage() {
     platformUrl: "",
     description: "",
   });
+
+  // Load single demo preset for 1-day sprint hosting
+  const loadSingleHostPreset = () => {
+    const preset = SINGLE_MINI_HACKATHON_PRESET;
+    const todayStr = new Date().toISOString().split("T")[0];
+    setHostForm((prev) => ({
+      ...prev,
+      hackathonType: "Mini Hackathon",
+      name: preset.name,
+      organizer: prev.organizer || preset.organizer,
+      duration: preset.duration,
+      venue: preset.venue,
+      mode: preset.mode,
+      schedule: preset.schedule,
+      submissionChecklist: preset.submissionChecklist.join("\n"),
+      registrationDeadline: todayStr,
+      submissionDeadline: todayStr,
+      resultDate: todayStr,
+      tags: preset.tags.join(", "),
+      prizePool: preset.prizePool,
+      prizePoolUSD: String(preset.prizePoolUSD),
+      description: preset.description,
+    }));
+  };
 
   // Auto fill user details when user is loaded
   useEffect(() => {
@@ -149,6 +187,12 @@ function ContactPage() {
 
     setHostSubmitting(true);
     try {
+      const rawTags = hostForm.tags.split(",").map((t) => t.trim()).filter(Boolean);
+      if (hostForm.hackathonType === "Mini Hackathon") {
+        if (!rawTags.includes("Mini Hackathon")) rawTags.unshift("Mini Hackathon");
+        if (!rawTags.includes("1-Day Hackathon")) rawTags.splice(1, 0, "1-Day Hackathon");
+      }
+
       const res = await submitHostHackathonRequest({
         name: hostForm.name.trim(),
         organizer: hostForm.organizer.trim(),
@@ -158,11 +202,18 @@ function ContactPage() {
         prizePoolUSD: Number(hostForm.prizePoolUSD) || 0,
         mode: hostForm.mode,
         level: hostForm.level,
+        hackathonType: hostForm.hackathonType,
+        duration: hostForm.hackathonType === "Mini Hackathon" ? hostForm.duration : "",
+        venue: hostForm.hackathonType === "Mini Hackathon" ? hostForm.venue : "",
+        schedule: hostForm.hackathonType === "Mini Hackathon" ? hostForm.schedule : "",
+        submissionChecklist: hostForm.hackathonType === "Mini Hackathon"
+          ? hostForm.submissionChecklist.split("\n").map((s) => s.trim()).filter(Boolean)
+          : [],
         registrationDeadline: hostForm.registrationDeadline,
         submissionDeadline: hostForm.submissionDeadline,
         resultDate: hostForm.resultDate,
         teamSize: { min: Number(hostForm.teamMin) || 1, max: Number(hostForm.teamMax) || 4 },
-        tags: hostForm.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        tags: rawTags,
         platform: hostForm.platform.trim() || "Community Host",
         platformUrl: hostForm.platformUrl.trim(),
         description: hostForm.description.trim(),
@@ -412,6 +463,11 @@ function ContactPage() {
                     banner: "",
                     prizePool: "₹1 Lakh Cash & Prizes",
                     prizePoolUSD: "1200",
+                    hackathonType: "Hackathon",
+                    duration: "6 hours",
+                    venue: "DevHub Tech Park, Bengaluru",
+                    schedule: DEFAULT_MINI_HACKATHON_SCHEDULE,
+                    submissionChecklist: DEFAULT_MINI_HACKATHON_CHECKLIST,
                     mode: "Online",
                     level: "National",
                     registrationDeadline: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
@@ -433,12 +489,64 @@ function ContactPage() {
             </div>
           ) : (
             <form onSubmit={handleHostSubmit} className="space-y-6">
+              {/* ─── EVENT FORMAT DROPDOWN ─── */}
+              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5 text-primary">
+                    <Trophy className="h-4 w-4" />
+                    Hackathon Hosting Format *
+                  </Label>
+                  <span className="text-[11px] text-muted-foreground">
+                    Select &quot;Mini Hackathon&quot; for 1-day sprint events with live schedule &amp; checklist
+                  </span>
+                </div>
+                <Select
+                  value={hostForm.hackathonType}
+                  onValueChange={(val: "Hackathon" | "Mini Hackathon") => {
+                    if (val === "Mini Hackathon") {
+                      loadSingleHostPreset();
+                    } else {
+                      setHostForm((prev) => ({
+                        ...prev,
+                        hackathonType: val,
+                        registrationDeadline: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
+                        submissionDeadline: new Date(Date.now() + 28 * 86400000).toISOString().split("T")[0],
+                      }));
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full bg-background font-medium">
+                    <SelectValue placeholder="Select Event Format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Hackathon">
+                      <div className="flex items-center gap-2">
+                        <Trophy className="h-4 w-4 text-primary" />
+                        <span>Hackathon (Standard Multi-Day / Multi-Week Event)</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Mini Hackathon">
+                      <div className="flex items-center gap-2 font-medium">
+                        <Zap className="h-4 w-4 text-primary" />
+                        <span>Mini Hackathon (1-Day Event / Rapid Sprint)</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="hName" className="text-xs font-semibold">Hackathon Title *</Label>
+                  <Label htmlFor="hName" className="text-xs font-semibold">
+                    {hostForm.hackathonType === "Mini Hackathon" ? "Mini Hackathon Title *" : "Hackathon Title *"}
+                  </Label>
                   <Input
                     id="hName"
-                    placeholder="e.g. Global AI Innovators Hackathon"
+                    placeholder={
+                      hostForm.hackathonType === "Mini Hackathon"
+                        ? "e.g. AI Agents Flash Sprint 2026"
+                        : "e.g. Global AI Innovators Hackathon"
+                    }
                     value={hostForm.name}
                     onChange={(e) => setHostForm({ ...hostForm, name: e.target.value })}
                     required
@@ -449,7 +557,7 @@ function ContactPage() {
                   <Label htmlFor="hOrganizer" className="text-xs font-semibold">Organizer / Organization *</Label>
                   <Input
                     id="hOrganizer"
-                    placeholder="e.g. Acme Tech Club / DevCorp"
+                    placeholder="e.g. Antigravity AI Collective / Tech Club"
                     value={hostForm.organizer}
                     onChange={(e) => setHostForm({ ...hostForm, organizer: e.target.value })}
                     required
@@ -486,7 +594,7 @@ function ContactPage() {
                   <Label htmlFor="hPrizePool" className="text-xs font-semibold">Prize Pool Text</Label>
                   <Input
                     id="hPrizePool"
-                    placeholder="₹2 Lakhs & Certificates"
+                    placeholder={hostForm.hackathonType === "Mini Hackathon" ? "₹50,000 + Swags" : "₹2 Lakhs & Certificates"}
                     value={hostForm.prizePool}
                     onChange={(e) => setHostForm({ ...hostForm, prizePool: e.target.value })}
                   />
@@ -527,29 +635,145 @@ function ContactPage() {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="hRegDate" className="text-xs font-semibold">Registration Deadline *</Label>
-                  <Input
-                    id="hRegDate"
-                    type="date"
-                    value={hostForm.registrationDeadline}
-                    onChange={(e) => setHostForm({ ...hostForm, registrationDeadline: e.target.value })}
-                    required
-                  />
-                </div>
+              {/* ─── DEDICATED MINI HACKATHON FIELDS (When Mini Hackathon Selected) ─── */}
+              {hostForm.hackathonType === "Mini Hackathon" ? (
+                <div className="space-y-4 rounded-2xl border border-border bg-card/40 p-4 sm:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2.5">
+                    <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
+                      <Zap className="h-4 w-4 text-primary" />
+                      <span>1-Day Mini Hackathon Details (Rapid Sprint)</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                      Single-Day Event
+                    </Badge>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="hSubDate" className="text-xs font-semibold">Submission Deadline *</Label>
-                  <Input
-                    id="hSubDate"
-                    type="date"
-                    value={hostForm.submissionDeadline}
-                    onChange={(e) => setHostForm({ ...hostForm, submissionDeadline: e.target.value })}
-                    required
-                  />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="hEventDate" className="text-xs font-semibold flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                        Event Date (1-Day) *
+                      </Label>
+                      <Input
+                        id="hEventDate"
+                        type="date"
+                        value={hostForm.submissionDeadline}
+                        onChange={(e) =>
+                          setHostForm({
+                            ...hostForm,
+                            registrationDeadline: e.target.value,
+                            submissionDeadline: e.target.value,
+                            resultDate: e.target.value,
+                          })
+                        }
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="hDuration" className="text-xs font-semibold flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                        Duration *
+                      </Label>
+                      <Input
+                        id="hDuration"
+                        placeholder="e.g. 6 hours"
+                        value={hostForm.duration}
+                        onChange={(e) => setHostForm({ ...hostForm, duration: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="hVenue" className="text-xs font-semibold flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      Venue / Physical Location (or Online Link)
+                    </Label>
+                    <Input
+                      id="hVenue"
+                      placeholder="e.g. DevHub Tech Park, Bengaluru (or Online Discord)"
+                      value={hostForm.venue}
+                      onChange={(e) => setHostForm({ ...hostForm, venue: e.target.value })}
+                    />
+                  </div>
+
+                  {/* Schedule Editor */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="hSchedule" className="text-xs font-semibold flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                        1-Day Schedule
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() => setHostForm({ ...hostForm, schedule: DEFAULT_MINI_HACKATHON_SCHEDULE })}
+                        className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        Reset Sprint Schedule
+                      </button>
+                    </div>
+                    <Textarea
+                      id="hSchedule"
+                      rows={6}
+                      value={hostForm.schedule}
+                      onChange={(e) => setHostForm({ ...hostForm, schedule: e.target.value })}
+                      placeholder="09:00 AM – 09:30 AM | Check-in..."
+                      className="font-mono text-xs"
+                    />
+                  </div>
+
+                  {/* Submission Checklist */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="hChecklist" className="text-xs font-semibold flex items-center gap-1">
+                        <ListChecks className="h-3.5 w-3.5 text-muted-foreground" />
+                        Submission Checklist
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() => setHostForm({ ...hostForm, submissionChecklist: DEFAULT_MINI_HACKATHON_CHECKLIST })}
+                        className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        Reset Sprint Checklist
+                      </button>
+                    </div>
+                    <Textarea
+                      id="hChecklist"
+                      rows={5}
+                      value={hostForm.submissionChecklist}
+                      onChange={(e) => setHostForm({ ...hostForm, submissionChecklist: e.target.value })}
+                      placeholder="1. Project name&#10;2. Problem statement..."
+                      className="font-mono text-xs"
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* ─── STANDARD MULTI-DAY DEADLINES ─── */
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="hRegDate" className="text-xs font-semibold">Registration Deadline *</Label>
+                    <Input
+                      id="hRegDate"
+                      type="date"
+                      value={hostForm.registrationDeadline}
+                      onChange={(e) => setHostForm({ ...hostForm, registrationDeadline: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="hSubDate" className="text-xs font-semibold">Submission Deadline *</Label>
+                    <Input
+                      id="hSubDate"
+                      type="date"
+                      value={hostForm.submissionDeadline}
+                      onChange={(e) => setHostForm({ ...hostForm, submissionDeadline: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -596,7 +820,10 @@ function ContactPage() {
                   </>
                 ) : (
                   <>
-                    <Send className="mr-2 h-4 w-4" /> Submit Hackathon for Approval
+                    <Send className="mr-2 h-4 w-4" />{" "}
+                    {hostForm.hackathonType === "Mini Hackathon"
+                      ? "Submit Mini Hackathon for Approval"
+                      : "Submit Hackathon for Approval"}
                   </>
                 )}
               </Button>

@@ -25,6 +25,11 @@ export type HostRequestSubmission = {
   tags?: string[];
   platform?: string;
   platformUrl?: string;
+  hackathonType?: "Hackathon" | "Mini Hackathon";
+  duration?: string;
+  venue?: string;
+  schedule?: string;
+  submissionChecklist?: string[];
   description: string;
   status: "pending" | "approved" | "rejected";
   createdAt: string;

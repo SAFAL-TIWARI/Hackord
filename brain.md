@@ -142,7 +142,13 @@ The `AuthProvider` context manages authenticated state across the application:
 - `HomeNavbar.tsx` & `HomeFooter.tsx`: Public landing page navigation and footer.
 - `NotificationsDrawer.tsx`: Slide-over drawer displaying pending room invites with instant Accept/Reject actions.
 - `UserProfileModal.tsx`: Modal displaying a user's skills, experience, college, GitHub/LinkedIn links, and direct invite button.
-- `CreateRoomModal.tsx` & `QuickCreateRoomModal.tsx`: Dialogs for creating new hackathon workspaces.
+- `CreateRoomModal.tsx` & `QuickCreateRoomModal.tsx`: Dialogs for creating new hackathon workspaces with support for **Standard Hackathon** and **⚡ Mini Hackathon (1-Day Event)** format dropdown, auto-filling MLH-spec timeline schedule, duration, venue, and 7-item submission checklist.
+
+### ⚡ Mini Hackathon (1-Day Event) Architecture
+- **Room Creation (`CreateRoomModal.tsx`)**: Toggle between standard multi-day hackathons and 1-day mini hackathons. Selecting "Mini Hackathon" pre-populates single-day event timelines, duration (`5-7 hours`), venue (`The Work Culture, Indrapuri, Bhopal`), MLH-style hourly schedule (Check-in, Opening, Hacking Begins, Snacks, Submissions, Demos & Judging, Swags & Closing), and the 7-item submission checklist (Project name, Problem statement, Solution, GitHub repo, Live link, Demo, Gemini API usage).
+- **Host Your Hackathon (`src/routes/contact.tsx`)**: Dedicated "Hackathon Hosting Format" dropdown exposing single-day event date, duration, venue, hourly schedule editor, and checklist fields for organizers wanting to host 1-day mini hackathons.
+- **Explore Filter & Discovery (`src/routes/explore.tsx`)**: "Mini Hackathons (1-Day)" quick-toggle filter with Zap icon, filtering events by `hackathonType`, tags (`mini`, `1-day`, `sprint`), or single-day registration & submission dates. Cards feature custom glowing amber sprint badges, venue & duration details, and one-click room creation.
+- **Room Workspace Mini Hub (`src/routes/rooms.$roomId.tsx`)**: In rooms marked as Mini Hackathon, renders a live `MiniHackathonHub` card in the Overview and Timeline tabs with an interactive 1-day schedule and an interactive checkable 7-item submission checklist with progress tracking and celebratory completion alerts.
 
 ---
 

@@ -21,6 +21,7 @@ import {
   Plus,
   Loader2,
   Trash2,
+  Sparkles,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
@@ -43,6 +44,7 @@ import { ExploreAiAssistant } from "@/components/explore/ExploreAiAssistant";
 import { ALL_TAGS, type Hackathon } from "@/lib/hackathon-data";
 import { getHackathons, createHackathon, deleteHackathon, triggerHackathonScrape } from "@/lib/hackathons-api";
 import { useAuth } from "@/lib/auth";
+import { SINGLE_MINI_HACKATHON_PRESET } from "@/lib/mini-hackathon-presets";
 import { cn } from "@/lib/utils";
 import { formatDateWord } from "@/lib/date-utils";
 import { toast } from "sonner";
@@ -219,6 +221,13 @@ function HackathonCard({
   onDelete?: (id: string, name: string) => void;
 }) {
   const regDays = daysUntil(hackathon.registrationDeadline);
+  const isMini =
+    hackathon.hackathonType === "Mini Hackathon" ||
+    (hackathon.tags || []).some((t) => {
+      const tl = t.toLowerCase();
+      return tl.includes("mini") || tl.includes("1-day") || tl.includes("one day") || tl.includes("sprint");
+    }) ||
+    (hackathon.name || "").toLowerCase().includes("mini");
 
   return (
     <div className="group glass rounded-2xl shadow-card flex flex-col overflow-hidden transition hover:-translate-y-0.5">
@@ -232,6 +241,12 @@ function HackathonCard({
         />
         <div className="absolute inset-0 flex items-start justify-between p-3">
           <div className="flex flex-wrap items-center gap-1.5">
+            {isMini && (
+              <Badge variant="secondary" className="text-[10px] font-medium backdrop-blur-sm gap-1">
+                <Zap className="h-3 w-3 text-primary" />
+                Mini Hackathon (1-Day)
+              </Badge>
+            )}
             <Badge
               className={cn(
                 "text-[10px] font-medium backdrop-blur-sm border",
@@ -312,6 +327,24 @@ function HackathonCard({
           {hackathon.description}
         </p>
 
+        {/* Mini Hackathon Highlights: Duration & Venue */}
+        {isMini && (hackathon.duration || hackathon.venue) && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px]">
+            {hackathon.duration && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/60 border border-border px-2 py-0.5 rounded-md">
+                <Clock className="h-3 w-3" />
+                {hackathon.duration}
+              </span>
+            )}
+            {hackathon.venue && (
+              <span className="inline-flex items-center gap-1 text-muted-foreground bg-muted/30 border border-border/50 px-2 py-0.5 rounded-md truncate max-w-[200px]">
+                <MapPin className="h-3 w-3 text-primary shrink-0" />
+                <span className="truncate">{hackathon.venue}</span>
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Tags */}
         <div className="mt-3 flex flex-wrap gap-1">
           {(hackathon.tags || []).slice(0, 3).map((tag) => (
@@ -328,7 +361,9 @@ function HackathonCard({
         <div className="mt-5 border-t border-border/40 pt-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 text-xs">
           <div className="flex items-center gap-1 text-muted-foreground shrink-0">
             <CalendarDays className="h-3.5 w-3.5" />
-            <span>{formatDate(hackathon.registrationDeadline)}</span>
+            <span>
+              {isMini ? `Sprint: ${formatDate(hackathon.registrationDeadline)}` : formatDate(hackathon.registrationDeadline)}
+            </span>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
@@ -345,10 +380,10 @@ function HackathonCard({
             )}
             <button
               onClick={() => onCreateRoom(hackathon)}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-1 rounded-lg bg-gradient-brand px-3 py-1.5 text-xs font-semibold text-white shadow-glow transition hover:opacity-90 active:scale-[0.98]"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-white bg-gradient-brand hover:opacity-90 shadow-glow transition active:scale-[0.98]"
             >
               <Zap className="h-3 w-3" />
-              Create Room
+              {isMini ? "Create Room" : "Create Room"}
             </button>
           </div>
         </div>
@@ -474,6 +509,11 @@ function ExplorePage() {
     banner: "",
     prizePool: "₹1 Lakh",
     prizePoolUSD: 1200,
+    hackathonType: "Hackathon" as "Hackathon" | "Mini Hackathon",
+    duration: "6 hours",
+    venue: "DevHub Tech Park, Bengaluru / Online",
+    schedule: "",
+    submissionChecklist: "",
     mode: "Online" as "Online" | "Offline" | "Hybrid",
     registrationDeadline: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
     submissionDeadline: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
@@ -512,6 +552,12 @@ function ExplorePage() {
 
     setSubmittingHackathon(true);
     try {
+      const rawTags = newHackathon.tags.split(",").map((t) => t.trim()).filter(Boolean);
+      if (newHackathon.hackathonType === "Mini Hackathon") {
+        if (!rawTags.includes("Mini Hackathon")) rawTags.unshift("Mini Hackathon");
+        if (!rawTags.includes("1-Day Hackathon")) rawTags.splice(1, 0, "1-Day Hackathon");
+      }
+
       const created = await createHackathon({
         name: newHackathon.name.trim(),
         organizer: newHackathon.organizer.trim(),
@@ -519,11 +565,18 @@ function ExplorePage() {
         prizePool: newHackathon.prizePool,
         prizePoolUSD: Number(newHackathon.prizePoolUSD) || 0,
         mode: newHackathon.mode,
+        hackathonType: newHackathon.hackathonType,
+        duration: newHackathon.hackathonType === "Mini Hackathon" ? newHackathon.duration : "",
+        venue: newHackathon.hackathonType === "Mini Hackathon" ? newHackathon.venue : "",
+        schedule: newHackathon.hackathonType === "Mini Hackathon" ? newHackathon.schedule : "",
+        submissionChecklist: newHackathon.hackathonType === "Mini Hackathon"
+          ? newHackathon.submissionChecklist.split("\n").map((s) => s.trim()).filter(Boolean)
+          : [],
         registrationDeadline: newHackathon.registrationDeadline,
         submissionDeadline: newHackathon.submissionDeadline,
         resultDate: newHackathon.resultDate,
         teamSize: { min: Number(newHackathon.teamMin) || 1, max: Number(newHackathon.teamMax) || 4 },
-        tags: newHackathon.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        tags: rawTags,
         platform: newHackathon.platform.trim() || "Hackord",
         platformUrl: newHackathon.platformUrl.trim(),
         description: newHackathon.description.trim(),
@@ -538,6 +591,11 @@ function ExplorePage() {
         banner: "",
         prizePool: "₹1 Lakh",
         prizePoolUSD: 1200,
+        hackathonType: "Hackathon",
+        duration: "6 hours",
+        venue: "DevHub Tech Park, Bengaluru / Online",
+        schedule: "",
+        submissionChecklist: "",
         mode: "Online",
         registrationDeadline: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
         submissionDeadline: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
@@ -592,8 +650,52 @@ function ExplorePage() {
       });
     }
 
+    // Filter by Domain Tags (supports Mini Hackathon, 1-Day Hackathon, AI, Web3, etc.)
     if (activeTags.length > 0) {
-      list = list.filter((h) => activeTags.every((t) => (h.tags || []).includes(t)));
+      list = list.filter((h) => {
+        return activeTags.every((tag) => {
+          const tLower = tag.toLowerCase().trim();
+
+          // 1. Mini Hackathon or 1-Day Hackathon filter
+          if (
+            tLower.includes("mini") ||
+            tLower.includes("1-day") ||
+            tLower.includes("one day") ||
+            tLower.includes("sprint")
+          ) {
+            const isMiniType = h.hackathonType === "Mini Hackathon";
+            const hasMiniTag = (h.tags || []).some((t) => {
+              const tl = t.toLowerCase();
+              return (
+                tl.includes("mini") ||
+                tl.includes("1-day") ||
+                tl.includes("one day") ||
+                tl.includes("sprint")
+              );
+            });
+            const isMiniName =
+              (h.name || "").toLowerCase().includes("mini") ||
+              (h.name || "").toLowerCase().includes("1-day") ||
+              (h.name || "").toLowerCase().includes("one day") ||
+              (h.name || "").toLowerCase().includes("sprint");
+            const isSameDay =
+              Boolean(h.registrationDeadline) &&
+              Boolean(h.submissionDeadline) &&
+              h.registrationDeadline === h.submissionDeadline;
+            return isMiniType || hasMiniTag || isMiniName || isSameDay;
+          }
+
+          // 2. Standard domain tag matching (tags, name, or description)
+          const inTags = (h.tags || []).some((t) => {
+            const tl = t.toLowerCase();
+            return tl === tLower || tl.includes(tLower) || tLower.includes(tl);
+          });
+          const inName = (h.name || "").toLowerCase().includes(tLower);
+          const inDesc = (h.description || "").toLowerCase().includes(tLower);
+
+          return inTags || inName || inDesc;
+        });
+      });
     }
 
     return list;
@@ -929,22 +1031,35 @@ function ExplorePage() {
               </div>
 
               <div className="mt-4 border-t border-border/50 pt-4">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">Filter by domain</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {ALL_TAGS.map((tag) => (
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">Filter by domain & format</p>
+                  {activeTags.length > 0 && (
                     <button
-                      key={tag}
-                      onClick={() => toggleTag(tag)}
-                      className={cn(
-                        "rounded-full border px-2.5 py-1 text-xs transition",
-                        activeTags.includes(tag)
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                      )}
+                      onClick={() => setActiveTags([])}
+                      className="text-[11px] text-primary hover:underline"
                     >
-                      {tag}
+                      Reset domain filters ({activeTags.length})
                     </button>
-                  ))}
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALL_TAGS.map((tag) => {;
+                    const isSelected = activeTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => toggleTag(tag)}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs transition font-medium flex items-center gap-1.5",
+                          isSelected
+                            ? "border-primary bg-primary/15 text-primary font-semibold"
+                            : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        )}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1039,6 +1154,115 @@ function ExplorePage() {
           </DialogHeader>
 
           <form onSubmit={handleAddHackathonSubmit} className="space-y-4 py-2">
+            {/* Hackathon Type Dropdown */}
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="h-type" className="text-xs font-semibold text-primary">
+                  Hackathon Format
+                </Label>
+                {newHackathon.hackathonType === "Mini Hackathon" && (
+                  <Badge variant="outline" className="border-border text-muted-foreground text-[10px] gap-1">
+                    <Zap className="h-2.5 w-2.5 text-primary" /> 1-Day Event Mode
+                  </Badge>
+                )}
+              </div>
+              <Select
+                value={newHackathon.hackathonType}
+                onValueChange={(val: "Hackathon" | "Mini Hackathon") => {
+                  if (val === "Mini Hackathon") {
+                    const preset = SINGLE_MINI_HACKATHON_PRESET;
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    setNewHackathon((prev) => ({
+                      ...prev,
+                      hackathonType: "Mini Hackathon",
+                      name: prev.name || preset.name,
+                      organizer: prev.organizer || preset.organizer,
+                      duration: prev.duration && prev.duration !== "5-7 hours" ? prev.duration : preset.duration,
+                      venue: prev.venue && !prev.venue.includes("Bhopal") ? prev.venue : preset.venue,
+                      registrationDeadline: todayStr,
+                      submissionDeadline: todayStr,
+                      resultDate: todayStr,
+                      schedule: prev.schedule || preset.schedule,
+                      submissionChecklist: prev.submissionChecklist || preset.submissionChecklist.join("\n"),
+                      tags: prev.tags ? `${prev.tags}, Mini/1-Day Hackathon` : "Mini/1-Day Hackathon, AI",
+                      description: prev.description || preset.description,
+                    }));
+                  } else {
+                    setNewHackathon((prev) => ({
+                      ...prev,
+                      hackathonType: "Hackathon",
+                    }));
+                  }
+                }}
+              >
+                <SelectTrigger id="h-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Hackathon">Standard Hackathon (Multi-Day)</SelectItem>
+                  <SelectItem value="Mini Hackathon">⚡ Mini Hackathon (1-Day Event)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {newHackathon.hackathonType === "Mini Hackathon" && (
+              <div className="rounded-xl border border-border bg-card/40 p-4 space-y-3.5 animate-in fade-in-50 duration-200">
+                <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  Mini Hackathon Details (1-Day Event)
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="h-duration" className="text-xs">Duration</Label>
+                    <Input
+                      id="h-duration"
+                      placeholder="e.g. 6 hours"
+                      value={newHackathon.duration}
+                      onChange={(e) => setNewHackathon((prev) => ({ ...prev, duration: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="h-venue" className="text-xs">Venue</Label>
+                    <Input
+                      id="h-venue"
+                      placeholder="e.g. DevHub Tech Park, Bengaluru / Online"
+                      value={newHackathon.venue}
+                      onChange={(e) => setNewHackathon((prev) => ({ ...prev, venue: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="h-schedule" className="text-xs">
+                    Event Schedule (Timeline format: Time | Description)
+                  </Label>
+                  <Textarea
+                    id="h-schedule"
+                    rows={5}
+                    className="font-mono text-xs leading-relaxed"
+                    placeholder="09:00 AM – 09:30 AM | Check-in&#10;09:30 AM – 10:00 AM | Opening Ceremony&#10;10:00 AM | Hacking Begins! 🚀"
+                    value={newHackathon.schedule}
+                    onChange={(e) => setNewHackathon((prev) => ({ ...prev, schedule: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="h-checklist" className="text-xs">
+                    Submission Checklist (One item per line)
+                  </Label>
+                  <Textarea
+                    id="h-checklist"
+                    rows={5}
+                    className="font-mono text-xs leading-relaxed"
+                    placeholder="1. Project name&#10;2. Problem statement&#10;3. Solution&#10;4. GitHub repository&#10;5. Live/deployed link&#10;6. Small demo&#10;7. Explanation of Gemini API usage"
+                    value={newHackathon.submissionChecklist}
+                    onChange={(e) => setNewHackathon((prev) => ({ ...prev, submissionChecklist: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="h-name">Hackathon Name *</Label>

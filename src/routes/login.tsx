@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Mail, Loader2, Eye, EyeOff } from "lucide-react";
+import { Mail, Loader2, Eye, EyeOff, RotateCw } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,12 @@ import { useAuth } from "@/lib/auth";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { GitHubAuthButton } from "@/components/GitHubAuthButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  REGEXP_ONLY_DIGITS,
+} from "@/components/ui/input-otp";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Log in — Hackord" }] }),
@@ -26,7 +32,10 @@ function LoginPage() {
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -34,6 +43,38 @@ function LoginPage() {
       navigate({ to: "/dashboard" });
     }
   }, [isAuthenticated, navigate]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || resending || loading) return;
+    if (!email || !email.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    setResending(true);
+    try {
+      if (authMode === "reset") {
+        const res = await forgotPasswordRequest(email);
+        toast.success(res.message || "Password reset verification code resent!");
+      } else {
+        const res = await requestOtp(email);
+        toast.success(res.message || "Verification code resent to your email!");
+      }
+      setResendCooldown(30);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to resend code. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +100,7 @@ function LoginPage() {
     try {
       const res = await requestOtp(email);
       setOtpSent(true);
+      setResendCooldown(30);
       toast.success(res.message || "Verification code sent to your email!");
     } catch (err: any) {
       if (err.message?.includes("sign up") || err.message?.includes("No account found")) {
@@ -109,6 +151,7 @@ function LoginPage() {
     try {
       const res = await forgotPasswordRequest(email);
       setOtpSent(true);
+      setResendCooldown(30);
       toast.success(res.message || "Password reset verification code sent to your email!");
     } catch (err: any) {
       toast.error(err.message || "Failed to send reset code.");
@@ -239,28 +282,62 @@ function LoginPage() {
           </div>
 
           {otpSent && (
-            <div className="space-y-2 animate-fade-in">
+            <div className="space-y-3 animate-fade-in">
               <div className="flex items-center justify-between">
                 <Label htmlFor="otp-code">6-Digit Verification Code</Label>
                 <button
                   type="button"
-                  onClick={() => setOtpSent(false)}
-                  className="text-xs text-primary hover:underline cursor-pointer"
+                  onClick={handleResendOtp}
+                  disabled={resendCooldown > 0 || resending || loading}
+                  className="text-xs font-medium text-primary hover:text-primary/80 transition-colors disabled:text-muted-foreground disabled:cursor-not-allowed inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {resending ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Sending…</span>
+                    </>
+                  ) : resendCooldown > 0 ? (
+                    <span className="tabular-nums">Resend in {resendCooldown}s</span>
+                  ) : (
+                    <>
+                      <RotateCw className="h-3 w-3" />
+                      <span>Resend OTP</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex justify-center py-1">
+                <InputOTP
+                  id="otp-code"
+                  maxLength={6}
+                  pattern={REGEXP_ONLY_DIGITS}
+                  value={otpCode}
+                  onChange={(val) => setOtpCode(val)}
+                  disabled={loading}
+                  autoFocus
+                >
+                  <InputOTPGroup className="gap-2 sm:gap-2.5">
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground px-0.5">
+                <button
+                  type="button"
+                  onClick={() => { setOtpSent(false); setOtpCode(""); }}
+                  className="text-primary hover:underline cursor-pointer"
                 >
                   Change email
                 </button>
+                <span>Code expires in 10 mins</span>
               </div>
-              <Input
-                id="otp-code"
-                type="text"
-                placeholder="123456"
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
-                maxLength={6}
-                required
-                disabled={loading}
-                className="text-center font-mono tracking-widest text-xl h-12 border-primary/40 focus:border-primary shadow-sm"
-              />
             </div>
           )}
 
@@ -308,33 +385,88 @@ function LoginPage() {
 
           {otpSent && (
             <>
-              <div className="space-y-2 animate-fade-in">
-                <Label htmlFor="reset-otp-code">6-Digit Verification Code</Label>
-                <Input
-                  id="reset-otp-code"
-                  type="text"
-                  placeholder="123456"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  maxLength={6}
-                  required
-                  disabled={loading}
-                  className="text-center font-mono tracking-widest text-xl h-12 border-primary/40 focus:border-primary shadow-sm"
-                />
+              <div className="space-y-3 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="reset-otp-code">6-Digit Verification Code</Label>
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendCooldown > 0 || resending || loading}
+                    className="text-xs font-medium text-primary hover:text-primary/80 transition-colors disabled:text-muted-foreground disabled:cursor-not-allowed inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    {resending ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Sending…</span>
+                      </>
+                    ) : resendCooldown > 0 ? (
+                      <span className="tabular-nums">Resend in {resendCooldown}s</span>
+                    ) : (
+                      <>
+                        <RotateCw className="h-3 w-3" />
+                        <span>Resend OTP</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex justify-center py-1">
+                  <InputOTP
+                    id="reset-otp-code"
+                    maxLength={6}
+                    pattern={REGEXP_ONLY_DIGITS}
+                    value={otpCode}
+                    onChange={(val) => setOtpCode(val)}
+                    disabled={loading}
+                    autoFocus
+                  >
+                    <InputOTPGroup className="gap-2 sm:gap-2.5">
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-muted-foreground px-0.5">
+                  <button
+                    type="button"
+                    onClick={() => { setOtpSent(false); setOtpCode(""); }}
+                    className="text-primary hover:underline cursor-pointer"
+                  >
+                    Change email
+                  </button>
+                  <span>Code sent to your email</span>
+                </div>
               </div>
 
               <div className="space-y-2 animate-fade-in">
                 <Label htmlFor="new-password">New Password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="Enter new password (min 6 chars)"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  minLength={6}
-                  required
-                  disabled={loading}
-                />
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showNewPassword ? "text" : "password"}
+                    placeholder="Enter new password (min 6 chars)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={6}
+                    required
+                    disabled={loading}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none cursor-pointer"
+                    tabIndex={-1}
+                    aria-label={showNewPassword ? "Hide password" : "Show password"}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -357,13 +489,15 @@ function LoginPage() {
           </Button>
 
           {otpSent && (
-            <div className="text-center pt-1">
+            <div className="text-center pt-1 text-xs text-muted-foreground">
+              Didn't receive code?{" "}
               <button
                 type="button"
-                onClick={() => setOtpSent(false)}
-                className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
+                onClick={handleResendOtp}
+                disabled={resendCooldown > 0 || resending || loading}
+                className="text-primary hover:underline font-medium cursor-pointer disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
               >
-                Resend Reset Code
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
               </button>
             </div>
           )}

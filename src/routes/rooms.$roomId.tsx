@@ -11,7 +11,8 @@ import {
   Mic, MicOff, Reply, MoreVertical, ChevronLeft, ChevronRight,
   Brain, ChevronDown, Share2, MoreHorizontal, ArrowUp, Copy, CornerDownRight,
   Presentation, Workflow, ShieldCheck, Layers, ListChecks, Network, Briefcase, Clapperboard, Rocket,
-  X, Loader2, FileCheck, HelpCircle, FileStack, UploadCloud, FolderOpen, Square
+  X, Loader2, FileCheck, HelpCircle, FileStack, UploadCloud, FolderOpen, Square,
+  Zap, MapPin
 } from "lucide-react";
 import { fetchGithubWorkspaceData, parseGithubUrl, type GithubWorkspaceData } from "@/lib/github-api";
 import {
@@ -57,6 +58,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { AI_TOOLS, GITHUB_DATA, MEETINGS } from "@/lib/dummy-data";
+import { SINGLE_MINI_HACKATHON_PRESET } from "@/lib/mini-hackathon-presets";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import {
@@ -356,6 +358,23 @@ function RoomPage() {
               </div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight">{room.name}</h1>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{room.problem || room.description}</p>
+              {room.hackathon_type === "Mini Hackathon" && (
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary" className="text-xs font-medium gap-1.5">
+                    <Zap className="h-3 w-3 text-primary" /> 1-Day Mini Hackathon
+                  </Badge>
+                  {room.duration && (
+                    <Badge variant="outline" className="border-border text-muted-foreground text-xs gap-1">
+                      <Clock className="h-3 w-3" /> {room.duration}
+                    </Badge>
+                  )}
+                  {room.venue && (
+                    <Badge variant="outline" className="border-border text-muted-foreground text-xs gap-1">
+                      <MapPin className="h-3 w-3 text-primary" /> {room.venue}
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <AddToCalendarMenu room={room} />
@@ -481,6 +500,11 @@ function EditRoomModal({
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(room.name);
   const [hackathon, setHackathon] = useState(room.hackathon);
+  const [hackathonType, setHackathonType] = useState<"Hackathon" | "Mini Hackathon">(room.hackathon_type || "Hackathon");
+  const [duration, setDuration] = useState(room.duration || "6 hours");
+  const [venue, setVenue] = useState(room.venue || "Online / Physical Stage");
+  const [schedule, setSchedule] = useState(room.schedule || "");
+  const [submissionChecklist, setSubmissionChecklist] = useState((room.submission_checklist || []).join("\n"));
   const [problem, setProblem] = useState(room.problem || "");
   const [description, setDescription] = useState(room.description || "");
   const [maxSize, setMaxSize] = useState(room.max_size || 6);
@@ -494,6 +518,11 @@ function EditRoomModal({
   useEffect(() => {
     setName(room.name);
     setHackathon(room.hackathon);
+    setHackathonType(room.hackathon_type || "Hackathon");
+    setDuration(room.duration || "6 hours");
+    setVenue(room.venue || "Online / Physical Stage");
+    setSchedule(room.schedule || "");
+    setSubmissionChecklist((room.submission_checklist || []).join("\n"));
     setProblem(room.problem || "");
     setDescription(room.description || "");
     setMaxSize(room.max_size || 6);
@@ -524,6 +553,14 @@ function EditRoomModal({
           deadline_prototype: protoDate,
           deadline_final: finalDate,
           deadline_result: resDate,
+          hackathon_type: hackathonType,
+          duration: hackathonType === "Mini Hackathon" ? duration : "",
+          venue: hackathonType === "Mini Hackathon" ? venue : "",
+          schedule: hackathonType === "Mini Hackathon" ? schedule : "",
+          submission_checklist:
+            hackathonType === "Mini Hackathon"
+              ? submissionChecklist.split("\n").map((s) => s.trim()).filter(Boolean)
+              : [],
         },
       });
       toast.success("Room details updated!");
@@ -544,6 +581,59 @@ function EditRoomModal({
           <DialogDescription>Update your team's hackathon workspace parameters.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSave} className="space-y-4 py-2">
+          {/* Hackathon Type Dropdown */}
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-primary">Hackathon Format</Label>
+              {hackathonType === "Mini Hackathon" && (
+                <Badge variant="outline" className="border-border text-muted-foreground text-[10px] gap-1">
+                  <Zap className="h-2.5 w-2.5 text-primary" /> 1-Day Event Mode
+                </Badge>
+              )}
+            </div>
+            <select
+              value={hackathonType}
+              onChange={(e) => {
+                const val = e.target.value as "Hackathon" | "Mini Hackathon";
+                setHackathonType(val);
+                if (val === "Mini Hackathon" && !schedule) {
+                  const preset = SINGLE_MINI_HACKATHON_PRESET;
+                  setSchedule(preset.schedule);
+                  setSubmissionChecklist(preset.submissionChecklist.join("\n"));
+                  if (!duration) setDuration(preset.duration);
+                  if (!venue) setVenue(preset.venue);
+                }
+              }}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm text-foreground"
+            >
+              <option value="Hackathon">Standard Multi-Day Hackathon</option>
+              <option value="Mini Hackathon">⚡ Mini Hackathon (1-Day Sprint)</option>
+            </select>
+          </div>
+
+          {hackathonType === "Mini Hackathon" && (
+            <div className="rounded-xl border border-border bg-card/40 p-3.5 space-y-3 animate-in fade-in-50 duration-200">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Duration</Label>
+                  <Input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="6 hours" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Venue</Label>
+                  <Input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. DevHub Coworking / Online Discord Stage" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Schedule (Timeline format: Time | Event)</Label>
+                <Textarea rows={4} className="font-mono text-xs leading-relaxed" value={schedule} onChange={(e) => setSchedule(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Submission Checklist (1 per line)</Label>
+                <Textarea rows={4} className="font-mono text-xs leading-relaxed" value={submissionChecklist} onChange={(e) => setSubmissionChecklist(e.target.value)} />
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Room name</Label>
@@ -612,6 +702,178 @@ function EditRoomModal({
   );
 }
 
+/* ------------------------ 1-Day Mini Hackathon Hub ------------------------ */
+function MiniHackathonHub({ room }: { room: DbRoom }) {
+  const defaultSchedule = `09:00 AM – 09:30 AM | Check-in & Team Registration
+09:30 AM – 10:00 AM | Kickoff & Problem Statement Reveal
+10:00 AM | Hacking Begins! 🚀
+01:00 PM – 01:45 PM | Mid-Sprint Lunch & Mentor Checkpoints
+04:00 PM | Code Freeze & Submission Deadline
+04:15 PM – 05:30 PM | Live 3-Minute Demos & Technical Q&A
+05:30 PM – 06:00 PM | Closing Ceremony & Winner Announcements`;
+
+  const defaultChecklist = [
+    "Project name & tagline",
+    "Problem statement & target persona",
+    "System architecture & solution overview",
+    "GitHub repository (clean commits & open README)",
+    "Live working demo / deployed URL",
+    "2-minute demo video or slide walkthrough",
+    "Technical breakdown & API setup",
+  ];
+
+  const scheduleText = room.schedule && room.schedule.trim() ? room.schedule : defaultSchedule;
+  const scheduleItems = scheduleText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|");
+      if (parts.length >= 2) {
+        return { time: parts[0].trim(), event: parts.slice(1).join("|").trim() };
+      }
+      return { time: "", event: line };
+    });
+
+  const checklistItems = (room.submission_checklist && room.submission_checklist.length > 0)
+    ? room.submission_checklist
+    : defaultChecklist;
+
+  const storageKey = `hackord_mini_checklist_${room.id}`;
+  const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return {};
+  });
+
+  const toggleCheck = (idx: number) => {
+    setCheckedItems((prev) => {
+      const next = { ...prev, [idx]: !prev[idx] };
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(next));
+      } catch {}
+      const completedNow = Object.values(next).filter(Boolean).length;
+      if (completedNow === checklistItems.length) {
+        toast.success("🎉 Submission Checklist Complete! All criteria ready for judging!");
+      }
+      return next;
+    });
+  };
+
+  const completedCount = Object.values(checkedItems).filter(Boolean).length;
+  const progressPercent = checklistItems.length > 0 ? Math.round((completedCount / checklistItems.length) * 100) : 0;
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-spatial">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/60 pb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-border">
+            <Zap className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-foreground">1-Day Mini Hackathon Hub</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">High-intensity 1-day timeline & project submission requirements</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="flex items-center gap-1.5 rounded-lg border border-border bg-card/60 px-2.5 py-1 text-muted-foreground font-medium">
+            <Clock className="h-3.5 w-3.5" />
+            {room.duration || "6 hours"}
+          </span>
+          <span className="flex items-center gap-1.5 rounded-lg border border-border bg-card/60 px-2.5 py-1 text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5 text-primary" />
+            {room.venue || "Online / Physical Stage"}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-6 md:grid-cols-2">
+        {/* Schedule */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" /> Event Schedule
+            </h4>
+            <span className="text-[11px] text-muted-foreground">{scheduleItems.length} Milestones</span>
+          </div>
+
+          <div className="space-y-2 rounded-xl border border-border/60 bg-card/40 p-3 max-h-[340px] overflow-y-auto custom-scrollbar">
+            {scheduleItems.map((item, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-2.5 rounded-lg border border-border/40 bg-background/50 p-2 text-xs hover:border-border transition"
+              >
+                {item.time ? (
+                  <span className="shrink-0 rounded bg-muted border border-border px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground">
+                    {item.time}
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-muted-foreground font-bold">•</span>
+                )}
+                <span className="text-foreground leading-relaxed flex-1">{item.event}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Submission Checklist */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+              <ListChecks className="h-3.5 w-3.5" /> Submission Checklist
+            </h4>
+            <span className="text-[11px] font-medium text-muted-foreground">
+              {completedCount} / {checklistItems.length} Ready ({progressPercent}%)
+            </span>
+          </div>
+
+          <Progress value={progressPercent} className="h-2 bg-card border border-border/40" />
+
+          <div className="space-y-2 rounded-xl border border-border/60 bg-card/40 p-3 max-h-[300px] overflow-y-auto custom-scrollbar">
+            {checklistItems.map((chk, idx) => {
+              const isChecked = Boolean(checkedItems[idx]);
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => toggleCheck(idx)}
+                  className={cn(
+                    "flex w-full items-start gap-2.5 rounded-lg border p-2 text-left text-xs transition",
+                    isChecked
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                      : "border-border/40 bg-background/50 text-foreground hover:border-primary/40"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition",
+                      isChecked
+                        ? "border-emerald-500 bg-emerald-500 text-white"
+                        : "border-muted-foreground/50 bg-background"
+                    )}
+                  >
+                    {isChecked && <Check className="h-3 w-3 stroke-[3]" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className={cn(isChecked && "line-through opacity-85")}>{chk}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------ Overview ------------------------ */
 function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoomUpdate: () => void; currentUser: string }) {
   const [openAddLink, setOpenAddLink] = useState(false);
@@ -665,7 +927,9 @@ function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoom
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="space-y-6">
+      {room.hackathon_type === "Mini Hackathon" && <MiniHackathonHub room={room} />}
+      <div className="grid gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
         <section className="glass rounded-2xl p-6 shadow-card">
           <h2 className="text-lg font-semibold">About this hackathon</h2>
@@ -772,6 +1036,7 @@ function OverviewTab({ room, onRoomUpdate, currentUser }: { room: DbRoom; onRoom
           </form>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
@@ -2035,7 +2300,9 @@ function TimelineTab({ room }: { room: DbRoom }) {
   const progressPercent = Math.round((doneCount / milestones.length) * 100);
 
   return (
-    <div className="glass rounded-2xl p-6 shadow-card space-y-6">
+    <div className="space-y-6">
+      {room.hackathon_type === "Mini Hackathon" && <MiniHackathonHub room={room} />}
+      <div className="glass rounded-2xl p-6 shadow-card space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Hackathon Milestones & Timeline</h2>
@@ -2098,6 +2365,7 @@ function TimelineTab({ room }: { room: DbRoom }) {
           </li>
         ))}
       </ol>
+    </div>
     </div>
   );
 }

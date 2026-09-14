@@ -15,6 +15,11 @@ export interface Hackathon {
   platform: string;
   platformUrl: string;
   description: string;
+  hackathonType?: "Hackathon" | "Mini Hackathon";
+  duration?: string;
+  venue?: string;
+  schedule?: string;
+  submissionChecklist?: string[];
   bookmarked?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -23,6 +28,7 @@ export interface Hackathon {
 export const HACKATHONS: Hackathon[] = [];
 
 export const ALL_TAGS = [
+  "Mini/1-Day Hackathon",
   "AI",
   "AgriTech",
   "Blockchain",

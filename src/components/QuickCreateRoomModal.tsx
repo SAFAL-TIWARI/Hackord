@@ -64,9 +64,14 @@ export function QuickCreateRoomModal({
         data: {
           id,
           hackathon: hackathon.name,
+          hackathonType: hackathon.hackathonType || "Hackathon",
+          duration: hackathon.duration || (hackathon.hackathonType === "Mini Hackathon" ? "5-7 hours" : ""),
+          venue: hackathon.venue || "",
+          schedule: hackathon.schedule || "",
+          submissionChecklist: hackathon.submissionChecklist || [],
           name,
           problem: "",
-          description: `Organizer: ${hackathon.organizer}\nPrize Pool: ${hackathon.prizePool}\nMode: ${hackathon.mode}\n\n${hackathon.description}`,
+          description: `Organizer: ${hackathon.organizer}\nPrize Pool: ${hackathon.prizePool}\nMode: ${hackathon.mode}${hackathon.duration ? `\nDuration: ${hackathon.duration}` : ""}${hackathon.venue ? `\nVenue: ${hackathon.venue}` : ""}\n\n${hackathon.description}`,
           maxSize: hackathon.teamSize.max,
           deadlineRegistration: hackathon.registrationDeadline,
           deadlinePpt: "",
@@ -105,7 +110,15 @@ export function QuickCreateRoomModal({
     >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-xl">Create team room</DialogTitle>
+          <div className="flex items-center gap-2">
+            <DialogTitle className="text-xl">Create team room</DialogTitle>
+            {hackathon.hackathonType === "Mini Hackathon" && (
+              <Badge variant="secondary" className="text-xs gap-1 font-medium">
+                <Zap className="h-3 w-3 text-primary" />
+                1-Day Mini Hackathon
+              </Badge>
+            )}
+          </div>
           <DialogDescription>
             Everything below is pre-filled from the hackathon. Just name your team and you're in.
           </DialogDescription>

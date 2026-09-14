@@ -2,13 +2,19 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, UserPlus, Eye, EyeOff } from "lucide-react";
+import { Loader2, UserPlus, Eye, EyeOff, RotateCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { AuthShell } from "./login";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { GitHubAuthButton } from "@/components/GitHubAuthButton";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  REGEXP_ONLY_DIGITS,
+} from "@/components/ui/input-otp";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — Hackord" }] }),
@@ -25,6 +31,8 @@ function SignupPage() {
   const [step, setStep] = useState<"details" | "otp">("details");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -32,6 +40,29 @@ function SignupPage() {
       navigate({ to: "/dashboard" });
     }
   }, [isAuthenticated, navigate]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || resending || loading) return;
+    setResending(true);
+    try {
+      const res = await signupRequestOtp(name, email, password);
+      toast.success(res.message || "Verification code resent to your email!");
+      setResendCooldown(30);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to resend code. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +76,7 @@ function SignupPage() {
     try {
       const res = await signupRequestOtp(name, email, password);
       setStep("otp");
+      setResendCooldown(30);
       toast.success(res.message || "Verification code sent to your email!");
     } catch (err: any) {
       toast.error(err.message || "Signup request failed. Please try again.");
@@ -148,28 +180,62 @@ function SignupPage() {
             <p className="text-sm font-semibold text-foreground">Enter 6-digit code</p>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label htmlFor="signup-otp">Verification Code</Label>
+              <Label htmlFor="signup-otp">6-Digit Verification Code</Label>
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={resendCooldown > 0 || resending || loading}
+                className="text-xs font-medium text-primary hover:text-primary/80 transition-colors disabled:text-muted-foreground disabled:cursor-not-allowed inline-flex items-center gap-1 cursor-pointer"
+              >
+                {resending ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Sending…</span>
+                  </>
+                ) : resendCooldown > 0 ? (
+                  <span className="tabular-nums">Resend in {resendCooldown}s</span>
+                ) : (
+                  <>
+                    <RotateCw className="h-3 w-3" />
+                    <span>Resend OTP</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="flex justify-center py-1">
+              <InputOTP
+                id="signup-otp"
+                maxLength={6}
+                pattern={REGEXP_ONLY_DIGITS}
+                value={otpCode}
+                onChange={(val) => setOtpCode(val)}
+                disabled={loading}
+                autoFocus
+              >
+                <InputOTPGroup className="gap-2 sm:gap-2.5">
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground px-0.5">
               <button
                 type="button"
                 onClick={() => setStep("details")}
-                className="text-xs text-primary hover:underline cursor-pointer"
+                className="text-primary hover:underline cursor-pointer"
               >
                 Edit details
               </button>
+              <span>Code sent to {email}</span>
             </div>
-            <Input
-              id="signup-otp"
-              type="text"
-              placeholder="123456"
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value)}
-              maxLength={6}
-              required
-              disabled={loading}
-              className="text-center font-mono tracking-widest text-xl h-12 border-primary/40 focus:border-primary shadow-sm"
-            />
           </div>
 
           <Button
@@ -185,14 +251,15 @@ function SignupPage() {
             {loading ? "Verifying & Creating…" : "Verify Code & Create Account"}
           </Button>
 
-          <div className="text-center pt-2">
+          <div className="text-center pt-1 text-xs text-muted-foreground">
+            Didn't receive code?{" "}
             <button
               type="button"
-              onClick={handleRequestOtp}
-              disabled={loading}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors underline cursor-pointer"
+              onClick={handleResendOtp}
+              disabled={resendCooldown > 0 || resending || loading}
+              className="text-primary hover:underline font-medium cursor-pointer disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
             >
-              Didn't receive code? Resend OTP
+              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
             </button>
           </div>
         </form>
