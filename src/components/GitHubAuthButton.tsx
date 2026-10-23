@@ -28,7 +28,7 @@ export function GitHubAuthButton({ mode = "login" }: GitHubAuthButtonProps) {
           toast.success("Welcome to Hackord! GitHub profile linked successfully.");
           navigate({ to: "/profile-setup" });
         } else {
-          toast.success("Logged in with GitHub! Profile & GitHub details synced.");
+          toast.success("Logged in with GitHub!");
           navigate({ to: "/dashboard" });
         }
       })

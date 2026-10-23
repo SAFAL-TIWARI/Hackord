@@ -1118,7 +1118,7 @@ function AdminPage() {
         </section>
 
         {/* Registered User Profiles Table & Stats */}
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-1">
           {/* Users Table */}
           <section className="glass rounded-2xl p-6 shadow-card lg:col-span-2">
             <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1241,7 +1241,7 @@ function AdminPage() {
           </section>
 
           {/* Sidebar Stats */}
-          <section className="space-y-6">
+          {/* <section className="space-y-6">
             {stats && stats.topSkills.length > 0 && (
               <div className="glass rounded-2xl p-6 shadow-card">
                 <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
@@ -1262,7 +1262,7 @@ function AdminPage() {
                 </div>
               </div>
             )}
-          </section>
+          </section> */}
         </div>
       </div>
     </AppShell>

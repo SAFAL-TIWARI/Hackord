@@ -29,7 +29,7 @@ export function DiscordAuthButton({ mode = "login" }: DiscordAuthButtonProps) {
           toast.success("Welcome to Hackord! Discord account linked successfully.");
           navigate({ to: "/profile-setup" });
         } else {
-          toast.success("Logged in with Discord! Discord handle & details synced.");
+          toast.success("Logged in with Discord!");
           navigate({ to: "/dashboard" });
         }
       })

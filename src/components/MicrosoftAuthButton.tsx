@@ -29,7 +29,7 @@ export function MicrosoftAuthButton({ mode = "login" }: MicrosoftAuthButtonProps
           toast.success("Welcome to Hackord! Microsoft account linked successfully.");
           navigate({ to: "/profile-setup" });
         } else {
-          toast.success("Logged in with Microsoft! Profile details synced.");
+          toast.success("Logged in with Microsoft!");
           navigate({ to: "/dashboard" });
         }
       })

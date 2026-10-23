@@ -29,7 +29,7 @@ export function RedditAuthButton({ mode = "login" }: RedditAuthButtonProps) {
           toast.success("Welcome to Hackord! Reddit account linked successfully.");
           navigate({ to: "/profile-setup" });
         } else {
-          toast.success("Logged in with Reddit! Reddit profile synced.");
+          toast.success("Logged in with Reddit!");
           navigate({ to: "/dashboard" });
         }
       })
